@@ -1,5 +1,13 @@
 import { api } from './axios'
-import type { TradeDirection, TradeLog, TradeStatus } from '@/types'
+import type { TradeDirection, TradeLog, TradeStatus, TradeSummary } from '@/types'
+
+export type TradeSortBy =
+  | 'signalReceivedAt'
+  | 'executedAt'
+  | 'signalPrice'
+  | 'investmentAmount'
+  | 'profitLoss'
+  | 'tvTicker'
 
 export interface TradeFilters {
   ticker?: string
@@ -7,6 +15,8 @@ export interface TradeFilters {
   status?: TradeStatus
   from?: string
   to?: string
+  sortBy?: TradeSortBy
+  sortOrder?: 'asc' | 'desc'
   page?: number
   pageSize?: number
 }
@@ -14,6 +24,7 @@ export interface TradeFilters {
 export interface TradeListResponse {
   items: TradeLog[]
   total: number
+  summary: TradeSummary
 }
 
 export function listTrades(filters: TradeFilters = {}) {

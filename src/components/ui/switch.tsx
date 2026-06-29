@@ -9,14 +9,28 @@ const Switch = React.forwardRef<
   <SwitchPrimitive.Root
     ref={ref}
     className={cn(
-      'peer inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border border-border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-accent data-[state=unchecked]:bg-surface-2',
+      // Base
+      'peer relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full',
+      // Border & transition
+      'transition-all duration-200 ease-in-out',
+      'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
+      // Disabled
+      'disabled:cursor-not-allowed disabled:opacity-40',
+      // States
+      'data-[state=checked]:bg-accent data-[state=checked]:border-transparent',
+      'data-[state=unchecked]:bg-surface-2 data-[state=unchecked]:border data-[state=unchecked]:border-border',
       className,
     )}
     {...props}
   >
     <SwitchPrimitive.Thumb
       className={cn(
-        'pointer-events-none block h-5 w-5 rounded-full bg-white shadow transition-transform data-[state=checked]:translate-x-5 data-[state=unchecked]:translate-x-0',
+        'pointer-events-none block h-[18px] w-[18px] rounded-full shadow-md ring-0',
+        'transition-transform duration-200 ease-in-out',
+        // Checked: white thumb, shifted right
+        'data-[state=checked]:translate-x-[22px] data-[state=checked]:bg-white',
+        // Unchecked: muted thumb, at left
+        'data-[state=unchecked]:translate-x-[3px] data-[state=unchecked]:bg-text-tertiary',
       )}
     />
   </SwitchPrimitive.Root>

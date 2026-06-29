@@ -7,22 +7,30 @@ import type {
   StockStats,
 } from '@/types'
 
-export function getOverview() {
-  return api.get<DashboardOverview>('/stats/overview').then((r) => r.data)
+/** Shared filter applied to all chart endpoints. */
+export interface StatsFilters {
+  days?: number
+  ticker?: string
 }
 
-export function getDailyActivity(days = 30) {
+export function getOverview(filters: StatsFilters = {}) {
+  return api.get<DashboardOverview>('/stats/overview', { params: filters }).then((r) => r.data)
+}
+
+export function getDailyActivity(filters: StatsFilters = {}) {
   return api
-    .get<DailyActivityPoint[]>('/stats/daily-activity', { params: { days } })
+    .get<DailyActivityPoint[]>('/stats/daily-activity', { params: { days: 30, ...filters } })
     .then((r) => r.data)
 }
 
-export function getByStock() {
-  return api.get<StockActivity[]>('/stats/by-stock').then((r) => r.data)
+export function getByStock(filters: StatsFilters = {}) {
+  return api.get<StockActivity[]>('/stats/by-stock', { params: filters }).then((r) => r.data)
 }
 
-export function getStatusBreakdown() {
-  return api.get<StatusBreakdownPoint[]>('/stats/status-breakdown').then((r) => r.data)
+export function getStatusBreakdown(filters: StatsFilters = {}) {
+  return api
+    .get<StatusBreakdownPoint[]>('/stats/status-breakdown', { params: filters })
+    .then((r) => r.data)
 }
 
 export function getStockStats(ticker: string) {

@@ -1,8 +1,10 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ─── Design tokens ───────────────────────────────────────────────────────── */
 
 :root {
   --bg: #0a0e1a;
@@ -18,6 +20,9 @@
   --success: #34d399;
   --danger: #f87171;
   --warning: #fbbf24;
+  --neutral: #64748b;
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
+  --shadow-floating: 0 8px 40px rgba(0, 0, 0, 0.6);
 }
 
 :root.light {
@@ -34,12 +39,23 @@
   --success: #15803d;
   --danger: #b91c1c;
   --warning: #b45309;
+  --neutral: #94a3b8;
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.08);
+  --shadow-floating: 0 8px 32px rgba(0, 0, 0, 0.12);
 }
+
+/* ─── Base resets ─────────────────────────────────────────────────────────── */
 
 html,
 body,
 #root {
   height: 100%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
 
 body {
@@ -50,14 +66,216 @@ body {
   font-weight: 400;
   line-height: 1.6;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   transition: background-color 200ms ease, color 200ms ease;
 }
+
+/* ─── Scrollbars ──────────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-tertiary);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* ─── Selection ───────────────────────────────────────────────────────────── */
+
+::selection {
+  background-color: var(--accent-soft);
+  color: var(--text-primary);
+}
+
+/* ─── Focus ring ──────────────────────────────────────────────────────────── */
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ─── Number inputs — hide native spinners ────────────────────────────────── */
+
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+}
+
+/* ─── Time/date inputs — hide native calendar/clock icon ──────────────────── */
+
+input[type='time']::-webkit-calendar-picker-indicator,
+input[type='date']::-webkit-calendar-picker-indicator,
+input[type='datetime-local']::-webkit-calendar-picker-indicator {
+  display: none;
+  -webkit-appearance: none;
+}
+
+/* ─── Password inputs — style the reveal button ──────────────────────────── */
+
+input[type='password']::-ms-reveal,
+input[type='password']::-ms-clear {
+  display: none;
+}
+
+/* ─── Placeholder colour ─────────────────────────────────────────────────── */
+
+::placeholder {
+  color: var(--text-tertiary);
+  opacity: 1;
+}
+
+/* ─── Smooth scroll ───────────────────────────────────────────────────────── */
+
+html {
+  scroll-behavior: smooth;
+}
+
+/* ─── Utility classes ─────────────────────────────────────────────────────── */
 
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
 
-:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+/* ─── Skeleton shimmer animation ─────────────────────────────────────────── */
+
+@keyframes skeleton-shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+
+.skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    rgba(255, 255, 255, 0.04) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 800px 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+}
+
+:root.light .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    rgba(0, 0, 0, 0.04) 50%,
+    var(--surface-2) 75%
+  );
+  background-size: 800px 100%;
+}
+
+/* ─── Fade-slide animation ────────────────────────────────────────────────── */
+
+@keyframes fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-slide-in {
+  animation: fade-slide-in 220ms ease-out both;
+}
+
+/* ─── Count-up number animation ──────────────────────────────────────────── */
+
+@keyframes count-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-count-up {
+  animation: count-up 300ms ease-out both;
+}
+
+/* ─── Card hover glow (optional, applied via className) ──────────────────── */
+
+.card-glow:hover {
+  box-shadow: 0 0 0 1px var(--accent-soft), var(--shadow-card);
+}
+
+/* ─── Recharts chart overrides — use theme colours ───────────────────────── */
+
+.recharts-cartesian-axis-tick-value {
+  fill: var(--text-tertiary);
+  font-size: 11px;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.recharts-cartesian-grid line {
+  stroke: var(--border);
+}
+
+.recharts-legend-item-text {
+  color: var(--text-secondary) !important;
+  font-size: 12px;
+}
+
+.recharts-tooltip-wrapper {
+  outline: none;
+}
+
+/* ─── Sonner toast overrides ─────────────────────────────────────────────── */
+
+[data-sonner-toast] {
+  background: var(--surface-2) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 10px !important;
+  box-shadow: var(--shadow-floating) !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+  font-size: 13px !important;
+}
+
+[data-sonner-toast][data-type='success'] {
+  border-color: rgba(52, 211, 153, 0.25) !important;
+}
+
+[data-sonner-toast][data-type='error'] {
+  border-color: rgba(248, 113, 113, 0.25) !important;
+}
+
+[data-sonner-toast][data-type='warning'] {
+  border-color: rgba(251, 191, 36, 0.25) !important;
+}
+
+/* ─── Radix overlay animation ────────────────────────────────────────────── */
+
+[data-radix-popper-content-wrapper] {
+  z-index: 50 !important;
 }

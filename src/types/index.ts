@@ -51,6 +51,29 @@ export interface TradeLog {
   signalReceivedAt: string
   executedAt: string | null
   createdAt: string
+  /** Price when the position was closed. Null if still open or not executed. */
+  closingPrice: number | null
+  /** Realized P&L in GBP. Null if position is still open or trade was not executed. */
+  profitLoss: number | null
+  /** Realized P&L as percentage of invested amount. */
+  profitLossPct: number | null
+}
+
+/** Aggregate statistics computed over the current filter set. */
+export interface TradeSummary {
+  totalTrades: number
+  successCount: number
+  failedCount: number
+  skippedCount: number
+  buyCount: number
+  sellCount: number
+  totalInvested: number
+  totalProfitLoss: number | null
+  avgProfitLoss: number | null
+  successRate: number
+  avgInvestment: number | null
+  winCount: number
+  lossCount: number
 }
 
 export interface StockMapping {

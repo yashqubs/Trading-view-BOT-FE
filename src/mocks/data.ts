@@ -1,6 +1,6 @@
 /**
  * Mock data for every API type in the application.
- * Covers all pages, all scenarios, all 16 trade statuses.
+ * Covers all pages, all scenarios, all 16 trade statuses, P&L data.
  */
 import type {
   User,
@@ -11,11 +11,12 @@ import type {
   StatusBreakdownPoint,
   StockStats,
   TradeLog,
+  TradeSummary,
   StockMapping,
   IgMarketResult,
 } from '@/types'
 import { TRADE_STATUSES } from '@/types'
-import type { TradeFilters, TradeListResponse } from '@/api/trades'
+import type { TradeFilters, TradeListResponse, TradeSortBy } from '@/api/trades'
 import type { SystemStatus } from '@/api/system'
 import type { TwoFactorSetup } from '@/api/auth'
 
@@ -58,8 +59,6 @@ export const MOCK_INACTIVE_USER: User = {
 }
 
 export const MOCK_USERS: User[] = [MOCK_ADMIN_USER, MOCK_VIEWER_USER, MOCK_INACTIVE_USER]
-
-// The user returned by GET /auth/me — logged in as ADMIN
 export const MOCK_ME: User = MOCK_ADMIN_USER
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
@@ -75,12 +74,6 @@ export const MOCK_SYSTEM_STATUS: SystemStatus = {
   webhookUrl: 'https://api.tradingbot.io/webhook/abc123xyz',
   igConnected: true,
   igSessionExpiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
-}
-
-export const MOCK_SYSTEM_STATUS_DISCONNECTED: SystemStatus = {
-  webhookUrl: 'https://api.tradingbot.io/webhook/abc123xyz',
-  igConnected: false,
-  igSessionExpiresAt: null,
 }
 
 // ─── Trading Rules ────────────────────────────────────────────────────────────
@@ -100,17 +93,6 @@ export const MOCK_TRADING_RULES: TradingRules = {
   tradeWeekdaysOnly: true,
   updatedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
   updatedBy: 'Alex Mercer',
-}
-
-export const MOCK_TRADING_RULES_BOT_OFF: TradingRules = {
-  ...MOCK_TRADING_RULES,
-  botEnabled: false,
-}
-
-export const MOCK_TRADING_RULES_AUTO_PAUSED: TradingRules = {
-  ...MOCK_TRADING_RULES,
-  botEnabled: false,
-  consecutiveFailureCount: 5,
 }
 
 // ─── Stock Mappings ───────────────────────────────────────────────────────────
@@ -188,7 +170,7 @@ export const MOCK_STOCKS: StockMapping[] = [
   },
 ]
 
-// ─── IG Market Search Results ─────────────────────────────────────────────────
+// ─── IG Market Search ─────────────────────────────────────────────────────────
 
 export const MOCK_IG_SEARCH_RESULTS: IgMarketResult[] = [
   {
@@ -198,14 +180,6 @@ export const MOCK_IG_SEARCH_RESULTS: IgMarketResult[] = [
     marketStatus: 'TRADEABLE',
     bid: 175.42,
     offer: 175.58,
-  },
-  {
-    epic: 'IX.D.GOOG.DAILY.IP',
-    instrumentName: 'Alphabet Inc (Google) Class C',
-    instrumentType: 'SHARES',
-    marketStatus: 'TRADEABLE',
-    bid: 174.90,
-    offer: 175.10,
   },
   {
     epic: 'IX.D.META.DAILY.IP',
@@ -242,22 +216,7 @@ export const MOCK_OVERVIEW: DashboardOverview = {
   sellCount: 738,
 }
 
-export const MOCK_OVERVIEW_BOT_OFF: DashboardOverview = {
-  ...MOCK_OVERVIEW,
-  botEnabled: false,
-  autoPaused: false,
-  todaysTrades: 0,
-  todaysInvested: 0,
-}
-
-export const MOCK_OVERVIEW_AUTO_PAUSED: DashboardOverview = {
-  ...MOCK_OVERVIEW,
-  botEnabled: false,
-  autoPaused: true,
-  consecutiveFailures: 5,
-}
-
-// ─── Daily Activity (last 30 days) ────────────────────────────────────────────
+// ─── Daily Activity ───────────────────────────────────────────────────────────
 
 function daysAgo(n: number): string {
   const d = new Date()
@@ -275,8 +234,6 @@ export const MOCK_DAILY_ACTIVITY: DailyActivityPoint[] = Array.from({ length: 30
   }
 })
 
-// ─── Stats by Stock ───────────────────────────────────────────────────────────
-
 export const MOCK_BY_STOCK: StockActivity[] = [
   { tvTicker: 'NVDA', trades: 412, invested: 412000 },
   { tvTicker: 'TSLA', trades: 388, invested: 291000 },
@@ -284,8 +241,6 @@ export const MOCK_BY_STOCK: StockActivity[] = [
   { tvTicker: 'AMZN', trades: 410, invested: 328000 },
   { tvTicker: 'MSFT', trades: 312, invested: 187200 },
 ]
-
-// ─── Status Breakdown ─────────────────────────────────────────────────────────
 
 export const MOCK_STATUS_BREAKDOWN: StatusBreakdownPoint[] = [
   { status: 'SUCCESS', count: 1608 },
@@ -305,8 +260,6 @@ export const MOCK_STATUS_BREAKDOWN: StatusBreakdownPoint[] = [
   { status: 'MAX_POSITIONS_STOCK', count: 1 },
   { status: 'AUTO_PAUSED', count: 0 },
 ]
-
-// ─── Per-Stock Stats ──────────────────────────────────────────────────────────
 
 function makeStockStats(ticker: string): StockStats {
   return {
@@ -362,77 +315,204 @@ const EPICS: Record<string, string> = {
   AMZN: 'IX.D.AMZN.DAILY.IP',
 }
 
-function randomId(prefix: string) {
-  return `${prefix}${Math.random().toString(36).slice(2, 10).toUpperCase()}`
+// Seeded deterministic random to keep data stable across re-renders
+function seeded(seed: number) {
+  const x = Math.sin(seed + 1) * 10000
+  return x - Math.floor(x)
+}
+
+function makePnL(
+  seed: number,
+  isSuccess: boolean,
+  direction: 'BUY' | 'SELL',
+  signalPrice: number,
+  investmentAmount: number | null,
+  quantity: number | null,
+): { closingPrice: number | null; profitLoss: number | null; profitLossPct: number | null } {
+  if (!isSuccess || investmentAmount === null || quantity === null) {
+    return { closingPrice: null, profitLoss: null, profitLossPct: null }
+  }
+  // ~30% of successful trades are still open (no closing price yet)
+  if (seeded(seed * 7) < 0.3) {
+    return { closingPrice: null, profitLoss: null, profitLossPct: null }
+  }
+  // Price movement: ±6%, skewed slightly positive (60% win rate)
+  const pricePct = (seeded(seed * 3) - 0.40) * 0.12
+  const closingPrice = parseFloat((signalPrice * (1 + pricePct)).toFixed(2))
+  const rawPnL = direction === 'BUY'
+    ? (closingPrice - signalPrice) * quantity
+    : (signalPrice - closingPrice) * quantity
+  const profitLoss = parseFloat(rawPnL.toFixed(2))
+  const profitLossPct = parseFloat(((profitLoss / investmentAmount) * 100).toFixed(2))
+  return { closingPrice, profitLoss, profitLossPct }
+}
+
+function randomId(seed: number, prefix: string) {
+  return `${prefix}${Math.abs(Math.floor(seeded(seed) * 0xFFFFFF)).toString(16).toUpperCase().padStart(6, '0')}`
 }
 
 function hoursAgo(h: number) {
   return new Date(Date.now() - h * 60 * 60 * 1000).toISOString()
 }
 
-// One trade per status so every badge/colour is exercised
+// One trade per status so every badge is exercised
 const ALL_STATUS_TRADES: TradeLog[] = TRADE_STATUSES.map((status, i) => {
   const ticker = TICKERS[i % TICKERS.length]
   const isSuccess = status === 'SUCCESS'
+  const direction: 'BUY' | 'SELL' = i % 2 === 0 ? 'BUY' : 'SELL'
+  const signalPrice = 150 + i * 10
   const signalAt = hoursAgo(i * 2 + 1)
+  const investmentAmount = isSuccess ? 500 + i * 50 : null
+  const quantity = isSuccess && investmentAmount ? Math.floor(investmentAmount / signalPrice) : null
+  const { closingPrice, profitLoss, profitLossPct } = makePnL(i, isSuccess, direction, signalPrice, investmentAmount, quantity)
   return {
     id: i + 1,
     tvTicker: ticker,
     igEpic: isSuccess ? EPICS[ticker] : null,
-    direction: i % 2 === 0 ? 'BUY' : 'SELL',
-    signalPrice: 150 + i * 10 + Math.random() * 5,
-    investmentAmount: isSuccess ? 500 + i * 50 : null,
-    quantity: isSuccess ? Math.floor(500 / (150 + i * 10)) : null,
-    dealReference: isSuccess ? randomId('DRF') : null,
-    dealId: isSuccess ? randomId('DID') : null,
+    direction,
+    signalPrice,
+    investmentAmount,
+    quantity,
+    dealReference: isSuccess ? randomId(i * 11, 'DRF') : null,
+    dealId: isSuccess ? randomId(i * 13, 'DID') : null,
     status,
     skipReason: status !== 'SUCCESS' && status !== 'FAILED' ? `Skipped: ${status}` : null,
     errorMessage: status === 'FAILED' ? 'IG API returned 503 Service Unavailable' : null,
     signalReceivedAt: signalAt,
     executedAt: isSuccess ? new Date(new Date(signalAt).getTime() + 800).toISOString() : null,
     createdAt: signalAt,
+    closingPrice,
+    profitLoss,
+    profitLossPct,
   }
 })
 
-// Bulk trades for pagination testing (100 trades)
+// Bulk trades (100 trades, mix of statuses, varied P&L)
 const BULK_TRADES: TradeLog[] = Array.from({ length: 100 }, (_, i) => {
   const ticker = TICKERS[i % TICKERS.length]
-  const status = i % 10 === 1 ? 'FAILED' : i % 8 === 0 ? 'MARKET_CLOSED' : i % 15 === 0 ? 'COOL_DOWN' : 'SUCCESS'
-  const signalAt = hoursAgo(i * 0.5 + 1)
+  const s = seeded(i * 17)
+  const status = s < 0.08 ? 'FAILED' : s < 0.13 ? 'MARKET_CLOSED' : s < 0.16 ? 'COOL_DOWN' : s < 0.19 ? 'DISABLED' : 'SUCCESS'
   const isSuccess = status === 'SUCCESS'
+  const direction: 'BUY' | 'SELL' = i % 2 === 0 ? 'BUY' : 'SELL'
+  const signalPrice = parseFloat((150 + (i % 30) * 5 + seeded(i * 5) * 3).toFixed(2))
+  const signalAt = hoursAgo(i * 0.5 + 1)
+  const investmentAmount = isSuccess ? 500 + (i % 5) * 100 : null
+  const quantity = isSuccess && investmentAmount ? parseFloat((investmentAmount / signalPrice).toFixed(4)) : null
+  const { closingPrice, profitLoss, profitLossPct } = makePnL(i + 100, isSuccess, direction, signalPrice, investmentAmount, quantity)
   return {
     id: 100 + i,
     tvTicker: ticker,
     igEpic: EPICS[ticker],
-    direction: i % 2 === 0 ? 'BUY' : 'SELL',
-    signalPrice: 150 + (i % 30) * 5 + Math.random() * 3,
-    investmentAmount: isSuccess ? 500 + (i % 5) * 100 : null,
-    quantity: isSuccess ? 3 + (i % 4) : null,
-    dealReference: isSuccess ? randomId('DRF') : null,
-    dealId: isSuccess ? randomId('DID') : null,
+    direction,
+    signalPrice,
+    investmentAmount,
+    quantity,
+    dealReference: isSuccess ? randomId((i + 100) * 11, 'DRF') : null,
+    dealId: isSuccess ? randomId((i + 100) * 13, 'DID') : null,
     status,
     skipReason: status !== 'SUCCESS' && status !== 'FAILED' ? `Skipped: ${status}` : null,
     errorMessage: status === 'FAILED' ? 'Order rejected by IG' : null,
     signalReceivedAt: signalAt,
     executedAt: isSuccess ? new Date(new Date(signalAt).getTime() + 650).toISOString() : null,
     createdAt: signalAt,
+    closingPrice,
+    profitLoss,
+    profitLossPct,
   }
 })
 
 export const ALL_MOCK_TRADES: TradeLog[] = [...ALL_STATUS_TRADES, ...BULK_TRADES]
+
+// ─── Summary computation ──────────────────────────────────────────────────────
+
+function computeSummary(trades: TradeLog[]): TradeSummary {
+  const successCount = trades.filter((t) => t.status === 'SUCCESS').length
+  const failedCount = trades.filter((t) => t.status === 'FAILED').length
+  const skippedCount = trades.filter(
+    (t) => t.status !== 'SUCCESS' && t.status !== 'FAILED',
+  ).length
+  const buyCount = trades.filter((t) => t.direction === 'BUY').length
+  const sellCount = trades.filter((t) => t.direction === 'SELL').length
+  const totalInvested = trades.reduce((s, t) => s + (t.investmentAmount ?? 0), 0)
+  const closedTrades = trades.filter((t) => t.profitLoss !== null)
+  const totalProfitLoss =
+    closedTrades.length > 0 ? closedTrades.reduce((s, t) => s + (t.profitLoss ?? 0), 0) : null
+  const avgProfitLoss =
+    closedTrades.length > 0 ? (totalProfitLoss ?? 0) / closedTrades.length : null
+  const winCount = closedTrades.filter((t) => (t.profitLoss ?? 0) > 0).length
+  const lossCount = closedTrades.filter((t) => (t.profitLoss ?? 0) < 0).length
+  const executedTrades = trades.filter((t) => t.investmentAmount !== null)
+  const avgInvestment =
+    executedTrades.length > 0
+      ? executedTrades.reduce((s, t) => s + (t.investmentAmount ?? 0), 0) / executedTrades.length
+      : null
+
+  return {
+    totalTrades: trades.length,
+    successCount,
+    failedCount,
+    skippedCount,
+    buyCount,
+    sellCount,
+    totalInvested,
+    totalProfitLoss,
+    avgProfitLoss,
+    successRate: trades.length > 0 ? (successCount / trades.length) * 100 : 0,
+    avgInvestment,
+    winCount,
+    lossCount,
+  }
+}
+
+// ─── Mock trade list with sort + filter ──────────────────────────────────────
 
 export function getMockTradesPage(filters: TradeFilters = {}): TradeListResponse {
   const page = filters.page ?? 1
   const pageSize = filters.pageSize ?? 25
 
   let filtered = [...ALL_MOCK_TRADES]
-  if (filters.ticker) filtered = filtered.filter((t) => t.tvTicker === filters.ticker!.toUpperCase())
+
+  // Filtering
+  if (filters.ticker) {
+    const t = filters.ticker.toUpperCase()
+    filtered = filtered.filter((tr) => tr.tvTicker.includes(t))
+  }
   if (filters.direction) filtered = filtered.filter((t) => t.direction === filters.direction)
   if (filters.status) filtered = filtered.filter((t) => t.status === filters.status)
+  if (filters.from) {
+    const from = new Date(filters.from).getTime()
+    filtered = filtered.filter((t) => new Date(t.signalReceivedAt).getTime() >= from)
+  }
+  if (filters.to) {
+    // Include full day
+    const to = new Date(filters.to).getTime() + 86400000
+    filtered = filtered.filter((t) => new Date(t.signalReceivedAt).getTime() < to)
+  }
 
+  // Sorting
+  const sortBy: TradeSortBy = filters.sortBy ?? 'signalReceivedAt'
+  const sortOrder = filters.sortOrder ?? 'desc'
+  filtered.sort((a, b) => {
+    let av: number | string | null
+    let bv: number | string | null
+    switch (sortBy) {
+      case 'signalReceivedAt': av = a.signalReceivedAt; bv = b.signalReceivedAt; break
+      case 'executedAt': av = a.executedAt ?? ''; bv = b.executedAt ?? ''; break
+      case 'signalPrice': av = a.signalPrice; bv = b.signalPrice; break
+      case 'investmentAmount': av = a.investmentAmount ?? -1; bv = b.investmentAmount ?? -1; break
+      case 'profitLoss': av = a.profitLoss ?? -Infinity; bv = b.profitLoss ?? -Infinity; break
+      case 'tvTicker': av = a.tvTicker; bv = b.tvTicker; break
+      default: av = a.signalReceivedAt; bv = b.signalReceivedAt
+    }
+    if (av === bv) return 0
+    const cmp = av < bv ? -1 : 1
+    return sortOrder === 'asc' ? cmp : -cmp
+  })
+
+  const summary = computeSummary(filtered)
   const total = filtered.length
   const start = (page - 1) * pageSize
   const items = filtered.slice(start, start + pageSize)
 
-  return { items, total }
+  return { items, total, summary }
 }

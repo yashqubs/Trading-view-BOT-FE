@@ -231,28 +231,69 @@ export const handlers = [
 
   // ─── Stats ────────────────────────────────────────────────────────────────────
 
-  http.get(url('/stats/overview'), async () => {
+  http.get(url('/stats/overview'), async ({ request }) => {
     await delay(LATENCY)
-    return HttpResponse.json({
-      ...MOCK_OVERVIEW,
-      botEnabled: mockRules.botEnabled,
-    })
+    const sp = new URL(request.url).searchParams
+    const ticker = sp.get('ticker') ?? undefined
+    // Scale down numbers for single-stock views
+    if (ticker) {
+      const scale = 0.25
+      return HttpResponse.json({
+        ...MOCK_OVERVIEW,
+        botEnabled: mockRules.botEnabled,
+        totalTrades: Math.round(MOCK_OVERVIEW.totalTrades * scale),
+        todaysTrades: Math.round(MOCK_OVERVIEW.todaysTrades * scale),
+        todaysInvested: parseFloat((MOCK_OVERVIEW.todaysInvested * scale).toFixed(2)),
+        openPositions: Math.max(1, Math.round(MOCK_OVERVIEW.openPositions * scale)),
+        buyCount: Math.round(MOCK_OVERVIEW.buyCount * scale),
+        sellCount: Math.round(MOCK_OVERVIEW.sellCount * scale),
+      })
+    }
+    return HttpResponse.json({ ...MOCK_OVERVIEW, botEnabled: mockRules.botEnabled })
   }),
 
   http.get(url('/stats/daily-activity'), async ({ request }) => {
     await delay(LATENCY)
-    const days = Number(new URL(request.url).searchParams.get('days') ?? 30)
-    return HttpResponse.json(MOCK_DAILY_ACTIVITY.slice(-days))
+    const sp = new URL(request.url).searchParams
+    const days = Number(sp.get('days') ?? 30)
+    const ticker = sp.get('ticker') ?? undefined
+    const sliced = MOCK_DAILY_ACTIVITY.slice(-Math.min(days, MOCK_DAILY_ACTIVITY.length))
+    // For a specific ticker, reduce numbers proportionally
+    if (ticker) {
+      return HttpResponse.json(sliced.map((d) => ({
+        ...d,
+        trades: Math.round(d.trades * 0.3),
+        invested: Math.round(d.invested * 0.3),
+      })))
+    }
+    return HttpResponse.json(sliced)
   }),
 
-  http.get(url('/stats/by-stock'), async () => {
+  http.get(url('/stats/by-stock'), async ({ request }) => {
     await delay(LATENCY)
-    return HttpResponse.json(MOCK_BY_STOCK)
+    const sp = new URL(request.url).searchParams
+    const days = Number(sp.get('days') ?? 365)
+    // Scale invested by how recent the window is
+    const scale = Math.min(1, days / 90)
+    return HttpResponse.json(MOCK_BY_STOCK.map((s) => ({
+      ...s,
+      trades: Math.round(s.trades * scale),
+      invested: Math.round(s.invested * scale),
+    })))
   }),
 
-  http.get(url('/stats/status-breakdown'), async () => {
+  http.get(url('/stats/status-breakdown'), async ({ request }) => {
     await delay(LATENCY)
-    return HttpResponse.json(MOCK_STATUS_BREAKDOWN)
+    const sp = new URL(request.url).searchParams
+    const ticker = sp.get('ticker') ?? undefined
+    const days = Number(sp.get('days') ?? 365)
+    const scale = Math.min(1, days / 90) * (ticker ? 0.3 : 1)
+    return HttpResponse.json(
+      MOCK_STATUS_BREAKDOWN.map((s) => ({
+        ...s,
+        count: Math.round(s.count * scale),
+      })).filter((s) => s.count > 0),
+    )
   }),
 
   http.get(url('/stats/stock/:ticker'), async ({ params }) => {
@@ -274,19 +315,30 @@ export const handlers = [
       status: (sp.get('status') as TradeFilters['status']) ?? undefined,
       from: sp.get('from') ?? undefined,
       to: sp.get('to') ?? undefined,
+      sortBy: (sp.get('sortBy') as TradeFilters['sortBy']) ?? undefined,
+      sortOrder: (sp.get('sortOrder') as TradeFilters['sortOrder']) ?? undefined,
       page: sp.has('page') ? Number(sp.get('page')) : undefined,
       pageSize: sp.has('pageSize') ? Number(sp.get('pageSize')) : undefined,
     }
     return HttpResponse.json(getMockTradesPage(filters))
   }),
 
-  // GET /trades/export — return a minimal CSV blob
+  // GET /trades/export — rich CSV with P&L columns
   http.get(url('/trades/export'), async ({ request }) => {
     await delay(LATENCY)
     const sp = new URL(request.url).searchParams
-    const ticker = sp.get('ticker') ?? ''
-    const header = 'id,ticker,direction,status,signalPrice,investmentAmount,signalReceivedAt,executedAt\n'
-    const rows = getMockTradesPage({ ticker: ticker || undefined, pageSize: 200 })
+    const filters: TradeFilters = {
+      ticker: sp.get('ticker') ?? undefined,
+      direction: (sp.get('direction') as TradeFilters['direction']) ?? undefined,
+      status: (sp.get('status') as TradeFilters['status']) ?? undefined,
+      from: sp.get('from') ?? undefined,
+      to: sp.get('to') ?? undefined,
+      sortBy: (sp.get('sortBy') as TradeFilters['sortBy']) ?? undefined,
+      sortOrder: (sp.get('sortOrder') as TradeFilters['sortOrder']) ?? undefined,
+      pageSize: 10000,
+    }
+    const header = 'id,ticker,direction,status,signalPrice,closingPrice,quantity,investmentAmount,profitLoss,profitLossPct,dealId,signalReceivedAt,executedAt\n'
+    const rows = getMockTradesPage(filters)
       .items.map((t) =>
         [
           t.id,
@@ -294,7 +346,12 @@ export const handlers = [
           t.direction,
           t.status,
           t.signalPrice.toFixed(2),
+          t.closingPrice?.toFixed(2) ?? '',
+          t.quantity ?? '',
           t.investmentAmount ?? '',
+          t.profitLoss?.toFixed(2) ?? '',
+          t.profitLossPct?.toFixed(2) ?? '',
+          t.dealId ?? '',
           t.signalReceivedAt,
           t.executedAt ?? '',
         ].join(','),

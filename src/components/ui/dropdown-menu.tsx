@@ -14,7 +14,10 @@ const DropdownMenuContent = React.forwardRef<
       ref={ref}
       sideOffset={sideOffset}
       className={cn(
-        'z-50 min-w-[10rem] overflow-hidden rounded-lg border border-border bg-surface-2 p-1 shadow-xl animate-fade-slide-in',
+        'z-50 min-w-[10rem] overflow-hidden rounded-lg',
+        'border border-border bg-surface-2',
+        'p-1 shadow-[var(--shadow-floating)]',
+        'animate-fade-slide-in',
         className,
       )}
       {...props}
@@ -30,7 +33,11 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      'flex cursor-pointer select-none items-center rounded-md px-2.5 py-2 text-sm text-text-primary outline-none transition-colors data-[highlighted]:bg-surface data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+      'flex cursor-pointer select-none items-center gap-2 rounded-md px-2.5 py-2',
+      'text-sm text-text-primary outline-none',
+      'transition-colors duration-100',
+      'data-[highlighted]:bg-surface data-[highlighted]:text-text-primary',
+      'data-[disabled]:pointer-events-none data-[disabled]:opacity-40',
       className,
     )}
     {...props}
@@ -56,7 +63,7 @@ const DropdownMenuLabel = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <DropdownMenuPrimitive.Label
     ref={ref}
-    className={cn('px-2.5 py-1.5 text-xs text-text-tertiary', className)}
+    className={cn('px-2.5 py-1.5 text-xs font-medium text-text-tertiary uppercase tracking-wide', className)}
     {...props}
   />
 ))
