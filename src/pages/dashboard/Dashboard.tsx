@@ -67,7 +67,6 @@ function FilterBar({
           value={dateRange}
           onChange={onDateRangeChange}
           onDaysChange={onDaysChange}
-          className="w-[200px]"
         />
       </div>
 
@@ -112,7 +111,7 @@ function FilterBar({
           )}
           {days !== DEFAULT_DAYS && (
             <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-xs text-accent">
-              {days === 1 ? 'Today' : `${days}d`}
+              {dateRange.preset === 'today' ? 'Today' : dateRange.preset === 'custom' ? 'Custom' : `${days}d`}
             </span>
           )}
         </div>
@@ -130,14 +129,20 @@ export function Dashboard() {
   const [dateRange, setDateRange] = useState<DateRangeValue>({ preset: '30d' })
   const setBotEnabled = useSetBotEnabled()
 
+  // Send exact calendar dates — the backend resolves `from`/`to` precisely,
+  // unlike `days` which is always relative to today and can't express a
+  // specific past date or range.
   const filters: StatsFilters = {
-    days,
+    from: dateRange.from,
+    to: dateRange.to,
     ticker: ticker || undefined,
   }
 
   const overview = useOverview(filters)
   const dailyActivity = useDailyActivity(filters)
-  const byStock = useByStock({ days })
+  // by-stock is a breakdown across tickers — the backend endpoint doesn't
+  // accept a ticker filter (would be degenerate: a single-row breakdown).
+  const byStock = useByStock({ from: dateRange.from, to: dateRange.to })
   const statusBreakdown = useStatusBreakdown(filters)
   const { data: stocks } = useStocks()
 
@@ -171,19 +176,28 @@ export function Dashboard() {
     setDateRange(v)
   }
 
-  // Build a human-readable period label for chart titles
-  const periodLabel = (() => {
-    if (ticker && days !== DEFAULT_DAYS) return `${ticker} · ${days}d`
-    if (ticker) return ticker
-    if (days === 1) return 'Today'
-    if (days === 7) return 'Last 7 days'
-    if (days === 14) return 'Last 14 days'
-    if (days === 30) return 'Last 30 days'
-    if (days === 90) return 'Last 90 days'
-    if (days === 180) return 'Last 6 months'
-    if (days === 365) return 'Last 12 months'
-    return `${days} days`
+  // Build a human-readable period label for chart titles. For presets, a
+  // friendly relative label; for a custom range, the exact dates picked
+  // (never "Today" unless the picked date actually is today).
+  const rangeLabel = (() => {
+    switch (dateRange.preset) {
+      case 'today': return 'Today'
+      case '7d':    return 'Last 7 days'
+      case '30d':   return 'Last 30 days'
+      case '90d':   return 'Last 90 days'
+      case '1y':    return 'Last 12 months'
+      case 'custom': {
+        if (!dateRange.from) return `${days} days`
+        const fmt = (iso: string) =>
+          new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+        return dateRange.from === dateRange.to || !dateRange.to
+          ? fmt(dateRange.from)
+          : `${fmt(dateRange.from)} – ${fmt(dateRange.to)}`
+      }
+      default: return `${days} days`
+    }
   })()
+  const periodLabel = ticker ? (rangeLabel === 'Last 30 days' ? ticker : `${ticker} · ${rangeLabel}`) : rangeLabel
 
   return (
     <div className="flex flex-col gap-6">
@@ -193,29 +207,6 @@ export function Dashboard() {
           <h1 className="text-xl font-medium text-text-primary">Dashboard</h1>
           <p className="text-sm text-text-secondary">Global trading activity at a glance.</p>
         </div>
-        {user?.role === 'ADMIN' && (
-          <div
-            className={cn(
-              'flex items-center gap-2 rounded-full border border-border px-3 py-1.5',
-              data?.botEnabled ? 'bg-accent-soft' : 'bg-surface-2',
-            )}
-          >
-            <span className={cn('text-xs font-medium', data?.botEnabled ? 'text-accent' : 'text-text-secondary')}>
-              Bot {overview.isLoading ? '…' : data?.botEnabled ? 'on' : 'off'}
-            </span>
-            <Switch
-              checked={!!data?.botEnabled}
-              disabled={overview.isLoading || setBotEnabled.isPending}
-              onCheckedChange={(checked) =>
-                setBotEnabled.mutate(checked, {
-                  onSuccess: () => toast.success(checked ? 'Bot enabled' : 'Bot disabled'),
-                  onError: () => toast.error('Could not update bot status'),
-                })
-              }
-              aria-label="Toggle bot trading"
-            />
-          </div>
-        )}
       </div>
 
       {/* ── Filter bar ── */}
@@ -291,13 +282,13 @@ export function Dashboard() {
           loading={overview.isLoading}
         />
         <StatCard
-          label={days === 1 ? "Today's trades" : `Trades (${periodLabel})`}
+          label={dateRange.preset === 'today' ? "Today's trades" : `Trades (${periodLabel})`}
           value={data?.todaysTrades ?? 0}
           format={formatCount}
           loading={overview.isLoading}
         />
         <StatCard
-          label={days === 1 ? "Today's invested" : `Invested (${periodLabel})`}
+          label={dateRange.preset === 'today' ? "Today's invested" : `Invested (${periodLabel})`}
           value={data?.todaysInvested ?? 0}
           format={formatMoney}
           loading={overview.isLoading}

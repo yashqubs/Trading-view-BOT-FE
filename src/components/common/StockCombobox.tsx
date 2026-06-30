@@ -36,7 +36,7 @@ export function StockCombobox({
           variant="secondary"
           role="combobox"
           aria-expanded={open}
-          className="h-8 w-[160px] justify-between gap-1 px-3 text-xs font-normal"
+          className="h-8 w-[180px] justify-between gap-1 px-3 text-xs font-normal"
         >
           {value ? (
             <span className="flex items-center gap-1.5">
@@ -53,7 +53,7 @@ export function StockCombobox({
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent align="start" className="w-[200px] p-0">
+      <PopoverContent align="start" className="w-[180px] p-0">
         <Command>
           <CommandInput placeholder="Search ticker…" />
           <CommandList>

@@ -24,12 +24,12 @@ const CommandInput = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Input>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Input>
 >(({ className, ...props }, ref) => (
-  <div className="flex items-center gap-2 border-b border-border px-3 py-2.5" cmdk-input-wrapper="">
-    <Search className="h-4 w-4 shrink-0 text-text-tertiary" />
+  <div className="flex items-center gap-2 border-b border-border px-3 py-2" cmdk-input-wrapper="">
+    <Search className="h-3.5 w-3.5 shrink-0 text-text-tertiary" />
     <CommandPrimitive.Input
       ref={ref}
       className={cn(
-        'flex-1 bg-transparent text-sm text-text-primary outline-none placeholder:text-text-tertiary',
+        'flex-1 bg-transparent text-xs text-text-primary outline-none focus-visible:outline-none placeholder:text-text-tertiary',
         'disabled:cursor-not-allowed disabled:opacity-50',
         className,
       )}
@@ -55,7 +55,7 @@ const CommandEmpty = React.forwardRef<
   React.ElementRef<typeof CommandPrimitive.Empty>,
   React.ComponentPropsWithoutRef<typeof CommandPrimitive.Empty>
 >((props, ref) => (
-  <CommandPrimitive.Empty ref={ref} className="py-6 text-center text-sm text-text-tertiary" {...props} />
+  <CommandPrimitive.Empty ref={ref} className="py-6 text-center text-xs text-text-tertiary" {...props} />
 ))
 CommandEmpty.displayName = CommandPrimitive.Empty.displayName
 
@@ -95,7 +95,7 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-sm',
+      'relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-xs',
       'outline-none transition-colors',
       'data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50',
       'data-[selected=true]:bg-accent/10 data-[selected=true]:text-accent',

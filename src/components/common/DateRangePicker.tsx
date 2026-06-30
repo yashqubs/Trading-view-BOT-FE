@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react'
-import { CalendarDays, ChevronDown, X } from 'lucide-react'
+import { useState } from 'react'
+import { CalendarDays } from 'lucide-react'
 import type { DateRange } from 'react-day-picker'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
@@ -14,19 +14,18 @@ export interface DateRangeValue {
   preset?: PresetKey
 }
 
-export type PresetKey = 'today' | '7d' | '14d' | '30d' | '90d' | '6m' | '1y' | 'custom'
+export type PresetKey = 'all' | 'today' | '7d' | '30d' | '90d' | '1y' | 'custom'
 
 interface Preset { key: PresetKey; label: string; days: number }
 
+const ALL_TIME_PRESET: Preset = { key: 'all', label: 'All time', days: 0 }
+
 const PRESETS: Preset[] = [
-  { key: 'today', label: 'Today',   days: 1   },
-  { key: '7d',    label: '7 days',  days: 7   },
-  { key: '14d',   label: '14 days', days: 14  },
-  { key: '30d',   label: '30 days', days: 30  },
-  { key: '90d',   label: '90 days', days: 90  },
-  { key: '6m',    label: '6 months',days: 180 },
-  { key: '1y',    label: '1 year',  days: 365 },
-  { key: 'custom',label: 'Custom',  days: 30  },
+  { key: 'today', label: 'Today',  days: 1   },
+  { key: '7d',    label: '7D',     days: 7   },
+  { key: '30d',   label: '30D',    days: 30  },
+  { key: '90d',   label: '90D',    days: 90  },
+  { key: '1y',    label: '1Y',     days: 365 },
 ]
 
 // ─── Date helpers (local time — avoids UTC offset bugs) ───────────────────────
@@ -44,6 +43,7 @@ function fromISO(s: string): Date {
 }
 
 function calcPreset(key: PresetKey): { from: string; to: string; days: number } {
+  if (key === 'all') return { from: '', to: '', days: 0 }
   const today = new Date()
   today.setHours(0, 0, 0, 0)
   const todayISO = toISO(today)
@@ -54,32 +54,19 @@ function calcPreset(key: PresetKey): { from: string; to: string; days: number } 
   return { from: toISO(from), to: todayISO, days: p.days }
 }
 
-function fmtFull(iso: string) {
-  return fromISO(iso).toLocaleDateString('en-GB', {
-    day: 'numeric', month: 'short', year: 'numeric',
-  })
+function fmtShort(iso: string) {
+  return fromISO(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
 }
 
 function triggerLabel(v: DateRangeValue): string {
+  if (v.preset === 'all') return ALL_TIME_PRESET.label
   if (v.preset && v.preset !== 'custom') {
-    return PRESETS.find((p) => p.key === v.preset)!.label
+    return PRESETS.find((p) => p.key === v.preset)?.label ?? 'Date range'
   }
   if (v.from && v.to) {
-    if (v.from === v.to) return fmtFull(v.from)
-    const f = fromISO(v.from).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
-    const t = fromISO(v.to).toLocaleDateString('en-GB',   { day: 'numeric', month: 'short' })
-    return `${f} – ${t}`
+    return v.from === v.to ? fmtShort(v.from) : `${fmtShort(v.from)} – ${fmtShort(v.to)}`
   }
-  return 'Date range'
-}
-
-// ─── Dropdown calendar start/end bounds ──────────────────────────────────────
-
-function getStartMonth() {
-  const d = new Date()
-  d.setFullYear(d.getFullYear() - 3)
-  d.setDate(1)
-  return d
+  return 'Custom'
 }
 
 // ─── DateRangePicker ──────────────────────────────────────────────────────────
@@ -88,55 +75,50 @@ interface DateRangePickerProps {
   value: DateRangeValue
   onChange: (v: DateRangeValue) => void
   onDaysChange?: (days: number) => void
+  /** Show an "All time" pill (no date filter) as the first option. */
+  allowAll?: boolean
   className?: string
 }
 
-export function DateRangePicker({ value, onChange, onDaysChange, className }: DateRangePickerProps) {
-  const [open, setOpen] = useState(false)
-
-  // pendingRange mirrors what's selected in the calendar but NOT yet "applied"
+export function DateRangePicker({ value, onChange, onDaysChange, allowAll, className }: DateRangePickerProps) {
+  const [customOpen, setCustomOpen] = useState(false)
   const [pendingRange, setPendingRange] = useState<DateRange | undefined>(undefined)
+  const [hoverDay, setHoverDay] = useState<Date | undefined>(undefined)
 
-  // When popover opens, seed pendingRange from current value
-  const wasOpen = useRef(false)
-  useEffect(() => {
-    if (open && !wasOpen.current) {
+  function applyPreset(key: PresetKey) {
+    const { from, to, days } = calcPreset(key)
+    onChange({ preset: key, from, to })
+    onDaysChange?.(days)
+    setCustomOpen(false)
+  }
+
+  function openCustom(open: boolean) {
+    if (open) {
       setPendingRange(
-        value.from
+        value.preset === 'custom' && value.from
           ? { from: fromISO(value.from), to: value.to ? fromISO(value.to) : undefined }
           : undefined,
       )
     }
-    wasOpen.current = open
-  }, [open, value.from, value.to])
-
-  const activePreset = value.preset
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-
-  function applyPreset(key: PresetKey) {
-    if (key === 'custom') {
-      setPendingRange(undefined)
-      // Stay open so user can pick dates
-      return
-    }
-    const { from, to, days } = calcPreset(key)
-    setPendingRange({ from: fromISO(from), to: fromISO(to) })
-    onChange({ preset: key, from, to })
-    onDaysChange?.(days)
-    setOpen(false)  // preset picks close immediately
+    setCustomOpen(open)
   }
 
   function handleCalendarSelect(r: DateRange | undefined) {
-    // Update ONLY the pending state — do NOT close, do NOT call onChange yet
-    setPendingRange(r)
-  }
-
-  function applyAndClose() {
-    if (!pendingRange?.from) {
-      setOpen(false)
+    // With min={1}, react-day-picker clears the range entirely when the
+    // user clicks the start date a second time (its way of "restarting"
+    // the selection) — reinterpret that as confirming a single-day range
+    // instead of clearing, same as clicking Apply with just a start picked.
+    if (!r && pendingRange?.from && !pendingRange.to) {
+      setPendingRange({ from: pendingRange.from, to: pendingRange.from })
+      setHoverDay(undefined)
       return
     }
+    setPendingRange(r)
+    setHoverDay(undefined)
+  }
+
+  function applyCustom() {
+    if (!pendingRange?.from) return
     const from = toISO(pendingRange.from)
     const to = pendingRange.to ? toISO(pendingRange.to) : from
     const days = pendingRange.to
@@ -144,144 +126,114 @@ export function DateRangePicker({ value, onChange, onDaysChange, className }: Da
       : 1
     onChange({ preset: 'custom', from, to })
     onDaysChange?.(days)
-    setOpen(false)
+    setCustomOpen(false)
   }
 
-  function resetToDefault() {
-    const { from, to } = calcPreset('30d')
-    setPendingRange({ from: fromISO(from), to: fromISO(to) })
-    onChange({ preset: '30d', from, to })
-    onDaysChange?.(30)
-    setOpen(false)
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-
-  const pendingFrom = pendingRange?.from ? toISO(pendingRange.from) : undefined
-  const pendingTo   = pendingRange?.to   ? toISO(pendingRange.to)   : undefined
-  const hasSelection = !!pendingFrom
+  // Visual-only preview of what the range would be if the user clicked now —
+  // never fed back into `selected`, since react-day-picker uses `selected`
+  // as the baseline for resolving the NEXT click, and a hover-filled "to"
+  // would make it think the range was already complete.
+  const hoverPreview =
+    pendingRange?.from && !pendingRange.to && hoverDay
+      ? hoverDay < pendingRange.from
+        ? { from: hoverDay, to: pendingRange.from }
+        : { from: pendingRange.from, to: hoverDay }
+      : undefined
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="secondary"
+    <div className={cn('flex items-center gap-1 overflow-x-auto rounded-md bg-surface-2 p-1', className)}>
+      {allowAll && (
+        <button
+          type="button"
+          onClick={() => applyPreset('all')}
           className={cn(
-            'h-8 min-w-[150px] justify-between gap-1.5 px-3 text-xs font-normal',
-            open && 'border-accent/50',
-            className,
+            'shrink-0 whitespace-nowrap rounded px-2.5 py-1 text-xs font-medium transition-colors',
+            value.preset === 'all'
+              ? 'bg-accent text-accent-foreground'
+              : 'text-text-secondary hover:bg-accent/15 hover:text-accent',
           )}
         >
-          <CalendarDays className="h-3.5 w-3.5 shrink-0 text-accent" />
-          <span className="flex-1 truncate text-left">{triggerLabel(value)}</span>
-          <ChevronDown
+          {ALL_TIME_PRESET.label}
+        </button>
+      )}
+      {PRESETS.map((p) => (
+        <button
+          key={p.key}
+          type="button"
+          onClick={() => applyPreset(p.key)}
+          className={cn(
+            'shrink-0 whitespace-nowrap rounded px-2.5 py-1 text-xs font-medium transition-colors',
+            value.preset === p.key
+              ? 'bg-accent text-accent-foreground'
+              : 'text-text-secondary hover:bg-accent/15 hover:text-accent',
+          )}
+        >
+          {p.label}
+        </button>
+      ))}
+
+      <Popover open={customOpen} onOpenChange={openCustom}>
+        <PopoverTrigger asChild>
+          <button
+            type="button"
             className={cn(
-              'h-3.5 w-3.5 shrink-0 text-text-tertiary transition-transform duration-200',
-              open && 'rotate-180',
+              'flex shrink-0 items-center gap-1 whitespace-nowrap rounded px-2.5 py-1 text-xs font-medium transition-colors',
+              value.preset === 'custom'
+                ? 'bg-accent text-accent-foreground'
+                : 'text-text-secondary hover:bg-accent/15 hover:text-accent',
             )}
+          >
+            <CalendarDays className="h-3 w-3" />
+            {value.preset === 'custom' ? triggerLabel(value) : 'Custom'}
+          </button>
+        </PopoverTrigger>
+
+        <PopoverContent align="end" sideOffset={6} className="w-[300px] p-0">
+          <Calendar
+            mode="range"
+            min={1}
+            selected={pendingRange}
+            onSelect={handleCalendarSelect}
+            onDayMouseEnter={(day) => setHoverDay(day)}
+            onDayMouseLeave={() => setHoverDay(undefined)}
+            captionLayout="dropdown"
+            startMonth={new Date(new Date().getFullYear() - 3, 0, 1)}
+            endMonth={new Date()}
+            numberOfMonths={1}
+            disabled={{ after: new Date() }}
+            modifiers={hoverPreview ? { hoverPreview } : undefined}
           />
-        </Button>
-      </PopoverTrigger>
 
-      <PopoverContent align="start" sideOffset={6} className="w-[310px] p-0">
-
-        {/* ── Preset chips ──────────────────────────────────────────── */}
-        <div className="border-b border-border px-3 py-2.5">
-          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-            Quick select
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {PRESETS.map((p) => {
-              const active = activePreset === p.key ||
-                (p.key === 'custom' && activePreset === 'custom')
-              return (
+          <div className="border-t border-border px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-xs font-mono text-text-secondary">
+                {pendingRange?.from
+                  ? pendingRange.to
+                    ? `${fmtShort(toISO(pendingRange.from))} – ${fmtShort(toISO(pendingRange.to))}`
+                    : `${fmtShort(toISO(pendingRange.from))} (click again or Apply for 1 day)`
+                  : 'Pick a start date'}
+              </span>
+              <div className="flex items-center gap-2">
                 <button
-                  key={p.key}
                   type="button"
-                  onClick={() => applyPreset(p.key)}
-                  className={cn(
-                    'rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
-                    active
-                      ? 'bg-accent text-accent-foreground'
-                      : 'bg-surface-2 text-text-secondary hover:bg-accent/15 hover:text-accent',
-                  )}
+                  onClick={() => setCustomOpen(false)}
+                  className="text-xs text-text-tertiary transition-colors hover:text-text-primary"
                 >
-                  {p.label}
+                  Cancel
                 </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* ── Calendar ────────────────────────────────────────────────── */}
-        <Calendar
-          mode="range"
-          selected={pendingRange}
-          onSelect={handleCalendarSelect}
-          captionLayout="dropdown"
-          startMonth={getStartMonth()}
-          endMonth={new Date()}
-          numberOfMonths={1}
-          defaultMonth={
-            value.from
-              ? fromISO(value.from)
-              : new Date()
-          }
-          disabled={{ after: new Date() }}
-        />
-
-        {/* ── Footer ──────────────────────────────────────────────────── */}
-        <div className="border-t border-border p-3">
-          {/* From → To display */}
-          <div className="mb-3 grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-            <div className={cn(
-              'rounded-md border px-2.5 py-1.5 text-center text-xs font-mono',
-              pendingFrom
-                ? 'border-accent/40 bg-accent/5 text-text-primary'
-                : 'border-border text-text-tertiary',
-            )}>
-              {pendingFrom ? fmtFull(pendingFrom) : 'Start date'}
-            </div>
-            <span className="text-xs text-text-tertiary">→</span>
-            <div className={cn(
-              'rounded-md border px-2.5 py-1.5 text-center text-xs font-mono',
-              pendingTo
-                ? 'border-accent/40 bg-accent/5 text-text-primary'
-                : pendingFrom
-                  ? 'border-accent/30 border-dashed text-accent/70'
-                  : 'border-border text-text-tertiary',
-            )}>
-              {pendingTo
-                ? fmtFull(pendingTo)
-                : pendingFrom
-                  ? 'Pick end…'
-                  : 'End date'}
+                <Button
+                  size="sm"
+                  className="h-7 px-3 text-xs"
+                  disabled={!pendingRange?.from}
+                  onClick={applyCustom}
+                >
+                  Apply
+                </Button>
+              </div>
             </div>
           </div>
-
-          {/* Actions */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={resetToDefault}
-              className="flex items-center gap-1 text-xs text-text-tertiary transition-colors hover:text-danger"
-            >
-              <X className="h-3 w-3" />
-              Reset
-            </button>
-            <Button
-              size="sm"
-              variant={hasSelection ? 'primary' : 'secondary'}
-              disabled={!hasSelection}
-              className="ml-auto h-7 px-4 text-xs"
-              onClick={applyAndClose}
-            >
-              Apply
-            </Button>
-          </div>
-        </div>
-
-      </PopoverContent>
-    </Popover>
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 }

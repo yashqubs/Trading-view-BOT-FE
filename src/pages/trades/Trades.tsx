@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusPill } from '@/components/common/StatusPill'
 import { EmptyState } from '@/components/common/EmptyState'
+import { DateRangePicker, type DateRangeValue } from '@/components/common/DateRangePicker'
 import { useTrades } from '@/hooks/useTrades'
 import { exportTradesCsv, type TradeFilters, type TradeSortBy } from '@/api/trades'
 import { TRADE_STATUSES, type TradeDirection, type TradeStatus, type TradeSummary } from '@/types'
@@ -49,43 +50,6 @@ const STATUS_LABELS: Record<TradeStatus, string> = {
   AUTO_PAUSED: 'Auto-paused',
 }
 
-// ─── Date range presets ───────────────────────────────────────────────────────
-
-type DatePreset = 'today' | 'yesterday' | '7d' | '30d' | 'month' | 'custom' | 'all'
-
-function toYYYYMMDD(d: Date): string {
-  return d.toISOString().split('T')[0]
-}
-
-function getPresetDates(preset: DatePreset): { from: string; to: string } {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const todayStr = toYYYYMMDD(today)
-
-  if (preset === 'today') return { from: todayStr, to: todayStr }
-  if (preset === 'yesterday') {
-    const y = new Date(today)
-    y.setDate(y.getDate() - 1)
-    const s = toYYYYMMDD(y)
-    return { from: s, to: s }
-  }
-  if (preset === '7d') {
-    const d = new Date(today)
-    d.setDate(d.getDate() - 6)
-    return { from: toYYYYMMDD(d), to: todayStr }
-  }
-  if (preset === '30d') {
-    const d = new Date(today)
-    d.setDate(d.getDate() - 29)
-    return { from: toYYYYMMDD(d), to: todayStr }
-  }
-  if (preset === 'month') {
-    const d = new Date(today.getFullYear(), today.getMonth(), 1)
-    return { from: toYYYYMMDD(d), to: todayStr }
-  }
-  return { from: '', to: '' }
-}
-
 // ─── Sort helpers ─────────────────────────────────────────────────────────────
 
 type SortConfig = { by: TradeSortBy; order: 'asc' | 'desc' }
@@ -97,6 +61,15 @@ const SORT_COLUMNS: { key: TradeSortBy; label: string }[] = [
   { key: 'investmentAmount', label: 'Invested' },
   { key: 'profitLoss', label: 'P&L' },
 ]
+
+// "Newest/Oldest" only makes sense for the date column — ticker is
+// alphabetical and the rest are numeric, so the order toggle's text should
+// match what asc/desc actually means for the selected column.
+function sortOrderLabels(by: TradeSortBy): { desc: string; asc: string } {
+  if (by === 'signalReceivedAt') return { desc: 'Newest', asc: 'Oldest' }
+  if (by === 'tvTicker') return { desc: 'Z → A', asc: 'A → Z' }
+  return { desc: 'Highest', asc: 'Lowest' }
+}
 
 function SortIcon({ sortKey, current }: { sortKey: TradeSortBy; current: SortConfig }) {
   if (current.by !== sortKey) return <ArrowUpDown className="ml-1 h-3 w-3 text-text-tertiary opacity-0 group-hover:opacity-100" />
@@ -222,9 +195,7 @@ export function Trades() {
   const [debouncedTicker, setDebouncedTicker] = useState('')
   const [direction, setDirection] = useState<TradeDirection | 'ALL'>('ALL')
   const [status, setStatus] = useState<TradeStatus | 'ALL'>('ALL')
-  const [datePreset, setDatePreset] = useState<DatePreset>('all')
-  const [from, setFrom] = useState('')
-  const [to, setTo] = useState('')
+  const [dateRange, setDateRange] = useState<DateRangeValue>({ preset: 'all' })
   const [sort, setSort] = useState<SortConfig>({ by: 'signalReceivedAt', order: 'desc' })
   const [page, setPage] = useState(1)
   const [exporting, setExporting] = useState(false)
@@ -238,17 +209,7 @@ export function Trades() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1)
-  }, [debouncedTicker, direction, status, from, to, sort])
-
-  // Apply date preset
-  function applyPreset(preset: DatePreset) {
-    setDatePreset(preset)
-    if (preset !== 'custom') {
-      const { from: f, to: t } = getPresetDates(preset)
-      setFrom(f)
-      setTo(t)
-    }
-  }
+  }, [debouncedTicker, direction, status, dateRange, sort])
 
   // Handle column sort click
   function handleSort(col: TradeSortBy) {
@@ -264,22 +225,20 @@ export function Trades() {
     setDebouncedTicker('')
     setDirection('ALL')
     setStatus('ALL')
-    setDatePreset('all')
-    setFrom('')
-    setTo('')
+    setDateRange({ preset: 'all' })
     setSort({ by: 'signalReceivedAt', order: 'desc' })
     setPage(1)
   }
 
   const hasActiveFilters =
-    ticker || direction !== 'ALL' || status !== 'ALL' || from || to
+    ticker || direction !== 'ALL' || status !== 'ALL' || dateRange.preset !== 'all'
 
   const filters: TradeFilters = {
     ticker: debouncedTicker || undefined,
     direction: direction === 'ALL' ? undefined : direction,
     status: status === 'ALL' ? undefined : status,
-    from: from || undefined,
-    to: to || undefined,
+    from: dateRange.from || undefined,
+    to: dateRange.to || undefined,
     sortBy: sort.by,
     sortOrder: sort.order,
     page,
@@ -396,46 +355,12 @@ export function Trades() {
             </div>
           </div>
 
-          {/* Row 2 — Date range */}
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Row 2 — Date range + sort order */}
+          <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Date range</Label>
-              <Select value={datePreset} onValueChange={(v) => applyPreset(v as DatePreset)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All time</SelectItem>
-                  <SelectItem value="today">Today</SelectItem>
-                  <SelectItem value="yesterday">Yesterday</SelectItem>
-                  <SelectItem value="7d">Last 7 days</SelectItem>
-                  <SelectItem value="30d">Last 30 days</SelectItem>
-                  <SelectItem value="month">This month</SelectItem>
-                  <SelectItem value="custom">Custom range</SelectItem>
-                </SelectContent>
-              </Select>
+              <DateRangePicker value={dateRange} onChange={setDateRange} allowAll />
             </div>
-
-            {(datePreset === 'custom' || (from && to)) && (
-              <>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs">From</Label>
-                  <Input
-                    type="date"
-                    value={from}
-                    onChange={(e) => { setFrom(e.target.value); setDatePreset('custom') }}
-                    aria-label="From date"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs">To</Label>
-                  <Input
-                    type="date"
-                    value={to}
-                    onChange={(e) => { setTo(e.target.value); setDatePreset('custom') }}
-                    aria-label="To date"
-                  />
-                </div>
-              </>
-            )}
 
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Sort order</Label>
@@ -443,18 +368,16 @@ export function Trades() {
                 <Button
                   type="button"
                   variant={sort.order === 'desc' ? 'primary' : 'secondary'}
-                  className="flex-1"
                   onClick={() => setSort((s) => ({ ...s, order: 'desc' }))}
                 >
-                  <ArrowDown className="h-3.5 w-3.5" /> Newest
+                  <ArrowDown className="h-3.5 w-3.5" /> {sortOrderLabels(sort.by).desc}
                 </Button>
                 <Button
                   type="button"
                   variant={sort.order === 'asc' ? 'primary' : 'secondary'}
-                  className="flex-1"
                   onClick={() => setSort((s) => ({ ...s, order: 'asc' }))}
                 >
-                  <ArrowUp className="h-3.5 w-3.5" /> Oldest
+                  <ArrowUp className="h-3.5 w-3.5" /> {sortOrderLabels(sort.by).asc}
                 </Button>
               </div>
             </div>

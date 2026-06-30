@@ -6,6 +6,7 @@ import {
   getStatusBreakdown,
   getStockStats,
   type StatsFilters,
+  type StockStatsFilters,
 } from '@/api/stats'
 
 export function useOverview(filters: StatsFilters = {}) {
@@ -37,9 +38,9 @@ export function useStatusBreakdown(filters: StatsFilters = {}) {
   })
 }
 
-export function useStockStats(ticker: string) {
+export function useStockStats(ticker: string, filters: StockStatsFilters = {}) {
   return useQuery({
-    queryKey: ['stats', 'stock', ticker],
-    queryFn: () => getStockStats(ticker),
+    queryKey: ['stats', 'stock', ticker, filters],
+    queryFn: () => getStockStats(ticker, filters),
   })
 }
