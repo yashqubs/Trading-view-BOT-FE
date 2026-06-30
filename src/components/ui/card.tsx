@@ -7,7 +7,10 @@ const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElemen
       ref={ref}
       className={cn(
         'rounded-card border border-border bg-surface p-5',
-        'shadow-[var(--shadow-card)]',
+        // Layered shadow + a faint inset top highlight for a touch of glass
+        // depth on every card — no motion, no implied clickability, safe to
+        // apply universally (interactive cards opt into more via card-glow).
+        'shadow-[var(--shadow-card),0_1px_0_0_rgba(255,255,255,0.04)_inset]',
         'transition-shadow duration-200',
         className,
       )}

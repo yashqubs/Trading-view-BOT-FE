@@ -3,10 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { Mail } from 'lucide-react'
 import { login, loginWithTwoFactor, resendLoginTwoFactorCode, getMe } from '@/api/auth'
 import { useAuth } from '@/context/AuthContext'
+import { AuthShell } from '@/components/common/AuthShell'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PasswordInput } from '@/components/common/PasswordInput'
+import { OtpInput } from '@/components/common/OtpInput'
 import { Label } from '@/components/ui/label'
-import { Card } from '@/components/ui/card'
 
 type Step = 'credentials' | 'twofactor'
 
@@ -42,14 +44,16 @@ export function Login() {
 
       if (result.user) {
         setUser(result.user)
-        navigate(result.user.mustChangePassword ? '/change-password' : '/')
+        navigate('/')
         return
       }
 
-      // Backend may set the session cookie without returning user (legacy requiresSetup2fa flow)
+      // requiresPasswordChange — no user in the response yet, but the pending
+      // cookie already grants /auth/me so we can populate the session before
+      // routing to /change-password.
       const user = await getMe()
       setUser(user)
-      navigate(user.mustChangePassword ? '/change-password' : '/')
+      navigate('/change-password')
     } catch {
       setError('Incorrect email or password.')
     } finally {
@@ -57,18 +61,11 @@ export function Login() {
     }
   }
 
-  async function handleTwoFactorSubmit(e: FormEvent) {
-    e.preventDefault()
+  async function verifyTwoFactor(submittedCode: string) {
     setError(null)
-
-    if (code.length !== 6) {
-      setError('Enter the 6-digit code from your email.')
-      return
-    }
-
     setPending(true)
     try {
-      const { user } = await loginWithTwoFactor(email, password, code)
+      const { user } = await loginWithTwoFactor(email, password, submittedCode)
       setUser(user)
       navigate('/')
     } catch {
@@ -76,6 +73,15 @@ export function Login() {
     } finally {
       setPending(false)
     }
+  }
+
+  async function handleTwoFactorSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (code.length !== 6) {
+      setError('Enter the 6-digit code from your email.')
+      return
+    }
+    await verifyTwoFactor(code)
   }
 
   async function handleResend() {
@@ -92,92 +98,76 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-full items-center justify-center bg-bg px-4">
-      <Card className="w-full max-w-sm animate-fade-slide-in">
-        <div className="mb-6 text-center">
-          <p className="text-lg font-medium text-text-primary">Trading bot portal</p>
-          <p className="mt-1 text-sm text-text-secondary">
-            {step === 'credentials' ? 'Sign in to continue' : 'Check your email'}
-          </p>
-        </div>
-
-        {step === 'credentials' ? (
-          <form onSubmit={handleCredentialsSubmit} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={pending}
-              />
+    <AuthShell
+      title={step === 'credentials' ? 'Welcome back' : 'Check your email'}
+      subtitle={step === 'credentials' ? 'Sign in to continue' : 'Enter the code we just sent you'}
+    >
+      {step === 'credentials' ? (
+        <form onSubmit={handleCredentialsSubmit} className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={pending}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="password">Password</Label>
+            <PasswordInput
+              id="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={pending}
+            />
+          </div>
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <Button type="submit" disabled={pending} className="mt-1">
+            {pending ? 'Signing in…' : 'Sign in'}
+          </Button>
+        </form>
+      ) : (
+        <form onSubmit={handleTwoFactorSubmit} className="flex flex-col gap-4">
+          {twoFactorMessage && (
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-surface-2 p-3">
+              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+              <p className="text-left text-xs text-text-secondary">{twoFactorMessage}</p>
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={pending}
-              />
-            </div>
-            {error && <p className="text-sm text-danger">{error}</p>}
-            <Button type="submit" disabled={pending} className="mt-1">
-              {pending ? 'Signing in…' : 'Sign in'}
-            </Button>
-          </form>
-        ) : (
-          <form onSubmit={handleTwoFactorSubmit} className="flex flex-col gap-4">
-            {twoFactorMessage && (
-              <div className="flex items-start gap-2 rounded-lg border border-border bg-surface-2 p-3">
-                <Mail className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-                <p className="text-left text-xs text-text-secondary">{twoFactorMessage}</p>
-              </div>
-            )}
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="code">6-digit code</Label>
-              <Input
-                id="code"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                maxLength={6}
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-                disabled={pending}
-                autoFocus
-              />
-            </div>
-            {error && <p className="text-sm text-danger">{error}</p>}
-            <Button type="submit" disabled={pending} className="mt-1">
-              {pending ? 'Verifying…' : 'Verify'}
-            </Button>
-            <button
-              type="button"
-              className="text-xs text-text-tertiary hover:text-text-secondary disabled:opacity-50"
-              onClick={handleResend}
-              disabled={resending || pending}
-            >
-              {resending ? 'Sending…' : "Didn't get a code? Resend"}
-            </button>
-            <button
-              type="button"
-              className="text-xs text-text-tertiary hover:text-text-secondary"
-              onClick={() => {
-                setStep('credentials')
-                setCode('')
-                setError(null)
-                setTwoFactorMessage(null)
-              }}
-            >
-              Back to login
-            </button>
-          </form>
-        )}
-      </Card>
-    </div>
+          )}
+          <div className="flex flex-col gap-1.5">
+            <Label>6-digit code</Label>
+            <OtpInput value={code} onChange={setCode} onComplete={verifyTwoFactor} disabled={pending} autoFocus />
+          </div>
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <Button type="submit" disabled={pending} className="mt-1">
+            {pending ? 'Verifying…' : 'Verify'}
+          </Button>
+          <button
+            type="button"
+            className="text-xs text-text-tertiary hover:text-text-secondary disabled:opacity-50"
+            onClick={handleResend}
+            disabled={resending || pending}
+          >
+            {resending ? 'Sending…' : "Didn't get a code? Resend"}
+          </button>
+          <button
+            type="button"
+            className="text-xs text-text-tertiary hover:text-text-secondary"
+            onClick={() => {
+              setStep('credentials')
+              setCode('')
+              setError(null)
+              setTwoFactorMessage(null)
+            }}
+          >
+            Back to login
+          </button>
+        </form>
+      )}
+    </AuthShell>
   )
 }

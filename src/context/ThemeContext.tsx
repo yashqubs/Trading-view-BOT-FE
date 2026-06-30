@@ -10,19 +10,35 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 const STORAGE_KEY = 'portal-theme'
 
+function systemTheme(): Theme {
+  return window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
-    return stored === 'light' ? 'light' : 'dark'
+    return stored === 'light' || stored === 'dark' ? stored : systemTheme()
   })
 
   useEffect(() => {
     document.documentElement.classList.toggle('light', theme === 'light')
-    localStorage.setItem(STORAGE_KEY, theme)
   }, [theme])
 
+  // Follow the OS theme live, but only until the user picks one explicitly.
+  useEffect(() => {
+    if (localStorage.getItem(STORAGE_KEY)) return
+    const media = window.matchMedia('(prefers-color-scheme: light)')
+    const handler = () => setTheme(systemTheme())
+    media.addEventListener('change', handler)
+    return () => media.removeEventListener('change', handler)
+  }, [])
+
   function toggleTheme() {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
+    setTheme((prev) => {
+      const next = prev === 'dark' ? 'light' : 'dark'
+      localStorage.setItem(STORAGE_KEY, next)
+      return next
+    })
   }
 
   return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>

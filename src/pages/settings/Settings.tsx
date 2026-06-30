@@ -4,27 +4,39 @@ import { toast } from 'sonner'
 import { Check, Copy } from 'lucide-react'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import { PasswordInput } from '@/components/common/PasswordInput'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
 import { useSystemStatus } from '@/hooks/useSystem'
 import { changeOwnPassword, disableTwoFactor } from '@/api/auth'
 import { useAuth } from '@/context/AuthContext'
-import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 
 export function Settings() {
   const { user, setUser } = useAuth()
   const navigate = useNavigate()
   const system = useSystemStatus()
   const [copied, setCopied] = useState(false)
-  const [disabling2fa, setDisabling2fa] = useState(false)
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
+
+  const [disable2faOpen, setDisable2faOpen] = useState(false)
+  const [disable2faPassword, setDisable2faPassword] = useState('')
+  const [disable2faError, setDisable2faError] = useState<string | null>(null)
+  const [disabling2fa, setDisabling2fa] = useState(false)
 
   function copyWebhookUrl() {
     if (!system.data) return
@@ -60,14 +72,18 @@ export function Settings() {
     }
   }
 
-  async function handleDisable2fa() {
+  async function handleDisable2fa(e: FormEvent) {
+    e.preventDefault()
+    setDisable2faError(null)
     setDisabling2fa(true)
     try {
-      const { user: updatedUser } = await disableTwoFactor()
+      const { user: updatedUser } = await disableTwoFactor(disable2faPassword)
       setUser(updatedUser)
       toast.success('Two-factor authentication disabled')
+      setDisable2faOpen(false)
+      setDisable2faPassword('')
     } catch {
-      toast.error('Could not disable two-factor authentication')
+      setDisable2faError('Incorrect password.')
     } finally {
       setDisabling2fa(false)
     }
@@ -115,9 +131,9 @@ export function Settings() {
         <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="settings-current-password">Current password</Label>
-            <Input
+            <PasswordInput
               id="settings-current-password"
-              type="password"
+              autoComplete="current-password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               disabled={pending}
@@ -126,9 +142,9 @@ export function Settings() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="settings-new-password">New password</Label>
-              <Input
+              <PasswordInput
                 id="settings-new-password"
-                type="password"
+                autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 disabled={pending}
@@ -136,9 +152,9 @@ export function Settings() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="settings-confirm-password">Confirm new password</Label>
-              <Input
+              <PasswordInput
                 id="settings-confirm-password"
-                type="password"
+                autoComplete="new-password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 disabled={pending}
@@ -172,17 +188,56 @@ export function Settings() {
           </div>
           <div className="flex shrink-0 gap-2">
             {user?.twoFactorEnabled ? (
-              <ConfirmDialog
-                title="Disable two-factor authentication?"
-                description="You will only need your email and password to sign in. This reduces account security."
-                confirmLabel="Disable"
-                onConfirm={handleDisable2fa}
-                trigger={
-                  <Button variant="secondary" disabled={disabling2fa}>
-                    {disabling2fa ? 'Disabling…' : 'Disable 2FA'}
-                  </Button>
-                }
-              />
+              <Dialog
+                open={disable2faOpen}
+                onOpenChange={(next) => {
+                  setDisable2faOpen(next)
+                  if (!next) {
+                    setDisable2faPassword('')
+                    setDisable2faError(null)
+                  }
+                }}
+              >
+                <DialogTrigger asChild>
+                  <Button variant="secondary">Disable 2FA</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Disable two-factor authentication?</DialogTitle>
+                    <DialogDescription>
+                      You will only need your email and password to sign in. Confirm with your password to
+                      continue.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <form onSubmit={handleDisable2fa} className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="disable-2fa-password">Password</Label>
+                      <PasswordInput
+                        id="disable-2fa-password"
+                        autoComplete="current-password"
+                        autoFocus
+                        value={disable2faPassword}
+                        onChange={(e) => setDisable2faPassword(e.target.value)}
+                        disabled={disabling2fa}
+                      />
+                    </div>
+                    {disable2faError && <p className="text-sm text-danger">{disable2faError}</p>}
+                    <DialogFooter>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setDisable2faOpen(false)}
+                        disabled={disabling2fa}
+                      >
+                        Cancel
+                      </Button>
+                      <Button type="submit" variant="destructive" disabled={disabling2fa}>
+                        {disabling2fa ? 'Disabling…' : 'Disable'}
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </DialogContent>
+              </Dialog>
             ) : (
               <Button variant="secondary" onClick={() => navigate('/setup-2fa')}>
                 Enable 2FA

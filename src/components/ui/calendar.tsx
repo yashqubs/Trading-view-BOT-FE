@@ -1,8 +1,67 @@
+import { useState } from 'react'
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
-import { DayPicker, type DayPickerProps, type DayButtonProps } from 'react-day-picker'
+import { DayPicker, type DayPickerProps, type DayButtonProps, type DropdownProps } from 'react-day-picker'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 
 export type CalendarProps = DayPickerProps
+
+/**
+ * react-day-picker's default dropdown renders a real native `<select>`
+ * (invisible, overlaid on the visible label) so clicking opens the OS
+ * picker — but a native select's option-list popup is drawn by the OS/
+ * browser chrome, not by us, so it can never be themed (that's the
+ * unstyled white list bug). Swap in a fully custom popover instead.
+ */
+function CalendarDropdown({ options, value, onChange, disabled }: DropdownProps) {
+  const [open, setOpen] = useState(false)
+  const selected = options?.find((o) => o.value === value)
+
+  function selectOption(v: number) {
+    onChange?.({ target: { value: String(v) } } as React.ChangeEvent<HTMLSelectElement>)
+    setOpen(false)
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className={cn(
+            'flex cursor-pointer select-none items-center gap-0.5 rounded-md px-1 py-0.5',
+            'text-[13px] font-semibold text-text-primary transition-colors',
+            'hover:bg-accent/15 hover:text-accent',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+            'disabled:pointer-events-none disabled:opacity-40',
+          )}
+        >
+          {selected?.label}
+          <ChevronDown className="h-3 w-3 opacity-60" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" sideOffset={4} className="max-h-60 w-32 overflow-y-auto p-1">
+        {options?.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            disabled={option.disabled}
+            onClick={() => selectOption(option.value)}
+            className={cn(
+              'block w-full rounded-md px-2 py-1.5 text-left text-sm transition-colors',
+              option.value === value
+                ? 'bg-accent text-accent-foreground font-medium'
+                : 'text-text-primary hover:bg-surface',
+              option.disabled && 'pointer-events-none opacity-30',
+            )}
+          >
+            {option.label}
+          </button>
+        ))}
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 // Endpoint days (start/end of a range, or a lone selected day) get a solid
 // filled circle. Middle-of-range days get a flat muted band, no circle —
@@ -42,23 +101,6 @@ function DayButton({ day: _day, modifiers, className, ...props }: DayButtonProps
   )
 }
 
-/*
- * Dropdown caption layout (captionLayout="dropdown"):
- *
- *   <span dropdown_root>        ← `dropdown_root` class
- *     <select dropdown>         ← `dropdown` class (hidden, overlaid)
- *     <span caption_label>      ← `caption_label` class (visible label + chevron)
- *       "June" / "2026" + <Chevron orientation="down" />
- *   </span>
- *
- *   <div dropdowns>             ← `dropdowns` class (wraps month + year)
- *     [month dropdown_root] [year dropdown_root]
- *   </div>
- *
- * The hidden <select> sits on top (absolute, opacity-0) so clicking the
- * visible caption_label span opens the native OS select.
- */
-
 export function Calendar({
   className,
   classNames: externalClassNames,
@@ -80,7 +122,8 @@ export function Calendar({
         // px-9 keeps text clear of the arrow buttons (buttons are w-9)
         month_caption: 'flex h-9 items-center justify-center px-9',
 
-        // Non-dropdown plain label / also used as the visual label in each dropdown
+        // Only used when captionLayout isn't 'dropdown' — the dropdown case
+        // renders its own label via the custom CalendarDropdown component.
         caption_label: cn(
           'flex cursor-pointer select-none items-center gap-0.5',
           'text-[13px] font-semibold text-text-primary',
@@ -108,19 +151,8 @@ export function Calendar({
           'disabled:pointer-events-none disabled:opacity-30',
         ),
 
-        // ── Dropdown caption ──────────────────────────────────────────────
-        // Container of month + year dropdowns
+        // ── Dropdown caption (month + year, rendered by CalendarDropdown) ──
         dropdowns: 'flex items-center gap-1',
-
-        // Wrapper span for each dropdown (month or year)
-        dropdown_root: 'relative inline-flex items-center',
-
-        // The actual <select> — invisible but clickable (sits on top)
-        dropdown: 'absolute inset-0 z-10 cursor-pointer opacity-0',
-
-        // months/years dropdown classnames (applied to the <select>)
-        months_dropdown: '',
-        years_dropdown: '',
 
         // ── Grid ─────────────────────────────────────────────────────────
         month_grid: 'w-full border-collapse',
@@ -150,6 +182,7 @@ export function Calendar({
           return <ChevronDown className="h-3 w-3 opacity-60" />
         },
         DayButton: DayButton,
+        Dropdown: CalendarDropdown,
       }}
 
       {...props}

@@ -15,6 +15,7 @@ import {
   MOCK_OVERVIEW,
   MOCK_DAILY_ACTIVITY,
   MOCK_BY_STOCK,
+  MOCK_OPEN_POSITIONS,
   MOCK_STATUS_BREAKDOWN,
   MOCK_STOCK_STATS,
   getMockTradesPage,
@@ -46,7 +47,7 @@ export const handlers = [
   // POST /auth/login — simulate success; frontend falls through to GET /auth/me
   http.post(url('/auth/login'), async () => {
     await delay(LATENCY)
-    return HttpResponse.json({ requires2fa: false, user: MOCK_ME })
+    return HttpResponse.json({ requiresPasswordChange: false, requires2fa: false, user: MOCK_ME })
   }),
 
   // POST /auth/login/2fa
@@ -280,6 +281,14 @@ export const handlers = [
       trades: Math.round(s.trades * scale),
       invested: Math.round(s.invested * scale),
     })))
+  }),
+
+  http.get(url('/stats/open-positions'), async ({ request }) => {
+    await delay(LATENCY)
+    const sp = new URL(request.url).searchParams
+    const ticker = sp.get('ticker') ?? undefined
+    const positions = ticker ? MOCK_OPEN_POSITIONS.filter((p) => p.tvTicker === ticker) : MOCK_OPEN_POSITIONS
+    return HttpResponse.json(positions)
   }),
 
   http.get(url('/stats/status-breakdown'), async ({ request }) => {

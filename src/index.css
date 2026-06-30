@@ -70,6 +70,26 @@ body {
   transition: background-color 200ms ease, color 200ms ease;
 }
 
+/* ─── Autofill ────────────────────────────────────────────────────────────── */
+
+/* Chrome/Edge paint autofilled inputs with their own opaque white/yellow
+   background, ignoring our theme entirely — that's what was making the
+   PasswordInput eye toggle (and the field text) disappear on a saved
+   password. The huge inset box-shadow trick repaints it with our surface
+   color instead; the absurd transition delay stops a white flash before it
+   applies. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+input:autofill {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface-2) inset;
+  box-shadow: 0 0 0 1000px var(--surface-2) inset;
+  caret-color: var(--text-primary);
+  transition: background-color 600000s ease-in-out 0s;
+}
+
 /* ─── Scrollbars ──────────────────────────────────────────────────────────── */
 
 ::-webkit-scrollbar {
@@ -224,9 +244,20 @@ html {
 }
 
 /* ─── Card hover glow (optional, applied via className) ──────────────────── */
+/* Only for genuinely interactive cards (links/buttons) — the lift + glow
+   signal clickability, so it must never appear on a static display card. */
+
+.card-glow {
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+}
 
 .card-glow:hover {
-  box-shadow: 0 0 0 1px var(--accent-soft), var(--shadow-card);
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 1px var(--accent-soft), 0 12px 28px -8px rgba(0, 0, 0, 0.35), var(--shadow-card);
+}
+
+.card-glow:active {
+  transform: translateY(-1px);
 }
 
 /* ─── Recharts chart overrides — use theme colours ───────────────────────── */
@@ -275,6 +306,252 @@ html {
 }
 
 /* ─── Radix overlay animation ────────────────────────────────────────────── */
+
+/* ─── Auth screens — aurora background + 3D depth ────────────────────────── */
+
+.auth-aurora {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.auth-aurora::before,
+.auth-aurora::after {
+  content: '';
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 9999px;
+  background: var(--accent);
+  opacity: 0.14;
+  filter: blur(90px);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.auth-aurora::before {
+  top: -20vmax;
+  left: -15vmax;
+  animation: aurora-drift-a 22s ease-in-out infinite alternate;
+}
+
+.auth-aurora::after {
+  bottom: -25vmax;
+  right: -15vmax;
+  animation: aurora-drift-b 26s ease-in-out infinite alternate;
+}
+
+@keyframes aurora-drift-a {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(8vmax, 6vmax) scale(1.15);
+  }
+}
+
+@keyframes aurora-drift-b {
+  from {
+    transform: translate(0, 0) scale(1);
+  }
+  to {
+    transform: translate(-6vmax, -8vmax) scale(1.1);
+  }
+}
+
+/* Third, smaller roaming blob — adds parallax depth behind the card. */
+.auth-aurora-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 32vmax;
+  height: 32vmax;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--accent) 0%, transparent 70%);
+  opacity: 0.18;
+  filter: blur(60px);
+  pointer-events: none;
+  z-index: 0;
+  transform: translate(-50%, -50%);
+  animation: aurora-pulse 7s ease-in-out infinite;
+}
+
+@keyframes aurora-pulse {
+  0%,
+  100% {
+    opacity: 0.14;
+    transform: translate(-50%, -50%) scale(0.95);
+  }
+  50% {
+    opacity: 0.24;
+    transform: translate(-50%, -50%) scale(1.08);
+  }
+}
+
+/* Perspective "horizon" grid floor — receding lines under the card for depth. */
+.auth-grid-floor {
+  position: absolute;
+  left: 50%;
+  bottom: -6%;
+  width: 220%;
+  height: 50%;
+  transform: translateX(-50%) perspective(500px) rotateX(70deg);
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: linear-gradient(to top, black, transparent 75%);
+  mask-image: linear-gradient(to top, black, transparent 75%);
+  opacity: 0.5;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Floating accent particles drifting around the card. */
+.auth-particle {
+  position: absolute;
+  border-radius: 9999px;
+  background: var(--accent);
+  filter: blur(0.5px);
+  pointer-events: none;
+  z-index: 0;
+  animation: particle-float 9s ease-in-out infinite;
+}
+
+@keyframes particle-float {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+    opacity: 0.35;
+  }
+  50% {
+    transform: translateY(-22px) translateX(10px);
+    opacity: 0.85;
+  }
+}
+
+/* Mouse-tracked 3D tilt — JS sets --rx/--ry/--tz while hovering. At rest the
+   card keeps a small permanent skew + a slow float so it always reads as an
+   object floating in 3D space, not a flat panel that only moves on hover. */
+.auth-tilt-wrap {
+  perspective: 1400px;
+  animation: card-float 6s ease-in-out infinite;
+}
+
+/* Settle the float while a field inside has focus — keeps typing/clicking
+   feel stable instead of fighting a moving target. */
+.auth-tilt-wrap:focus-within {
+  animation-play-state: paused;
+}
+
+.auth-tilt-card {
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 3deg)) rotateY(var(--ry, -5deg)) translateZ(var(--tz, 0px));
+  transition: transform 700ms cubic-bezier(0.22, 1, 0.36, 1);
+  box-shadow:
+    0 1px 1px rgba(0, 0, 0, 0.2),
+    0 24px 60px -12px rgba(0, 0, 0, 0.6),
+    0 8px 20px -6px var(--accent-soft),
+    0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+}
+
+/* Opacity-only fade-in — safe to combine with a static `transform` on the
+   same element (e.g. centering via translate, or a 3D tilt). Unlike
+   animate-fade-slide-in, this never touches the `transform` property, so it
+   can't fight one already set there via the cascade or fill-mode. */
+.animate-fade-in-opacity {
+  animation: fade-in-opacity 280ms ease-out both;
+}
+
+@keyframes fade-in-opacity {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.auth-tilt-card--active {
+  transition: transform 80ms linear;
+}
+
+@keyframes card-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.auth-card-glow {
+  position: absolute;
+  inset: -6%;
+  z-index: -1;
+  border-radius: inherit;
+  background: radial-gradient(circle at 50% 0%, var(--accent) 0%, transparent 65%);
+  opacity: 0.22;
+  filter: blur(28px);
+  transform: translateZ(-40px) scale(0.96);
+  pointer-events: none;
+}
+
+/* Brand badge — raised, glinting, gently rocking in 3D. The shadow layer
+   sits a few px behind on the Z axis to fake the badge's physical thickness. */
+.auth-badge-wrap {
+  transform-style: preserve-3d;
+  animation: badge-rock 5s ease-in-out infinite;
+}
+
+.auth-badge-shadow {
+  opacity: 0.55;
+  filter: blur(2px);
+  transform: translateZ(-6px) translateY(3px) scale(0.94);
+}
+
+.auth-badge {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.4) inset,
+    0 -2px 4px rgba(0, 0, 0, 0.25) inset,
+    0 10px 24px -6px var(--accent);
+}
+
+.auth-badge::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.5), transparent 60%);
+  opacity: 0.6;
+}
+
+@keyframes badge-rock {
+  0%,
+  100% {
+    transform: perspective(200px) rotateY(-10deg) rotateX(4deg);
+  }
+  50% {
+    transform: perspective(200px) rotateY(10deg) rotateX(-2deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-aurora::before,
+  .auth-aurora::after,
+  .auth-aurora-core,
+  .auth-particle,
+  .auth-badge-wrap,
+  .auth-tilt-wrap {
+    animation: none;
+  }
+
+  .auth-tilt-card {
+    transform: none !important;
+    transition: none;
+  }
+}
 
 [data-radix-popper-content-wrapper] {
   z-index: 50 !important;

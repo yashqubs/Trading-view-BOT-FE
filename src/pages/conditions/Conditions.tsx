@@ -1,4 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react'
+import { useBlocker } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -6,8 +7,29 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useTradingRules, useUpdateTradingRules } from '@/hooks/useRules'
 import { useAuth } from '@/context/AuthContext'
+
+interface RulesFormSnapshot {
+  botEnabled: boolean
+  allowBuy: boolean
+  allowSell: boolean
+  dailyMaxTotalInvestment: string
+  dailyMaxTradeCount: string
+  maxOpenPositionsGlobal: string
+  maxConsecutiveFailures: string
+  tradeStartTimeUtc: string
+  tradeEndTimeUtc: string
+  tradeWeekdaysOnly: boolean
+}
 
 export function Conditions() {
   const { user } = useAuth()
@@ -26,24 +48,68 @@ export function Conditions() {
   const [tradeEndTimeUtc, setTradeEndTimeUtc] = useState('21:00')
   const [tradeWeekdaysOnly, setTradeWeekdaysOnly] = useState(true)
 
+  // The last-saved (or last-loaded) form values — comparing against this is
+  // how we know there are unsaved changes, without re-deriving from `rules`
+  // (which lags behind the form state by an extra render either way).
+  const [baseline, setBaseline] = useState<RulesFormSnapshot | null>(null)
+
   useEffect(() => {
     if (!rules) return
-    setBotEnabled(rules.botEnabled)
-    setAllowBuy(rules.allowBuy)
-    setAllowSell(rules.allowSell)
-    setDailyMaxTotalInvestment(rules.dailyMaxTotalInvestment ? String(rules.dailyMaxTotalInvestment) : '')
-    setDailyMaxTradeCount(rules.dailyMaxTradeCount ? String(rules.dailyMaxTradeCount) : '')
-    setMaxOpenPositionsGlobal(rules.maxOpenPositionsGlobal ? String(rules.maxOpenPositionsGlobal) : '')
-    setMaxConsecutiveFailures(String(rules.maxConsecutiveFailures))
-    setTradeStartTimeUtc(rules.tradeStartTimeUtc)
-    setTradeEndTimeUtc(rules.tradeEndTimeUtc)
-    setTradeWeekdaysOnly(rules.tradeWeekdaysOnly)
+    const snapshot: RulesFormSnapshot = {
+      botEnabled: rules.botEnabled,
+      allowBuy: rules.allowBuy,
+      allowSell: rules.allowSell,
+      dailyMaxTotalInvestment: rules.dailyMaxTotalInvestment ? String(rules.dailyMaxTotalInvestment) : '',
+      dailyMaxTradeCount: rules.dailyMaxTradeCount ? String(rules.dailyMaxTradeCount) : '',
+      maxOpenPositionsGlobal: rules.maxOpenPositionsGlobal ? String(rules.maxOpenPositionsGlobal) : '',
+      maxConsecutiveFailures: String(rules.maxConsecutiveFailures),
+      tradeStartTimeUtc: rules.tradeStartTimeUtc,
+      tradeEndTimeUtc: rules.tradeEndTimeUtc,
+      tradeWeekdaysOnly: rules.tradeWeekdaysOnly,
+    }
+    setBaseline(snapshot)
+    setBotEnabled(snapshot.botEnabled)
+    setAllowBuy(snapshot.allowBuy)
+    setAllowSell(snapshot.allowSell)
+    setDailyMaxTotalInvestment(snapshot.dailyMaxTotalInvestment)
+    setDailyMaxTradeCount(snapshot.dailyMaxTradeCount)
+    setMaxOpenPositionsGlobal(snapshot.maxOpenPositionsGlobal)
+    setMaxConsecutiveFailures(snapshot.maxConsecutiveFailures)
+    setTradeStartTimeUtc(snapshot.tradeStartTimeUtc)
+    setTradeEndTimeUtc(snapshot.tradeEndTimeUtc)
+    setTradeWeekdaysOnly(snapshot.tradeWeekdaysOnly)
   }, [rules])
+
+  const isDirty =
+    !!baseline &&
+    (botEnabled !== baseline.botEnabled ||
+      allowBuy !== baseline.allowBuy ||
+      allowSell !== baseline.allowSell ||
+      dailyMaxTotalInvestment !== baseline.dailyMaxTotalInvestment ||
+      dailyMaxTradeCount !== baseline.dailyMaxTradeCount ||
+      maxOpenPositionsGlobal !== baseline.maxOpenPositionsGlobal ||
+      maxConsecutiveFailures !== baseline.maxConsecutiveFailures ||
+      tradeStartTimeUtc !== baseline.tradeStartTimeUtc ||
+      tradeEndTimeUtc !== baseline.tradeEndTimeUtc ||
+      tradeWeekdaysOnly !== baseline.tradeWeekdaysOnly)
+
+  // Block in-app navigation while there are unsaved changes.
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname)
+
+  // Block tab close / refresh / external navigation too.
+  useEffect(() => {
+    if (!isDirty) return
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault()
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     try {
-      await updateRules.mutateAsync({
+      const saved = await updateRules.mutateAsync({
         botEnabled,
         allowBuy,
         allowSell,
@@ -54,6 +120,18 @@ export function Conditions() {
         tradeStartTimeUtc,
         tradeEndTimeUtc,
         tradeWeekdaysOnly,
+      })
+      setBaseline({
+        botEnabled: saved.botEnabled,
+        allowBuy: saved.allowBuy,
+        allowSell: saved.allowSell,
+        dailyMaxTotalInvestment: saved.dailyMaxTotalInvestment ? String(saved.dailyMaxTotalInvestment) : '',
+        dailyMaxTradeCount: saved.dailyMaxTradeCount ? String(saved.dailyMaxTradeCount) : '',
+        maxOpenPositionsGlobal: saved.maxOpenPositionsGlobal ? String(saved.maxOpenPositionsGlobal) : '',
+        maxConsecutiveFailures: String(saved.maxConsecutiveFailures),
+        tradeStartTimeUtc: saved.tradeStartTimeUtc,
+        tradeEndTimeUtc: saved.tradeEndTimeUtc,
+        tradeWeekdaysOnly: saved.tradeWeekdaysOnly,
       })
       toast.success('Trading conditions saved')
     } catch {
@@ -198,12 +276,32 @@ export function Conditions() {
       </Card>
 
       {isAdmin && (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-3">
+          {isDirty && <p className="text-xs text-warning">You have unsaved changes.</p>}
           <Button type="submit" disabled={updateRules.isPending}>
             {updateRules.isPending ? 'Saving…' : 'Save changes'}
           </Button>
         </div>
       )}
+
+      <Dialog open={blocker.state === 'blocked'} onOpenChange={(open) => !open && blocker.reset?.()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Leave without saving?</DialogTitle>
+            <DialogDescription>
+              You have unsaved changes to trading conditions. They will be lost if you leave this page now.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => blocker.reset?.()}>
+              Stay on page
+            </Button>
+            <Button variant="destructive" onClick={() => blocker.proceed?.()}>
+              Leave without saving
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </form>
   )
 }

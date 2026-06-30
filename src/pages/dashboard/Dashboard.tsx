@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
 import { SlidersHorizontal, X } from 'lucide-react'
 import { StatCard } from '@/components/common/StatCard'
@@ -8,10 +9,11 @@ import { LineChartCard } from '@/components/charts/LineChartCard'
 import { AreaChartCard } from '@/components/charts/AreaChartCard'
 import { DonutChartCard } from '@/components/charts/DonutChartCard'
 import { BarChartCard } from '@/components/charts/BarChartCard'
+import { ChartExpandModal } from '@/components/charts/ChartExpandModal'
+import { Card } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { Button } from '@/components/ui/button'
 import { StockCombobox } from '@/components/common/StockCombobox'
-import { DateRangePicker, type DateRangeValue } from '@/components/common/DateRangePicker'
+import { DateRangePicker, calcPreset, type DateRangeValue } from '@/components/common/DateRangePicker'
 import { useOverview, useByStock, useDailyActivity, useStatusBreakdown } from '@/hooks/useStats'
 import { useSetBotEnabled } from '@/hooks/useRules'
 import { useStocks } from '@/hooks/useStocks'
@@ -30,6 +32,8 @@ const STATUS_COLOR: Record<string, string> = {
 }
 
 const DEFAULT_DAYS = 30
+
+type ExpandedChart = 'trade-volume' | 'buy-sell' | 'status-breakdown' | 'top-stocks' | 'daily-invested'
 
 // ─── Filter bar ───────────────────────────────────────────────────────────────
 
@@ -122,11 +126,27 @@ function FilterBar({
 
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
+// Local-date YYYY-MM-DD, matching DateRangePicker's own 'today' preset convention.
+function todayISODate(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+// `{ preset: '30d' }` alone has no from/to — calcPreset fills them in so the
+// very first render already queries the right window, instead of silently
+// querying all-time until the user touches the date picker once.
+function defaultDateRange(): DateRangeValue {
+  const { from, to } = calcPreset('30d')
+  return { preset: '30d', from, to }
+}
+
 export function Dashboard() {
   const { user } = useAuth()
+  const todayISO = todayISODate()
   const [days, setDays] = useState(DEFAULT_DAYS)
   const [ticker, setTicker] = useState('')
-  const [dateRange, setDateRange] = useState<DateRangeValue>({ preset: '30d' })
+  const [dateRange, setDateRange] = useState<DateRangeValue>(defaultDateRange)
+  const [expandedChart, setExpandedChart] = useState<ExpandedChart | null>(null)
   const setBotEnabled = useSetBotEnabled()
 
   // Send exact calendar dates — the backend resolves `from`/`to` precisely,
@@ -166,10 +186,46 @@ export function Dashboard() {
   const stockTickers = (stocks ?? []).map((s) => s.tvTicker)
   const hasFilter = days !== DEFAULT_DAYS || !!ticker
 
+  // Carries the dashboard's current period + ticker filter into /trades, so
+  // a card link shows exactly the trades the card's number was computed from.
+  // `preset` travels too (not just the raw from/to dates) so the destination
+  // page highlights the same "30D"/"7D"/etc. pill instead of falling back to
+  // a generic "Custom" — same dates, but the UI no longer looks disconnected
+  // from what was actually selected.
+  function tradesLink(extra: Record<string, string> = {}) {
+    const params = new URLSearchParams()
+    if (dateRange.from) params.set('from', dateRange.from)
+    if (dateRange.to) params.set('to', dateRange.to)
+    if (dateRange.preset) params.set('preset', dateRange.preset)
+    if (ticker) params.set('ticker', ticker)
+    for (const [key, value] of Object.entries(extra)) params.set(key, value)
+    const qs = params.toString()
+    return qs ? `/trades?${qs}` : '/trades'
+  }
+
+  // "Today's trades"/"Today's invested" are always literally today on the
+  // backend (they double as the daily-limit ratio, which resets daily
+  // regardless of the period selected above) — so their link must point at
+  // today's date specifically, not whatever range is selected elsewhere.
+  function todaysTradesLink() {
+    return tradesLink({ from: todayISO, to: todayISO, preset: 'today' })
+  }
+
+  // Invested amount only ever accrues from SUCCESS trades on the backend, so
+  // scope the link to those specifically — otherwise the table includes
+  // failed/skipped rows that contributed nothing to the figure shown.
+  function todaysInvestedLink() {
+    return tradesLink({ from: todayISO, to: todayISO, preset: 'today', status: 'SUCCESS' })
+  }
+
+  function positionsLink() {
+    return ticker ? `/positions?ticker=${encodeURIComponent(ticker)}` : '/positions'
+  }
+
   function clearFilters() {
     setDays(DEFAULT_DAYS)
     setTicker('')
-    setDateRange({ preset: '30d' })
+    setDateRange(defaultDateRange())
   }
 
   function handleDateRangeChange(v: DateRangeValue) {
@@ -199,6 +255,17 @@ export function Dashboard() {
   })()
   const periodLabel = ticker ? (rangeLabel === 'Last 30 days' ? ticker : `${ticker} · ${rangeLabel}`) : rangeLabel
 
+  const expandedChartTitle = (() => {
+    switch (expandedChart) {
+      case 'trade-volume': return `Trade volume — ${periodLabel}`
+      case 'buy-sell': return `Buy vs Sell — ${periodLabel}`
+      case 'status-breakdown': return `Status breakdown — ${periodLabel}`
+      case 'top-stocks': return `Top stocks by trade count — ${periodLabel}`
+      case 'daily-invested': return `Daily invested amount — ${periodLabel}`
+      default: return ''
+    }
+  })()
+
   return (
     <div className="flex flex-col gap-6">
       {/* ── Header ── */}
@@ -226,17 +293,19 @@ export function Dashboard() {
       {(data?.autoPaused || (data && data.consecutiveFailures > 0) || approachingLimit) && (
         <div className="flex flex-col gap-3">
           {data?.autoPaused && (
-            <AlertBanner variant="danger">
+            <AlertBanner variant="danger" to="/conditions">
               The bot has auto-paused after repeated consecutive failures. Review the conditions page before re-enabling.
             </AlertBanner>
           )}
           {!!data && data.consecutiveFailures > 0 && !data.autoPaused && (
-            <AlertBanner variant="warning">
+            <AlertBanner variant="warning" to="/trades?status=FAILED">
               {data.consecutiveFailures} consecutive trade failure{data.consecutiveFailures > 1 ? 's' : ''} recorded.
             </AlertBanner>
           )}
           {approachingLimit && (
-            <AlertBanner variant="warning">Approaching today&apos;s daily trading limit.</AlertBanner>
+            <AlertBanner variant="warning" to="/conditions">
+              Approaching today&apos;s daily trading limit.
+            </AlertBanner>
           )}
         </div>
       )}
@@ -244,17 +313,12 @@ export function Dashboard() {
       {/* ── KPI stat cards ── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Bot status card */}
-        <div
-          className={cn(
-            'rounded-card border border-border bg-surface p-5 animate-fade-slide-in',
-            data?.botEnabled ? 'border-accent/20' : '',
-          )}
-        >
-          <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">Bot status</p>
+        <Card className={cn('animate-fade-slide-in', data?.botEnabled && 'border-accent/20')}>
+          <p className="text-[13px] text-text-secondary">Bot status</p>
           <div className="mt-2 flex items-center gap-3">
             <p
               className={cn(
-                'text-[30px] font-semibold',
+                'text-[30px] font-medium',
                 data?.botEnabled ? 'text-accent' : 'text-text-secondary',
               )}
             >
@@ -273,57 +337,65 @@ export function Dashboard() {
             />
           </div>
           {data?.autoPaused && <p className="mt-1 text-xs text-danger">Auto-paused</p>}
-        </div>
+        </Card>
 
         <StatCard
-          label="Total trades"
+          label={`Total trades (${periodLabel})`}
           value={data?.totalTrades ?? 0}
           format={formatCount}
           loading={overview.isLoading}
+          to={tradesLink()}
         />
         <StatCard
-          label={dateRange.preset === 'today' ? "Today's trades" : `Trades (${periodLabel})`}
+          label="Today's trades"
           value={data?.todaysTrades ?? 0}
           format={formatCount}
           loading={overview.isLoading}
+          to={todaysTradesLink()}
         />
         <StatCard
-          label={dateRange.preset === 'today' ? "Today's invested" : `Invested (${periodLabel})`}
+          label="Today's invested"
           value={data?.todaysInvested ?? 0}
           format={formatMoney}
           loading={overview.isLoading}
+          to={todaysInvestedLink()}
         />
 
         {/* Daily limit remaining */}
-        <div className="rounded-card border border-border bg-surface p-5 animate-fade-slide-in">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
-            Daily limit remaining
-          </p>
-          <p className="tabular-nums mt-2 text-[24px] font-semibold text-text-primary">
-            {overview.isLoading ? '…' : limitPct ? `${(100 - limitPct).toFixed(0)}%` : '—'}
-          </p>
-          <div className="mt-3">
-            <ProgressBar value={limitPct ?? 0} />
-          </div>
-          {data && (
-            <p className="mt-1.5 text-xs text-text-tertiary">
-              {formatMoney(data.todaysInvested)} of{' '}
-              {data.dailyMaxTotalInvestment ? formatMoney(data.dailyMaxTotalInvestment) : 'unlimited'}
+        <Link
+          to="/conditions"
+          className="block rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <Card className="card-glow animate-fade-slide-in hover:border-accent/30">
+            <p className="text-[13px] text-text-secondary">Daily limit remaining</p>
+            <p className="tabular-nums mt-2 text-[30px] font-medium text-text-primary">
+              {overview.isLoading ? '…' : limitPct ? `${(100 - limitPct).toFixed(0)}%` : '—'}
             </p>
-          )}
-        </div>
+            <div className="mt-3">
+              <ProgressBar value={limitPct ?? 0} />
+            </div>
+            {data && (
+              <p className="mt-1.5 text-xs text-text-tertiary">
+                {formatMoney(data.todaysInvested)} of{' '}
+                {data.dailyMaxTotalInvestment ? formatMoney(data.dailyMaxTotalInvestment) : 'unlimited'}
+              </p>
+            )}
+          </Card>
+        </Link>
 
         <StatCard
           label="Open positions"
           value={data?.openPositions ?? 0}
           format={formatCount}
           loading={overview.isLoading}
+          to={positionsLink()}
         />
         <StatCard
-          label="Success rate"
+          label={`Success rate (${periodLabel})`}
           value={data?.successRate ?? 0}
           format={formatPercent}
           loading={overview.isLoading}
+          to={tradesLink()}
         />
         <StatCard
           label="Consecutive failures"
@@ -331,6 +403,7 @@ export function Dashboard() {
           format={formatCount}
           loading={overview.isLoading}
           warning={!!data && data.consecutiveFailures > 0}
+          to="/trades?status=FAILED"
         />
       </div>
 
@@ -342,6 +415,7 @@ export function Dashboard() {
           xKey="date"
           yKey="trades"
           loading={dailyActivity.isLoading}
+          onExpand={() => setExpandedChart('trade-volume')}
         />
         <DonutChartCard
           title={`Buy vs Sell — ${periodLabel}`}
@@ -354,6 +428,7 @@ export function Dashboard() {
               : undefined
           }
           loading={overview.isLoading}
+          onExpand={() => setExpandedChart('buy-sell')}
         />
       </div>
 
@@ -366,6 +441,7 @@ export function Dashboard() {
           yKey="count"
           loading={statusBreakdown.isLoading}
           colors={statusBreakdown.data?.map((d) => STATUS_COLOR[d.status] ?? 'var(--accent)')}
+          onExpand={() => setExpandedChart('status-breakdown')}
         />
         <BarChartCard
           title={`Top stocks by trade count — ${periodLabel}`}
@@ -374,6 +450,7 @@ export function Dashboard() {
           yKey="trades"
           horizontal
           loading={byStock.isLoading}
+          onExpand={() => setExpandedChart('top-stocks')}
         />
       </div>
 
@@ -384,25 +461,87 @@ export function Dashboard() {
         xKey="date"
         yKey="invested"
         loading={dailyActivity.isLoading}
+        onExpand={() => setExpandedChart('daily-invested')}
       />
 
-      {/* ── Quick actions (admin only) ── */}
-      {user?.role === 'ADMIN' && (
-        <div className="flex flex-wrap gap-3 rounded-xl border border-border bg-surface px-4 py-3">
-          <p className="w-full text-[11px] font-medium uppercase tracking-wide text-text-tertiary">
-            Quick actions
-          </p>
-          <Button variant="secondary" size="sm" onClick={() => (window.location.href = '/trades')}>
-            View all trades
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => (window.location.href = '/conditions')}>
-            Edit conditions
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => (window.location.href = '/stocks')}>
-            Manage stocks
-          </Button>
-        </div>
-      )}
+      {/* ── Expanded chart modal — reuses the same filter state as the page,
+          so adjustments here stay in sync with everything above. ── */}
+      <ChartExpandModal
+        open={expandedChart !== null}
+        onOpenChange={(open) => !open && setExpandedChart(null)}
+        title={expandedChartTitle}
+        filters={
+          <>
+            <DateRangePicker value={dateRange} onChange={handleDateRangeChange} onDaysChange={setDays} />
+            {expandedChart !== 'top-stocks' && (
+              <StockCombobox tickers={stockTickers} value={ticker} onChange={setTicker} />
+            )}
+          </>
+        }
+      >
+        {expandedChart === 'trade-volume' && (
+          <LineChartCard
+            title={expandedChartTitle}
+            bare
+            data={dailyActivity.data}
+            xKey="date"
+            yKey="trades"
+            loading={dailyActivity.isLoading}
+            height={420}
+          />
+        )}
+        {expandedChart === 'buy-sell' && (
+          <DonutChartCard
+            title={expandedChartTitle}
+            bare
+            data={
+              data
+                ? [
+                    { name: 'Buy', value: data.buyCount },
+                    { name: 'Sell', value: data.sellCount },
+                  ]
+                : undefined
+            }
+            loading={overview.isLoading}
+            height={420}
+          />
+        )}
+        {expandedChart === 'status-breakdown' && (
+          <BarChartCard
+            title={expandedChartTitle}
+            bare
+            data={statusBreakdown.data?.filter((d) => d.count > 0)}
+            xKey="status"
+            yKey="count"
+            loading={statusBreakdown.isLoading}
+            colors={statusBreakdown.data?.map((d) => STATUS_COLOR[d.status] ?? 'var(--accent)')}
+            height={420}
+          />
+        )}
+        {expandedChart === 'top-stocks' && (
+          <BarChartCard
+            title={expandedChartTitle}
+            bare
+            data={(byStock.data ?? []).slice().sort((a, b) => b.trades - a.trades)}
+            xKey="tvTicker"
+            yKey="trades"
+            horizontal
+            loading={byStock.isLoading}
+            height={Math.max(420, (byStock.data?.length ?? 0) * 36)}
+          />
+        )}
+        {expandedChart === 'daily-invested' && (
+          <AreaChartCard
+            title={expandedChartTitle}
+            bare
+            data={dailyActivity.data}
+            xKey="date"
+            yKey="invested"
+            loading={dailyActivity.isLoading}
+            height={420}
+          />
+        )}
+      </ChartExpandModal>
     </div>
   )
 }

@@ -38,7 +38,10 @@ const DialogContent = React.forwardRef<
         '-translate-x-1/2 -translate-y-1/2',
         'rounded-card border border-border bg-surface p-6',
         'shadow-[var(--shadow-floating)]',
-        'animate-fade-slide-in',
+        // animate-fade-slide-in's transform keyframe would win the
+        // `transform` property via fill-mode and stomp the centering
+        // translate above — this variant only animates opacity.
+        'animate-fade-in-opacity',
         'focus:outline-none',
         className,
       )}

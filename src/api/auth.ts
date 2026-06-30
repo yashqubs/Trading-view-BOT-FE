@@ -2,9 +2,8 @@ import { api } from './axios'
 import type { User } from '@/types'
 
 export interface LoginResponse {
+  requiresPasswordChange: boolean
   requires2fa: boolean
-  /** @deprecated Backend may still send this until email 2FA migration is complete */
-  requiresSetup2fa?: boolean
   user?: User
   message?: string
 }
@@ -44,8 +43,8 @@ export function skipTwoFactor() {
   return api.post<{ user: User }>('/auth/2fa/skip').then((r) => r.data)
 }
 
-export function disableTwoFactor() {
-  return api.post<{ user: User }>('/auth/2fa/disable').then((r) => r.data)
+export function disableTwoFactor(password: string) {
+  return api.post<{ user: User }>('/auth/2fa/disable', { password }).then((r) => r.data)
 }
 
 export function logout() {

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Download,
   ArrowUpDown,
@@ -20,7 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusPill } from '@/components/common/StatusPill'
 import { EmptyState } from '@/components/common/EmptyState'
-import { DateRangePicker, type DateRangeValue } from '@/components/common/DateRangePicker'
+import { DateRangePicker, type DateRangeValue, type PresetKey } from '@/components/common/DateRangePicker'
 import { useTrades } from '@/hooks/useTrades'
 import { exportTradesCsv, type TradeFilters, type TradeSortBy } from '@/api/trades'
 import { TRADE_STATUSES, type TradeDirection, type TradeStatus, type TradeSummary } from '@/types'
@@ -191,11 +192,30 @@ function SummaryRow({ summary, loading }: { summary: TradeSummary | undefined; l
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 export function Trades() {
-  const [ticker, setTicker] = useState('')
-  const [debouncedTicker, setDebouncedTicker] = useState('')
+  // Supports deep links like /trades?status=FAILED&from=2026-06-01&to=2026-06-30&ticker=AAPL
+  // from the dashboard cards — they carry the exact filter context the user saw there.
+  const [searchParams] = useSearchParams()
+  const initialStatus = searchParams.get('status')
+  const initialFrom = searchParams.get('from') ?? undefined
+  const initialTo = searchParams.get('to') ?? undefined
+  const initialPreset = searchParams.get('preset')
+  const initialTicker = searchParams.get('ticker') ?? ''
+  const isValidStatus = (s: string | null): s is TradeStatus =>
+    !!s && (TRADE_STATUSES as readonly string[]).includes(s)
+  const VALID_PRESETS: readonly string[] = ['all', 'today', '7d', '30d', '90d', '1y', 'custom']
+  const isValidPreset = (p: string | null): p is PresetKey => !!p && VALID_PRESETS.includes(p)
+
+  const [ticker, setTicker] = useState(initialTicker)
+  const [debouncedTicker, setDebouncedTicker] = useState(initialTicker)
   const [direction, setDirection] = useState<TradeDirection | 'ALL'>('ALL')
-  const [status, setStatus] = useState<TradeStatus | 'ALL'>('ALL')
-  const [dateRange, setDateRange] = useState<DateRangeValue>({ preset: 'all' })
+  const [status, setStatus] = useState<TradeStatus | 'ALL'>(
+    isValidStatus(initialStatus) ? initialStatus : 'ALL',
+  )
+  const [dateRange, setDateRange] = useState<DateRangeValue>(
+    initialFrom || initialTo
+      ? { from: initialFrom, to: initialTo, preset: isValidPreset(initialPreset) ? initialPreset : 'custom' }
+      : { preset: 'all' },
+  )
   const [sort, setSort] = useState<SortConfig>({ by: 'signalReceivedAt', order: 'desc' })
   const [page, setPage] = useState(1)
   const [exporting, setExporting] = useState(false)
@@ -359,7 +379,7 @@ export function Trades() {
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Date range</Label>
-              <DateRangePicker value={dateRange} onChange={setDateRange} allowAll />
+              <DateRangePicker value={dateRange} onChange={setDateRange} />
             </div>
 
             <div className="flex flex-col gap-1">
@@ -367,17 +387,19 @@ export function Trades() {
               <div className="flex gap-2">
                 <Button
                   type="button"
+                  size="sm"
                   variant={sort.order === 'desc' ? 'primary' : 'secondary'}
                   onClick={() => setSort((s) => ({ ...s, order: 'desc' }))}
                 >
-                  <ArrowDown className="h-3.5 w-3.5" /> {sortOrderLabels(sort.by).desc}
+                  <ArrowDown className="h-3 w-3" /> {sortOrderLabels(sort.by).desc}
                 </Button>
                 <Button
                   type="button"
+                  size="sm"
                   variant={sort.order === 'asc' ? 'primary' : 'secondary'}
                   onClick={() => setSort((s) => ({ ...s, order: 'asc' }))}
                 >
-                  <ArrowUp className="h-3.5 w-3.5" /> {sortOrderLabels(sort.by).asc}
+                  <ArrowUp className="h-3 w-3" /> {sortOrderLabels(sort.by).asc}
                 </Button>
               </div>
             </div>

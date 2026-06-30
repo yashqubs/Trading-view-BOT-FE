@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Check, Copy, KeyRound, UserX } from 'lucide-react'
+import { Check, Copy, KeyRound, Search, UserX, X } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Tooltip,
@@ -15,11 +17,14 @@ import {
 import { EmptyState } from '@/components/common/EmptyState'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { TableSkeleton } from '@/components/common/PageSkeleton'
+import { SortableHeader, toggleSort, type SortConfig } from '@/components/common/SortableHeader'
 import { CreateUserModal } from './components/CreateUserModal'
 import { useDeactivateUser, useResetUserPassword, useUpdateUser, useUsers } from '@/hooks/useUsers'
 import { useAuth } from '@/context/AuthContext'
 import { formatDateTime } from '@/lib/format'
-import type { Role } from '@/types'
+import type { Role, User } from '@/types'
+
+type SortKey = 'name' | 'email' | 'role' | 'active' | 'lastLoginAt'
 
 export function Users() {
   const { user: currentUser } = useAuth()
@@ -29,6 +34,54 @@ export function Users() {
   const resetPassword = useResetUserPassword()
   const [resetResult, setResetResult] = useState<{ name: string; password: string } | null>(null)
   const [copied, setCopied] = useState(false)
+
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState<Role | 'ALL'>('ALL')
+  const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL')
+  const [sort, setSort] = useState<SortConfig<SortKey>>({ by: 'name', order: 'asc' })
+
+  const hasFilters = !!search || roleFilter !== 'ALL' || statusFilter !== 'ALL'
+
+  function clearFilters() {
+    setSearch('')
+    setRoleFilter('ALL')
+    setStatusFilter('ALL')
+  }
+
+  const filteredUsers = useMemo(() => {
+    if (!users) return []
+    const term = search.trim().toLowerCase()
+
+    const filtered = users.filter((u) => {
+      if (term && !u.name.toLowerCase().includes(term) && !u.email.toLowerCase().includes(term)) return false
+      if (roleFilter !== 'ALL' && u.role !== roleFilter) return false
+      if (statusFilter === 'ACTIVE' && !u.active) return false
+      if (statusFilter === 'INACTIVE' && u.active) return false
+      return true
+    })
+
+    const dir = sort.order === 'asc' ? 1 : -1
+    return filtered.slice().sort((a, b) => {
+      switch (sort.by) {
+        case 'name':
+          return a.name.localeCompare(b.name) * dir
+        case 'email':
+          return a.email.localeCompare(b.email) * dir
+        case 'role':
+          return a.role.localeCompare(b.role) * dir
+        case 'active':
+          return (Number(a.active) - Number(b.active)) * dir
+        case 'lastLoginAt':
+          return ((a.lastLoginAt ? Date.parse(a.lastLoginAt) : 0) - (b.lastLoginAt ? Date.parse(b.lastLoginAt) : 0)) * dir
+        default:
+          return 0
+      }
+    })
+  }, [users, search, roleFilter, statusFilter, sort])
+
+  function handleSort(key: SortKey) {
+    setSort((s) => toggleSort(s, key))
+  }
 
   async function handleRoleChange(id: string, role: Role) {
     try {
@@ -55,6 +108,10 @@ export function Users() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  function isLastActiveAdmin(u: User) {
+    return u.role === 'ADMIN' && (users ?? []).filter((x) => x.role === 'ADMIN' && x.active).length <= 1
+  }
+
   return (
     <TooltipProvider>
       <div className="flex flex-col gap-6">
@@ -66,29 +123,88 @@ export function Users() {
           <CreateUserModal />
         </div>
 
+        {!isLoading && !!users?.length && (
+          <Card className="animate-fade-slide-in">
+            <div className="flex flex-wrap items-end gap-3">
+              <div className="flex min-w-[200px] flex-1 flex-col gap-1">
+                <Label className="text-xs">Search</Label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" />
+                  <Input
+                    placeholder="Name or email…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-9"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Role</Label>
+                <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as Role | 'ALL')}>
+                  <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All roles</SelectItem>
+                    <SelectItem value="ADMIN">Admin</SelectItem>
+                    <SelectItem value="VIEWER">Viewer</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label className="text-xs">Status</Label>
+                <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as typeof statusFilter)}>
+                  <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="ALL">All statuses</SelectItem>
+                    <SelectItem value="ACTIVE">Active</SelectItem>
+                    <SelectItem value="INACTIVE">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {hasFilters && (
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="flex items-center gap-1 pb-2 text-xs text-text-tertiary transition-colors hover:text-danger"
+                >
+                  <X className="h-3 w-3" /> Clear
+                </button>
+              )}
+            </div>
+          </Card>
+        )}
+
         {isLoading ? (
           <TableSkeleton />
         ) : !users?.length ? (
           <EmptyState title="No users yet" description="Add your first portal user to get started." />
+        ) : !filteredUsers.length ? (
+          <EmptyState
+            title="No users match your filters"
+            description="Try a different search term or clear the filters."
+            action={
+              <Button variant="secondary" size="sm" onClick={clearFilters}>
+                Clear filters
+              </Button>
+            }
+          />
         ) : (
           <Card className="p-0 animate-fade-slide-in">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Status</TableHead>
+                  <SortableHeader sortKey="name" current={sort} onSort={handleSort}>Name</SortableHeader>
+                  <SortableHeader sortKey="email" current={sort} onSort={handleSort}>Email</SortableHeader>
+                  <SortableHeader sortKey="role" current={sort} onSort={handleSort}>Role</SortableHeader>
+                  <SortableHeader sortKey="active" current={sort} onSort={handleSort}>Status</SortableHeader>
                   <TableHead>2FA</TableHead>
-                  <TableHead>Last login</TableHead>
+                  <SortableHeader sortKey="lastLoginAt" current={sort} onSort={handleSort}>Last login</SortableHeader>
                   <TableHead />
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {users.map((u) => {
+                {filteredUsers.map((u) => {
                   const isSelf = u.id === currentUser?.id
-                  const lastAdmin =
-                    u.role === 'ADMIN' && users.filter((x) => x.role === 'ADMIN' && x.active).length <= 1
+                  const lastAdmin = isLastActiveAdmin(u)
 
                   return (
                     <TableRow key={u.id}>

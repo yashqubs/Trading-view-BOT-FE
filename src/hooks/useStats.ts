@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import {
   getByStock,
   getDailyActivity,
+  getOpenPositions,
   getOverview,
   getStatusBreakdown,
   getStockStats,
@@ -35,6 +36,14 @@ export function useStatusBreakdown(filters: StatsFilters = {}) {
   return useQuery({
     queryKey: ['stats', 'status-breakdown', filters],
     queryFn: () => getStatusBreakdown(filters),
+  })
+}
+
+export function useOpenPositions(ticker?: string) {
+  return useQuery({
+    queryKey: ['stats', 'open-positions', ticker],
+    queryFn: () => getOpenPositions(ticker),
+    refetchInterval: 30_000,
   })
 }
 

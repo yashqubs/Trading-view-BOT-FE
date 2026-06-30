@@ -27,6 +27,7 @@ import { DateRangePicker, type DateRangeValue } from '@/components/common/DateRa
 import { LineChartCard } from '@/components/charts/LineChartCard'
 import { BarChartCard } from '@/components/charts/BarChartCard'
 import { DonutChartCard } from '@/components/charts/DonutChartCard'
+import { ChartExpandModal } from '@/components/charts/ChartExpandModal'
 import { useStockStats } from '@/hooks/useStats'
 import { useTrades } from '@/hooks/useTrades'
 import { exportTradesCsv, type TradeFilters, type TradeSortBy } from '@/api/trades'
@@ -35,6 +36,16 @@ import { formatCount, formatDateTime, formatMoney, formatPercent, formatPrice, f
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 25
+
+type ExpandedChart = 'timeline' | 'entry-prices' | 'buy-sell' | 'status-breakdown' | 'invested-over-time'
+
+const EXPANDED_CHART_TITLES: Record<ExpandedChart, string> = {
+  timeline: 'Trade history timeline',
+  'entry-prices': 'Signal entry prices',
+  'buy-sell': 'Buy vs sell',
+  'status-breakdown': 'Status breakdown',
+  'invested-over-time': 'Invested amount over time',
+}
 
 const STATUS_LABELS: Record<TradeStatus, string> = {
   SUCCESS: 'Success',
@@ -107,6 +118,7 @@ export function StockDetail() {
   const [sort, setSort] = useState<SortConfig>({ by: 'signalReceivedAt', order: 'desc' })
   const [page, setPage] = useState(1)
   const [exporting, setExporting] = useState(false)
+  const [expandedChart, setExpandedChart] = useState<ExpandedChart | null>(null)
 
   useEffect(() => {
     setPage(1)
@@ -205,7 +217,7 @@ export function StockDetail() {
       <Card className="animate-fade-slide-in">
         <div className="flex flex-col gap-1">
           <Label className="text-xs">Date range</Label>
-          <DateRangePicker value={dateRange} onChange={setDateRange} allowAll />
+          <DateRangePicker value={dateRange} onChange={setDateRange} />
         </div>
       </Card>
 
@@ -232,6 +244,7 @@ export function StockDetail() {
           xKey="date"
           yKey="trades"
           loading={stats.isLoading}
+          onExpand={() => setExpandedChart('timeline')}
         />
         <LineChartCard
           title="Signal entry prices"
@@ -239,6 +252,7 @@ export function StockDetail() {
           xKey="date"
           yKey="price"
           loading={stats.isLoading}
+          onExpand={() => setExpandedChart('entry-prices')}
         />
         <DonutChartCard
           title="Buy vs sell"
@@ -251,6 +265,7 @@ export function StockDetail() {
               : undefined
           }
           loading={stats.isLoading}
+          onExpand={() => setExpandedChart('buy-sell')}
         />
         <BarChartCard
           title="Status breakdown"
@@ -258,6 +273,7 @@ export function StockDetail() {
           xKey="status"
           yKey="count"
           loading={stats.isLoading}
+          onExpand={() => setExpandedChart('status-breakdown')}
         />
         <div className="lg:col-span-2">
           <BarChartCard
@@ -266,9 +282,80 @@ export function StockDetail() {
             xKey="date"
             yKey="invested"
             loading={stats.isLoading}
+            onExpand={() => setExpandedChart('invested-over-time')}
           />
         </div>
       </div>
+
+      {/* ── Expanded chart modal — reuses the page's own date-range filter,
+          so adjustments here stay in sync with the stat cards above. ── */}
+      <ChartExpandModal
+        open={expandedChart !== null}
+        onOpenChange={(open) => !open && setExpandedChart(null)}
+        title={expandedChart ? EXPANDED_CHART_TITLES[expandedChart] : ''}
+        filters={<DateRangePicker value={dateRange} onChange={setDateRange} />}
+      >
+        {expandedChart === 'timeline' && (
+          <LineChartCard
+            title={EXPANDED_CHART_TITLES.timeline}
+            bare
+            data={stats.data?.timeline}
+            xKey="date"
+            yKey="trades"
+            loading={stats.isLoading}
+            height={420}
+          />
+        )}
+        {expandedChart === 'entry-prices' && (
+          <LineChartCard
+            title={EXPANDED_CHART_TITLES['entry-prices']}
+            bare
+            data={stats.data?.entryPrices}
+            xKey="date"
+            yKey="price"
+            loading={stats.isLoading}
+            height={420}
+          />
+        )}
+        {expandedChart === 'buy-sell' && (
+          <DonutChartCard
+            title={EXPANDED_CHART_TITLES['buy-sell']}
+            bare
+            data={
+              stats.data
+                ? [
+                    { name: 'Buy', value: stats.data.buyCount },
+                    { name: 'Sell', value: stats.data.sellCount },
+                  ]
+                : undefined
+            }
+            loading={stats.isLoading}
+            height={420}
+          />
+        )}
+        {expandedChart === 'status-breakdown' && (
+          <BarChartCard
+            title={EXPANDED_CHART_TITLES['status-breakdown']}
+            bare
+            data={stats.data?.statusBreakdown}
+            xKey="status"
+            yKey="count"
+            loading={stats.isLoading}
+            height={420}
+          />
+        )}
+        {expandedChart === 'invested-over-time' && (
+          <BarChartCard
+            title={EXPANDED_CHART_TITLES['invested-over-time']}
+            bare
+            data={stats.data?.investedOverTime}
+            xKey="date"
+            yKey="invested"
+            loading={stats.isLoading}
+            height={420}
+          />
+        )}
+      </ChartExpandModal>
 
       {/* ── Trade history ── */}
       <div className="flex flex-col gap-3">
@@ -285,7 +372,7 @@ export function StockDetail() {
           <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Date range</Label>
-              <DateRangePicker value={dateRange} onChange={setDateRange} allowAll />
+              <DateRangePicker value={dateRange} onChange={setDateRange} />
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="flex flex-col gap-1">

@@ -144,6 +144,16 @@ export interface StockActivity {
   invested: number
 }
 
+export interface OpenPosition {
+  tvTicker: string
+  instrumentName: string
+  igEpic: string
+  direction: TradeDirection
+  size: number
+  /** False if IG reports a position for an epic with no (or no longer active) stock mapping. */
+  mapped: boolean
+}
+
 export interface StatusBreakdownPoint {
   status: TradeStatus
   count: number

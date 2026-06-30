@@ -1,4 +1,5 @@
 import {
+  Briefcase,
   LayoutDashboard,
   LineChart,
   ListChecks,
@@ -19,6 +20,7 @@ export interface NavItem {
 export const NAV_ITEMS: NavItem[] = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/stocks', label: 'Stocks', icon: LineChart },
+  { to: '/positions', label: 'Open positions', icon: Briefcase },
   { to: '/trades', label: 'Trades', icon: ListChecks },
   { to: '/conditions', label: 'Conditions', icon: SlidersHorizontal },
   { to: '/users', label: 'Users', icon: Users, adminOnly: true },

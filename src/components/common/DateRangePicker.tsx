@@ -42,7 +42,8 @@ function fromISO(s: string): Date {
   return new Date(y, m - 1, d)
 }
 
-function calcPreset(key: PresetKey): { from: string; to: string; days: number } {
+/** Exported so pages can seed their initial DateRangeValue with real dates instead of a label-only preset. */
+export function calcPreset(key: PresetKey): { from: string; to: string; days: number } {
   if (key === 'all') return { from: '', to: '', days: 0 }
   const today = new Date()
   today.setHours(0, 0, 0, 0)
@@ -75,12 +76,10 @@ interface DateRangePickerProps {
   value: DateRangeValue
   onChange: (v: DateRangeValue) => void
   onDaysChange?: (days: number) => void
-  /** Show an "All time" pill (no date filter) as the first option. */
-  allowAll?: boolean
   className?: string
 }
 
-export function DateRangePicker({ value, onChange, onDaysChange, allowAll, className }: DateRangePickerProps) {
+export function DateRangePicker({ value, onChange, onDaysChange, className }: DateRangePickerProps) {
   const [customOpen, setCustomOpen] = useState(false)
   const [pendingRange, setPendingRange] = useState<DateRange | undefined>(undefined)
   const [hoverDay, setHoverDay] = useState<Date | undefined>(undefined)
@@ -142,20 +141,6 @@ export function DateRangePicker({ value, onChange, onDaysChange, allowAll, class
 
   return (
     <div className={cn('flex items-center gap-1 overflow-x-auto rounded-md bg-surface-2 p-1', className)}>
-      {allowAll && (
-        <button
-          type="button"
-          onClick={() => applyPreset('all')}
-          className={cn(
-            'shrink-0 whitespace-nowrap rounded px-2.5 py-1 text-xs font-medium transition-colors',
-            value.preset === 'all'
-              ? 'bg-accent text-accent-foreground'
-              : 'text-text-secondary hover:bg-accent/15 hover:text-accent',
-          )}
-        >
-          {ALL_TIME_PRESET.label}
-        </button>
-      )}
       {PRESETS.map((p) => (
         <button
           key={p.key}
@@ -171,6 +156,18 @@ export function DateRangePicker({ value, onChange, onDaysChange, allowAll, class
           {p.label}
         </button>
       ))}
+      <button
+        type="button"
+        onClick={() => applyPreset('all')}
+        className={cn(
+          'shrink-0 whitespace-nowrap rounded px-2.5 py-1 text-xs font-medium transition-colors',
+          value.preset === 'all'
+            ? 'bg-accent text-accent-foreground'
+            : 'text-text-secondary hover:bg-accent/15 hover:text-accent',
+        )}
+      >
+        {ALL_TIME_PRESET.label}
+      </button>
 
       <Popover open={customOpen} onOpenChange={openCustom}>
         <PopoverTrigger asChild>

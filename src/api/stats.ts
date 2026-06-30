@@ -2,6 +2,7 @@ import { api } from './axios'
 import type {
   DailyActivityPoint,
   DashboardOverview,
+  OpenPosition,
   StatusBreakdownPoint,
   StockActivity,
   StockStats,
@@ -37,6 +38,12 @@ export function getByStock(filters: StatsFilters = {}) {
 export function getStatusBreakdown(filters: StatsFilters = {}) {
   return api
     .get<StatusBreakdownPoint[]>('/stats/status-breakdown', { params: filters })
+    .then((r) => r.data)
+}
+
+export function getOpenPositions(ticker?: string) {
+  return api
+    .get<OpenPosition[]>('/stats/open-positions', { params: ticker ? { ticker } : {} })
     .then((r) => r.data)
 }
 

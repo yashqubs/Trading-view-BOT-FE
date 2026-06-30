@@ -14,6 +14,7 @@ import type {
   TradeSummary,
   StockMapping,
   IgMarketResult,
+  OpenPosition,
 } from '@/types'
 import { TRADE_STATUSES } from '@/types'
 import type { TradeFilters, TradeListResponse, TradeSortBy } from '@/api/trades'
@@ -168,6 +169,15 @@ export const MOCK_STOCKS: StockMapping[] = [
     createdAt: '2025-04-15T10:00:00.000Z',
     updatedAt: '2025-06-25T10:00:00.000Z',
   },
+]
+
+// ─── Open Positions ───────────────────────────────────────────────────────────
+
+export const MOCK_OPEN_POSITIONS: OpenPosition[] = [
+  { tvTicker: 'AAPL', instrumentName: 'Apple Inc', igEpic: 'IX.D.AAPL.DAILY.IP', direction: 'BUY', size: 1.5, mapped: true },
+  { tvTicker: 'TSLA', instrumentName: 'Tesla Inc', igEpic: 'IX.D.TSLA.DAILY.IP', direction: 'BUY', size: 0.8, mapped: true },
+  { tvTicker: 'NVDA', instrumentName: 'NVIDIA Corp', igEpic: 'IX.D.NVDA.DAILY.IP', direction: 'BUY', size: 2.1, mapped: true },
+  { tvTicker: 'AMZN', instrumentName: 'Amazon.com Inc', igEpic: 'IX.D.AMZN.DAILY.IP', direction: 'BUY', size: 1.2, mapped: true },
 ]
 
 // ─── IG Market Search ─────────────────────────────────────────────────────────

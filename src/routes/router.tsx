@@ -8,6 +8,7 @@ import { ChangePassword } from '@/pages/login/ChangePassword'
 import { Dashboard } from '@/pages/dashboard/Dashboard'
 import { Stocks } from '@/pages/stocks/Stocks'
 import { StockDetail } from '@/pages/stocks/StockDetail'
+import { OpenPositions } from '@/pages/positions/OpenPositions'
 import { Trades } from '@/pages/trades/Trades'
 import { Conditions } from '@/pages/conditions/Conditions'
 import { Users } from '@/pages/users/Users'
@@ -28,6 +29,7 @@ export const router = createBrowserRouter([
           { path: '/', element: <Dashboard /> },
           { path: '/stocks', element: <Stocks /> },
           { path: '/stocks/:ticker', element: <StockDetail /> },
+          { path: '/positions', element: <OpenPositions /> },
           { path: '/trades', element: <Trades /> },
           { path: '/conditions', element: <Conditions /> },
           { path: '/settings', element: <Settings /> },

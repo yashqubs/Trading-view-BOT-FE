@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { ArrowDown, ArrowUp } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -13,9 +14,11 @@ interface StatCardProps {
   loading?: boolean
   action?: ReactNode
   warning?: boolean
+  /** Route to navigate to on click — makes the card a link to the relevant detail page. */
+  to?: string
 }
 
-export function StatCard({ label, value, format, trend, loading, action, warning }: StatCardProps) {
+export function StatCard({ label, value, format, trend, loading, action, warning, to }: StatCardProps) {
   const animated = useCountUp(value)
 
   if (loading) {
@@ -27,8 +30,14 @@ export function StatCard({ label, value, format, trend, loading, action, warning
     )
   }
 
-  return (
-    <Card className={cn('animate-fade-slide-in', warning && 'border-warning/40')}>
+  const content = (
+    <Card
+      className={cn(
+        'animate-fade-slide-in',
+        warning && 'border-warning/40',
+        to && 'card-glow cursor-pointer transition-colors hover:border-accent/30',
+      )}
+    >
       <div className="flex items-start justify-between">
         <p className="text-[13px] text-text-secondary">{label}</p>
         {action}
@@ -48,5 +57,13 @@ export function StatCard({ label, value, format, trend, loading, action, warning
         </div>
       )}
     </Card>
+  )
+
+  if (!to) return content
+
+  return (
+    <Link to={to} className="block rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+      {content}
+    </Link>
   )
 }
