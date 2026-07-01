@@ -16,18 +16,25 @@ export function AlertBanner({ variant, children, to }: AlertBannerProps) {
   const content = (
     <div
       className={cn(
-        'flex items-center gap-2.5 rounded-card border px-4 py-3 text-sm animate-fade-slide-in',
+        'flex items-center gap-3 rounded-card border px-4 py-3 text-sm backdrop-blur-sm animate-fade-slide-in',
         variant === 'danger'
-          ? 'border-danger/30 bg-danger/10 text-danger'
-          : 'border-warning/30 bg-warning/10 text-warning',
-        to && 'transition-colors',
-        to && variant === 'danger' && 'hover:border-danger/50 hover:bg-danger/15',
-        to && variant === 'warning' && 'hover:border-warning/50 hover:bg-warning/15',
+          ? 'border-danger/30 bg-danger/[0.08] text-danger'
+          : 'border-warning/30 bg-warning/[0.08] text-warning',
+        to && 'transition-all',
+        to && variant === 'danger' && 'hover:border-danger/50 hover:bg-danger/[0.14]',
+        to && variant === 'warning' && 'hover:border-warning/50 hover:bg-warning/[0.14]',
       )}
       role={to ? undefined : 'alert'}
     >
-      <Icon className="h-4 w-4 shrink-0" />
-      <span className="flex-1">{children}</span>
+      <span
+        className={cn(
+          'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
+          variant === 'danger' ? 'bg-danger/15' : 'bg-warning/15',
+        )}
+      >
+        <Icon className="h-4 w-4" />
+      </span>
+      <span className="flex-1 font-medium">{children}</span>
       {to && <ChevronRight className="h-4 w-4 shrink-0 opacity-60" />}
     </div>
   )

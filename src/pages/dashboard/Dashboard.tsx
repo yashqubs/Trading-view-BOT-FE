@@ -1,7 +1,17 @@
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Link } from 'react-router-dom'
 import { toast } from 'sonner'
-import { SlidersHorizontal, X } from 'lucide-react'
+import {
+  AlertOctagon,
+  Boxes,
+  Gauge,
+  SlidersHorizontal,
+  Target,
+  TrendingUp,
+  Wallet,
+  X,
+  Zap,
+} from 'lucide-react'
 import { StatCard } from '@/components/common/StatCard'
 import { AlertBanner } from '@/components/common/AlertBanner'
 import { ProgressBar } from '@/components/common/ProgressBar'
@@ -290,16 +300,11 @@ export function Dashboard() {
       />
 
       {/* ── Alerts ── */}
-      {(data?.autoPaused || (data && data.consecutiveFailures > 0) || approachingLimit) && (
+      {(data?.autoPaused || approachingLimit) && (
         <div className="flex flex-col gap-3">
           {data?.autoPaused && (
             <AlertBanner variant="danger" to="/conditions">
               The bot has auto-paused after repeated consecutive failures. Review the conditions page before re-enabling.
-            </AlertBanner>
-          )}
-          {!!data && data.consecutiveFailures > 0 && !data.autoPaused && (
-            <AlertBanner variant="warning" to="/trades?status=FAILED">
-              {data.consecutiveFailures} consecutive trade failure{data.consecutiveFailures > 1 ? 's' : ''} recorded.
             </AlertBanner>
           )}
           {approachingLimit && (
@@ -313,30 +318,37 @@ export function Dashboard() {
       {/* ── KPI stat cards ── */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {/* Bot status card */}
-        <Card className={cn('animate-fade-slide-in', data?.botEnabled && 'border-accent/20')}>
-          <p className="text-[13px] text-text-secondary">Bot status</p>
-          <div className="mt-2 flex items-center gap-3">
-            <p
-              className={cn(
-                'text-[30px] font-medium',
-                data?.botEnabled ? 'text-accent' : 'text-text-secondary',
-              )}
-            >
-              {overview.isLoading ? '…' : data?.botEnabled ? 'On' : 'Off'}
-            </p>
-            <Switch
-              checked={!!data?.botEnabled}
-              disabled={user?.role !== 'ADMIN' || overview.isLoading || setBotEnabled.isPending}
-              onCheckedChange={(checked) =>
-                setBotEnabled.mutate(checked, {
-                  onSuccess: () => toast.success(checked ? 'Bot enabled' : 'Bot disabled'),
-                  onError: () => toast.error('Could not update bot status'),
-                })
-              }
-              aria-label="Toggle bot trading"
-            />
+        <Card className="card-glow animate-fade-slide-in justify-between hover:border-accent/30">
+          <div className="flex items-start justify-between">
+            <p className="text-[13px] text-text-secondary">Bot status</p>
+            {!overview.isLoading && (
+              <span className={cn('status-dot', data?.botEnabled ? 'text-accent' : 'text-text-tertiary')} />
+            )}
           </div>
-          {data?.autoPaused && <p className="mt-1 text-xs text-danger">Auto-paused</p>}
+          <div>
+            <div className="mt-2 flex items-center gap-3">
+              <p
+                className={cn(
+                  'text-[30px] font-medium',
+                  data?.botEnabled ? 'text-accent' : 'text-text-secondary',
+                )}
+              >
+                {overview.isLoading ? '…' : data?.botEnabled ? 'On' : 'Off'}
+              </p>
+              <Switch
+                checked={!!data?.botEnabled}
+                disabled={user?.role !== 'ADMIN' || overview.isLoading || setBotEnabled.isPending}
+                onCheckedChange={(checked) =>
+                  setBotEnabled.mutate(checked, {
+                    onSuccess: () => toast.success(checked ? 'Bot enabled' : 'Bot disabled'),
+                    onError: () => toast.error('Could not update bot status'),
+                  })
+                }
+                aria-label="Toggle bot trading"
+              />
+            </div>
+            <p className="mt-1.5 text-xs text-danger">{data?.autoPaused ? 'Auto-paused' : ' '}</p>
+          </div>
         </Card>
 
         <StatCard
@@ -345,6 +357,8 @@ export function Dashboard() {
           format={formatCount}
           loading={overview.isLoading}
           to={tradesLink()}
+          icon={TrendingUp}
+          accent="indigo"
         />
         <StatCard
           label="Today's trades"
@@ -352,6 +366,8 @@ export function Dashboard() {
           format={formatCount}
           loading={overview.isLoading}
           to={todaysTradesLink()}
+          icon={Zap}
+          accent="sky"
         />
         <StatCard
           label="Today's invested"
@@ -359,27 +375,41 @@ export function Dashboard() {
           format={formatMoney}
           loading={overview.isLoading}
           to={todaysInvestedLink()}
+          icon={Wallet}
+          accent="teal"
         />
 
         {/* Daily limit remaining */}
         <Link
           to="/conditions"
-          className="block rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+          className="block h-full rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         >
-          <Card className="card-glow animate-fade-slide-in hover:border-accent/30">
-            <p className="text-[13px] text-text-secondary">Daily limit remaining</p>
-            <p className="tabular-nums mt-2 text-[30px] font-medium text-text-primary">
-              {overview.isLoading ? '…' : limitPct ? `${(100 - limitPct).toFixed(0)}%` : '—'}
-            </p>
-            <div className="mt-3">
-              <ProgressBar value={limitPct ?? 0} />
+          <Card
+            className="card-glow animate-fade-slide-in justify-between hover:border-[color:color-mix(in_srgb,var(--stat-accent)_40%,transparent)]"
+            style={{ '--stat-accent': 'var(--stat-violet)' } as CSSProperties}
+          >
+            <span className="stat-accent-bar" />
+            <div className="flex items-start justify-between">
+              <p className="text-[13px] text-text-secondary">Daily limit remaining</p>
+              <span className="stat-icon-badge shrink-0">
+                <Gauge className="h-4 w-4" />
+              </span>
             </div>
-            {data && (
-              <p className="mt-1.5 text-xs text-text-tertiary">
-                {formatMoney(data.todaysInvested)} of{' '}
-                {data.dailyMaxTotalInvestment ? formatMoney(data.dailyMaxTotalInvestment) : 'unlimited'}
+            <div>
+              <p className="tabular-nums mt-2 text-[30px] font-semibold tracking-tight text-text-primary">
+                {overview.isLoading ? '…' : limitPct ? `${(100 - limitPct).toFixed(0)}%` : '—'}
               </p>
-            )}
+              <div className="mt-3">
+                <ProgressBar value={limitPct ?? 0} />
+              </div>
+              <p className="mt-1.5 text-xs text-text-tertiary">
+                {data
+                  ? `${formatMoney(data.todaysInvested)} of ${
+                      data.dailyMaxTotalInvestment ? formatMoney(data.dailyMaxTotalInvestment) : 'unlimited'
+                    }`
+                  : ' '}
+              </p>
+            </div>
           </Card>
         </Link>
 
@@ -389,6 +419,8 @@ export function Dashboard() {
           format={formatCount}
           loading={overview.isLoading}
           to={positionsLink()}
+          icon={Boxes}
+          accent="blue"
         />
         <StatCard
           label={`Success rate (${periodLabel})`}
@@ -396,6 +428,8 @@ export function Dashboard() {
           format={formatPercent}
           loading={overview.isLoading}
           to={tradesLink()}
+          icon={Target}
+          accent="violet"
         />
         <StatCard
           label="Consecutive failures"
@@ -404,6 +438,8 @@ export function Dashboard() {
           loading={overview.isLoading}
           warning={!!data && data.consecutiveFailures > 0}
           to="/trades?status=FAILED"
+          icon={AlertOctagon}
+          accent="rose"
         />
       </div>
 

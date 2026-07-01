@@ -8,7 +8,7 @@ const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLI
       ref={ref}
       className={cn(
         // Layout & shape
-        'flex h-10 w-full rounded-lg border border-border bg-surface-2 px-3',
+        'flex h-10 w-full rounded-lg border border-border bg-surface-2 px-3 shadow-[var(--shadow-sm)]',
         // Typography
         'text-sm text-text-primary',
         // Placeholder
@@ -17,6 +17,7 @@ const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLI
         'transition-colors duration-150',
         // Focus ring
         'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:border-transparent',
+        'focus-visible:shadow-[0_0_0_4px_rgb(var(--accent-rgb)/0.12)]',
         // Hover
         'hover:border-text-tertiary',
         // Disabled

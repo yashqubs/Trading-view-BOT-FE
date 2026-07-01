@@ -4,7 +4,7 @@ import { UserMenu } from './UserMenu'
 
 export function TopBar() {
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-surface px-4 md:px-6">
+    <header className="flex h-16 items-center justify-between border-b border-border bg-surface/80 px-4 shadow-[var(--shadow-sm)] backdrop-blur-md md:px-6">
       <div className="md:hidden">
         <p className="text-sm font-medium text-text-primary">Trading bot</p>
       </div>

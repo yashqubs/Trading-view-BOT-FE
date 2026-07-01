@@ -8,7 +8,7 @@ const buttonVariants = cva(
     'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium',
     'transition-all duration-150',
     'active:scale-[0.97]',
-    'disabled:pointer-events-none disabled:opacity-40',
+    'disabled:pointer-events-none disabled:opacity-40 disabled:shadow-none',
     'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg',
     'select-none',
   ].join(' '),
@@ -16,15 +16,15 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary: [
-          'bg-accent text-accent-foreground',
-          'hover:brightness-110 hover:shadow-[0_0_12px_rgba(34,211,238,0.3)]',
+          'bg-gradient-to-r from-accent to-stat-violet text-accent-foreground shadow-[var(--shadow-sm)]',
+          'hover:brightness-110 hover:shadow-[0_0_16px_rgb(var(--accent-rgb)/0.4)]',
         ].join(' '),
         secondary: [
-          'bg-transparent border border-border text-text-primary',
+          'bg-surface border border-border text-text-primary shadow-[var(--shadow-sm)]',
           'hover:bg-surface-2 hover:border-text-tertiary',
         ].join(' '),
         destructive: [
-          'bg-transparent border border-danger/40 text-danger',
+          'bg-surface border border-danger/40 text-danger shadow-[var(--shadow-sm)]',
           'hover:bg-danger/10 hover:border-danger',
         ].join(' '),
         ghost: [

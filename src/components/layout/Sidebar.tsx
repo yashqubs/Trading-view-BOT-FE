@@ -24,17 +24,20 @@ export function Sidebar() {
     <TooltipProvider delayDuration={200}>
       <aside
         className={cn(
-          'hidden flex-col border-r border-border bg-surface py-5 transition-[width] duration-200 md:flex',
+          'relative hidden flex-col border-r border-border bg-surface py-5 shadow-[var(--shadow-card)] transition-[width] duration-200 md:flex',
           collapsed ? 'w-[68px] px-2' : 'w-56 px-3',
         )}
       >
-        <div className={cn('mb-6 flex items-center gap-2', collapsed ? 'justify-center px-0' : 'px-2')}>
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+        {/* Top accent line */}
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-accent/70 via-stat-violet/50 to-transparent" />
+
+        <div className={cn('mb-6 flex items-center gap-2.5', collapsed ? 'justify-center px-0' : 'px-2')}>
+          <span className="relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent to-stat-violet text-accent-foreground shadow-[0_0_16px_rgb(var(--accent-rgb)/0.45)]">
             <TrendingUp className="h-4 w-4" />
           </span>
           {!collapsed && (
             <div className="min-w-0">
-              <p className="truncate text-sm font-medium text-text-primary">Trading bot</p>
+              <p className="truncate text-sm font-semibold tracking-tight text-text-primary">Trading bot</p>
               <p className="truncate text-xs text-text-tertiary">Admin portal</p>
             </div>
           )}
@@ -49,7 +52,7 @@ export function Sidebar() {
                 end={item.end}
                 className={({ isActive }) =>
                   cn(
-                    'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                    'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                     collapsed && 'justify-center px-0',
                     isActive
                       ? 'bg-accent-soft text-accent'
@@ -57,8 +60,20 @@ export function Sidebar() {
                   )
                 }
               >
-                <item.icon className="h-4 w-4 shrink-0" />
-                {!collapsed && <span className="truncate">{item.label}</span>}
+                {({ isActive }) => (
+                  <>
+                    {isActive && (
+                      <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-accent" />
+                    )}
+                    <item.icon
+                      className={cn(
+                        'h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-105',
+                        isActive && 'text-accent',
+                      )}
+                    />
+                    {!collapsed && <span className="truncate">{item.label}</span>}
+                  </>
+                )}
               </NavLink>
             )
 

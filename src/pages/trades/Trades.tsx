@@ -82,16 +82,20 @@ function SortIcon({ sortKey, current }: { sortKey: TradeSortBy; current: SortCon
 // ─── P&L cell ─────────────────────────────────────────────────────────────────
 
 function PnLCell({ value, pct }: { value: number | null; pct: number | null }) {
-  if (value === null) return <span className="text-text-tertiary">Open</span>
-  const isPositive = value >= 0
+  const isPositive = value !== null && value >= 0
   return (
-    <div className={cn('flex flex-col', isPositive ? 'text-success' : 'text-danger')}>
-      <span className="font-medium tabular-nums">{isPositive ? '+' : ''}{formatMoney(value)}</span>
-      {pct !== null && (
-        <span className="text-xs opacity-80 tabular-nums">
-          {isPositive ? '+' : ''}{pct.toFixed(2)}%
-        </span>
+    <div
+      className={cn(
+        'flex flex-col',
+        value === null ? 'text-text-tertiary' : isPositive ? 'text-success' : 'text-danger',
       )}
+    >
+      <span className="font-medium tabular-nums">
+        {value === null ? 'Open' : `${isPositive ? '+' : ''}${formatMoney(value)}`}
+      </span>
+      <span className="text-xs opacity-80 tabular-nums">
+        {value !== null && pct !== null ? `${isPositive ? '+' : ''}${pct.toFixed(2)}%` : ' '}
+      </span>
     </div>
   )
 }

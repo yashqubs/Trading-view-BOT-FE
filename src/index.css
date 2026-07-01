@@ -7,41 +7,106 @@
 /* ─── Design tokens ───────────────────────────────────────────────────────── */
 
 :root {
-  --bg: #0a0e1a;
-  --surface: #121826;
-  --surface-2: #1a2236;
-  --border: rgba(255, 255, 255, 0.08);
-  --text-primary: #e8ecf4;
-  --text-secondary: #9aa4b8;
-  --text-tertiary: #5f6b85;
-  --accent: #22d3ee;
-  --accent-soft: rgba(34, 211, 238, 0.14);
-  --accent-foreground: #06141a;
-  --success: #34d399;
-  --danger: #f87171;
-  --warning: #fbbf24;
-  --neutral: #64748b;
-  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.4);
-  --shadow-floating: 0 8px 40px rgba(0, 0, 0, 0.6);
+  --bg: #0f121a;
+  --surface: #141824;
+  --surface-2: #1c2131;
+  --border: #21283b;
+  --text-primary: #eaecf1;
+  --text-secondary: #9099ac;
+  --text-tertiary: #5c6579;
+  --accent: #5666f5;
+  --accent-soft: rgba(86, 102, 245, 0.15);
+  --accent-foreground: #ffffff;
+  --success: #20c55d;
+  --danger: #db2424;
+  --warning: #faaf2e;
+  --neutral: #727e97;
+  --shadow-card: 0 6px 20px rgba(0, 0, 0, 0.45), 0 1.5px 4px rgba(0, 0, 0, 0.3);
+  --shadow-floating: 0 12px 48px rgba(0, 0, 0, 0.65), 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3), 0 1px 2px rgba(0, 0, 0, 0.24);
+
+  /* Stat accent palette — per-card icon colours */
+  --stat-violet: #9b6af1;
+  --stat-indigo: #6573f6;
+  --stat-blue: #4495f8;
+  --stat-sky: #2bb3f3;
+  --stat-teal: #1ad1b5;
+  --stat-orange: #fa8f42;
+  --stat-rose: #f55b75;
+
+  /* R G B channel triplets — lets Tailwind's `/opacity` modifiers (border-danger/30,
+     bg-warning/10, etc.) compute an alpha-blended color at build time. Tailwind can't
+     derive channels from a `var(--x)` that resolves to a hex string, so every color
+     used with an opacity modifier needs its channel form kept in sync here. */
+  --bg-rgb: 15 18 26;
+  --surface-rgb: 20 24 36;
+  --surface-2-rgb: 28 33 49;
+  --border-rgb: 33 40 59;
+  --text-primary-rgb: 234 236 241;
+  --text-secondary-rgb: 144 153 172;
+  --text-tertiary-rgb: 92 101 121;
+  --accent-rgb: 86 102 245;
+  --accent-foreground-rgb: 255 255 255;
+  --success-rgb: 32 197 93;
+  --danger-rgb: 219 36 36;
+  --warning-rgb: 250 175 46;
+  --neutral-rgb: 114 126 151;
+  --stat-violet-rgb: 155 106 241;
+  --stat-indigo-rgb: 101 115 246;
+  --stat-blue-rgb: 68 149 248;
+  --stat-sky-rgb: 43 179 243;
+  --stat-teal-rgb: 26 209 181;
+  --stat-orange-rgb: 250 143 66;
+  --stat-rose-rgb: 245 91 117;
 }
 
 :root.light {
-  --bg: #f5f7fb;
+  --bg: #eef0f4;
   --surface: #ffffff;
-  --surface-2: #eef1f7;
-  --border: rgba(0, 0, 0, 0.08);
-  --text-primary: #0f172a;
-  --text-secondary: #475569;
-  --text-tertiary: #94a3b8;
-  --accent: #0891a8;
-  --accent-soft: rgba(8, 145, 168, 0.1);
-  --accent-foreground: #f5fdff;
-  --success: #15803d;
-  --danger: #b91c1c;
-  --warning: #b45309;
-  --neutral: #94a3b8;
-  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.08);
-  --shadow-floating: 0 8px 32px rgba(0, 0, 0, 0.12);
+  --surface-2: #e3e7ee;
+  --border: #ccd2dd;
+  --text-primary: #151a28;
+  --text-secondary: #677183;
+  --text-tertiary: #929aaa;
+  --accent: #3548f3;
+  --accent-soft: rgba(53, 72, 243, 0.1);
+  --accent-foreground: #ffffff;
+  --success: #1a9e4a;
+  --danger: #e52e2e;
+  --warning: #f9a006;
+  --neutral: #929aaa;
+  --shadow-card: 0 3px 14px rgba(30, 41, 59, 0.09), 0 1px 3px rgba(30, 41, 59, 0.08);
+  --shadow-floating: 0 16px 44px rgba(30, 41, 59, 0.16), 0 3px 10px rgba(30, 41, 59, 0.1);
+  --shadow-sm: 0 1px 3px rgba(30, 41, 59, 0.08), 0 1px 2px rgba(30, 41, 59, 0.06);
+
+  --stat-violet: #8244ee;
+  --stat-indigo: #3e50f4;
+  --stat-blue: #1379f6;
+  --stat-sky: #0c95d4;
+  --stat-teal: #14a38e;
+  --stat-orange: #f97110;
+  --stat-rose: #f33554;
+
+  --bg-rgb: 238 240 244;
+  --surface-rgb: 255 255 255;
+  --surface-2-rgb: 227 231 238;
+  --border-rgb: 204 210 221;
+  --text-primary-rgb: 21 26 40;
+  --text-secondary-rgb: 103 113 131;
+  --text-tertiary-rgb: 146 154 170;
+  --accent-rgb: 53 72 243;
+  --accent-foreground-rgb: 255 255 255;
+  --success-rgb: 26 158 74;
+  --danger-rgb: 229 46 46;
+  --warning-rgb: 249 160 6;
+  --neutral-rgb: 146 154 170;
+  --stat-violet-rgb: 130 68 238;
+  --stat-indigo-rgb: 62 80 244;
+  --stat-blue-rgb: 19 121 246;
+  --stat-sky-rgb: 12 149 212;
+  --stat-teal-rgb: 20 163 142;
+  --stat-orange-rgb: 249 113 16;
+  --stat-rose-rgb: 243 53 84;
 }
 
 /* ─── Base resets ─────────────────────────────────────────────────────────── */
@@ -61,6 +126,10 @@ body,
 body {
   margin: 0;
   background-color: var(--bg);
+  background-image:
+    radial-gradient(600px circle at 8% 0%, var(--accent-soft), transparent 60%),
+    radial-gradient(500px circle at 100% 12%, rgba(155, 106, 241, 0.08), transparent 55%);
+  background-attachment: fixed;
   color: var(--text-primary);
   font-family: 'Inter', system-ui, sans-serif;
   font-weight: 400;
@@ -258,6 +327,52 @@ html {
 
 .card-glow:active {
   transform: translateY(-1px);
+}
+
+/* ─── Stat card accent bar + icon badge ──────────────────────────────────── */
+
+/* Thin gradient bar along the top edge of a stat card, coloured per-metric via
+   the `--stat-accent` custom property set inline on the element. Sits inside
+   the card's own border, so it reads as an accent stripe rather than a border
+   override. */
+.stat-accent-bar {
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  border-radius: 14px 14px 0 0;
+  background: linear-gradient(90deg, var(--stat-accent, var(--accent)), transparent 130%);
+  opacity: 0.9;
+}
+
+.stat-icon-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: var(--stat-accent, var(--accent));
+  background: color-mix(in srgb, var(--stat-accent, var(--accent)) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--stat-accent, var(--accent)) 24%, transparent);
+}
+
+/* ─── Live status dot (bot on/off) ───────────────────────────────────────── */
+
+.status-dot {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.status-dot::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: currentColor;
+  animation: pulse-glow 2s ease-in-out infinite;
 }
 
 /* ─── Recharts chart overrides — use theme colours ───────────────────────── */

@@ -26,10 +26,11 @@ export function BotToggle() {
   return (
     <div
       className={cn(
-        'flex items-center gap-2 rounded-full border border-border px-3 py-1.5',
-        rules.botEnabled ? 'bg-accent-soft' : 'bg-surface-2',
+        'flex items-center gap-2 rounded-full border px-3 py-1.5 shadow-[var(--shadow-sm)] transition-colors',
+        rules.botEnabled ? 'border-accent/25 bg-accent-soft' : 'border-border bg-surface-2',
       )}
     >
+      <span className={cn('status-dot', rules.botEnabled ? 'text-accent' : 'text-text-tertiary')} />
       <span className={cn('text-xs font-medium', rules.botEnabled ? 'text-accent' : 'text-text-secondary')}>
         Bot {rules.botEnabled ? 'on' : 'off'}
       </span>

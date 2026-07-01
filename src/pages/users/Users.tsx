@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Check, Copy, KeyRound, Search, UserX, X } from 'lucide-react'
+import { Check, Copy, KeyRound, Mail, Search, ShieldCheck, UserX, X } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   Tooltip,
   TooltipContent,
@@ -22,6 +23,7 @@ import { CreateUserModal } from './components/CreateUserModal'
 import { useDeactivateUser, useResetUserPassword, useUpdateUser, useUsers } from '@/hooks/useUsers'
 import { useAuth } from '@/context/AuthContext'
 import { formatDateTime } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import type { Role, User } from '@/types'
 
 type SortKey = 'name' | 'email' | 'role' | 'active' | 'lastLoginAt'
@@ -32,8 +34,19 @@ export function Users() {
   const updateUser = useUpdateUser()
   const deactivateUser = useDeactivateUser()
   const resetPassword = useResetUserPassword()
-  const [resetResult, setResetResult] = useState<{ name: string; password: string } | null>(null)
+  const [resetResult, setResetResult] = useState<{
+    id: string
+    name: string
+    password: string
+    /** Never logged in yet — no proven inbox access, so we still show the raw
+     *  password as a fallback the admin can hand over directly. Once a user
+     *  has registered (logged in at least once), the email is the only
+     *  channel we surface — showing the plaintext to the admin at that point
+     *  is unnecessary exposure. */
+    isUnregistered: boolean
+  } | null>(null)
   const [copied, setCopied] = useState(false)
+  const [resending, setResending] = useState(false)
 
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<Role | 'ALL'>('ALL')
@@ -92,12 +105,30 @@ export function Users() {
     }
   }
 
-  async function handleResetPassword(id: string, name: string) {
+  async function handleResetPassword(id: string, name: string, isUnregistered: boolean) {
     try {
       const { tempPassword } = await resetPassword.mutateAsync(id)
-      setResetResult({ name, password: tempPassword })
+      setResetResult({ id, name, password: tempPassword, isUnregistered })
+      toast.success(`Password reset — an email was sent to ${name}`)
     } catch {
       toast.error('Could not reset password')
+    }
+  }
+
+  // Resetting again generates a fresh temp password and re-triggers the same
+  // "password reset" email server-side — there's no separate email-only
+  // endpoint, resetting *is* emailing, so "resend" just reruns it.
+  async function handleResendEmail() {
+    if (!resetResult) return
+    setResending(true)
+    try {
+      const { tempPassword } = await resetPassword.mutateAsync(resetResult.id)
+      setResetResult({ ...resetResult, password: tempPassword })
+      toast.success(`Email resent to ${resetResult.name}`)
+    } catch {
+      toast.error('Could not resend email')
+    } finally {
+      setResending(false)
     }
   }
 
@@ -242,7 +273,7 @@ export function Users() {
                                 variant="ghost"
                                 size="icon"
                                 aria-label={`Reset password for ${u.name}`}
-                                onClick={() => handleResetPassword(u.id, u.name)}
+                                onClick={() => handleResetPassword(u.id, u.name, !u.lastLoginAt)}
                               >
                                 <KeyRound className="h-4 w-4" />
                               </Button>
@@ -285,21 +316,68 @@ export function Users() {
           </Card>
         )}
 
-        {resetResult && (
-          <Card className="fixed bottom-6 right-6 max-w-sm animate-fade-slide-in shadow-xl">
-            <p className="text-sm font-medium text-text-primary">Password reset for {resetResult.name}</p>
-            <p className="mt-1 text-xs text-text-secondary">Share this once — it won&apos;t be shown again.</p>
-            <div className="mt-3 flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2">
-              <span className="font-mono text-sm text-text-primary">{resetResult.password}</span>
-              <Button variant="ghost" size="icon" onClick={copyResetPassword} aria-label="Copy password">
-                {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
+        <Dialog open={!!resetResult} onOpenChange={(open) => !open && setResetResult(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
+                  <ShieldCheck className="h-5 w-5" />
+                </span>
+                <div>
+                  <DialogTitle>Password reset</DialogTitle>
+                  <DialogDescription className="mt-0.5">
+                    for {resetResult?.name}
+                  </DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            {resetResult?.isUnregistered ? (
+              <>
+                <p className="text-sm text-text-secondary">
+                  An email with this temporary password has already been sent to {resetResult?.name}. Since they
+                  haven&apos;t signed in yet, it&apos;s shown here too as a fallback — it won&apos;t be shown again
+                  after you close this dialog. They&apos;ll be asked to set a new one on their next sign-in.
+                </p>
+
+                <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-4 py-3 shadow-[var(--shadow-sm)]">
+                  <span className="font-mono text-base tracking-wide text-text-primary">{resetResult?.password}</span>
+                  <Button variant="secondary" size="sm" onClick={copyResetPassword} aria-label="Copy password">
+                    {copied ? (
+                      <>
+                        <Check className="h-4 w-4 text-success" /> Copied
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4" /> Copy
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-text-secondary">
+                An email with a new temporary password has been sent to {resetResult?.name}. Since they&apos;ve
+                already signed in before, it isn&apos;t shown here — only they receive it, by email. They&apos;ll be
+                asked to set a new one on their next sign-in.
+              </p>
+            )}
+
+            <DialogFooter className={cn(resetResult?.isUnregistered && 'items-center sm:justify-between')}>
+              {/* Only useful for a not-yet-registered invite — a registered user already has a
+                  working account and got the one reset email; there's nothing left to resend. */}
+              {resetResult?.isUnregistered && (
+                <Button variant="ghost" size="sm" onClick={handleResendEmail} disabled={resending}>
+                  <Mail className="h-4 w-4" />
+                  {resending ? 'Resending…' : 'Resend email'}
+                </Button>
+              )}
+              <Button variant="primary" onClick={() => setResetResult(null)}>
+                Done
               </Button>
-            </div>
-            <Button variant="secondary" size="sm" className="mt-3 w-full" onClick={() => setResetResult(null)}>
-              Close
-            </Button>
-          </Card>
-        )}
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </TooltipProvider>
   )
