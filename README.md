@@ -36,5 +36,6 @@ VITE_API_BASE_URL=http://your-backend-host:port
 
 ## Notes
 
-- No backend exists yet, so authenticated pages will show loading/error or empty states until the NestJS API is running. Endpoint paths for modules not explicitly specified in the project documentation (mapping, rules, trades, system status) are inferred RESTful conventions in `src/api/*.ts` — adjust them to match the real backend once it's built.
-- Auth uses an HttpOnly cookie set by the backend (`withCredentials: true` on every request) — never localStorage for tokens.
+- The backend (`Trading-view-BOT-BE`, sibling repo) is a working NestJS API — run it locally and point `VITE_API_BASE_URL` at it, or set `VITE_MOCK=true` to run the frontend standalone against local mock data (MSW) with no backend at all.
+- Auth uses an HttpOnly cookie set by the backend (`withCredentials: true` on every request, plus an `X-CSRF-Token` header on mutating requests) — never localStorage for tokens.
+- Realtime updates (trades, rules changes, IG connection status, open positions) come over a Socket.IO connection, not polling — see `src/lib/socket.ts` and `src/hooks/useSocketEvent.ts`.

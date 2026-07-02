@@ -78,7 +78,8 @@ When a TradingView indicator fires a green (buy) or red (sell) signal, the bot a
 | ORM | TypeORM | Native NestJS support |
 | Database | PostgreSQL 18 on EC2 (self-hosted) | Ubuntu 26.04 LTS default; cost saving; backup strategy (see Section 17) |
 | HTTP client | NestJS Axios module | IG API calls |
-| Authentication | JWT + bcrypt + TOTP 2FA | Portal login security |
+| Authentication | JWT + bcrypt + optional email-OTP 2FA | Portal login security |
+| Realtime | Socket.IO (NestJS WebSocket gateway) | Pushes trade/rules/position/system-status updates to the portal — replaces polling |
 | Secrets | AWS Secrets Manager | IG credentials never on disk |
 | Rate limiting | NestJS Throttler | Brute force / DoS protection |
 | Security headers | Helmet.js | HTTP security headers |
@@ -222,19 +223,22 @@ When a TradingView indicator fires a green (buy) or red (sell) signal, the bot a
 | Control | Value | Reason |
 |---|---|---|
 | Password hashing | bcrypt cost 12 | Plain text never stored |
-| **2FA (TOTP)** | **Required on all accounts (IMPLEMENTED)** | **Stolen password alone is not enough** |
-| JWT expiry | 1 hour access token | Limits exposure window |
+| **2FA (email OTP)** | **Optional, user opt-in (IMPLEMENTED)** | **Stolen password alone is not enough, for accounts that enable it** |
+| JWT expiry | 1 hour access token (15 min while a password change is pending) | Limits exposure window |
 | Token storage | HttpOnly + Secure + SameSite=Strict cookie | Prevents XSS theft + CSRF |
+| CSRF double-submit token | `X-CSRF-Token` header must match the `csrf_token` cookie on every mutating request | Defense in depth alongside SameSite=Strict |
 | Brute force lockout | 5 attempts / 15 min then locked | Stops password guessing |
 | Token blacklist | Invalidated on logout | Stolen token cannot be reused |
 
 #### 2FA Implementation (Implemented)
 
-- On first login, the user is shown a QR code to scan with Google Authenticator / Authy
-- The TOTP secret is generated server-side and stored encrypted in the database
-- Every subsequent login requires email + password + 6-digit TOTP code
-- Recovery codes (10 single-use codes) are generated at setup for account recovery
-- 2FA secret and recovery codes are encrypted at rest using a key from AWS Secrets Manager
+> Note: this replaced an earlier TOTP/QR-code design during implementation — email-OTP is what's actually built. If you're reading older notes that mention an authenticator app or recovery codes, they're stale.
+
+- Two-factor authentication is **optional**: after the forced first-login password change, the user is asked whether to enable it, and can enable/disable it any time from Settings
+- When enabled, a 6-digit code is emailed to the user's address on every login, and on the setup/disable confirmation step
+- Codes expire after 10 minutes, can be resent after a 30-second cooldown, and lock out after 5 wrong attempts (forcing a resend)
+- Disabling 2FA requires re-entering the account password
+- Only a salted hash of the current OTP is stored, with a short expiry — there is no long-lived secret to protect (unlike the TOTP approach this replaced), so nothing OTP-related needs encryption at rest
 
 ### Layer 5 — Secrets Management (Implemented)
 
@@ -245,7 +249,6 @@ When a TradingView indicator fires a green (buy) or red (sell) signal, the bot a
 | IG API key, username, password | AWS Secrets Manager |
 | JWT signing secret | AWS Secrets Manager |
 | Webhook secret | AWS Secrets Manager |
-| 2FA encryption key | AWS Secrets Manager |
 | Database password | AWS Secrets Manager |
 
 How it works:
@@ -254,6 +257,7 @@ How it works:
 - The `.env` file on the server contains only non-sensitive config (PORT, NODE_ENV, AWS region, secret names)
 - IAM role grants the EC2 instance read-only access to only the specific secrets it needs
 - Secret rotation is possible without redeploying — the app re-fetches on a schedule
+- Outbound email (OTP codes, invite/reset emails) goes through AWS SES, authorized via that same EC2 IAM role — no SES API keys exist to manage or rotate
 
 ### Layer 6 — Database & Backup Security
 
@@ -291,7 +295,7 @@ A simple user management system so an admin can create additional portal users w
 | Role | Permissions |
 |---|---|
 | ADMIN | Full access — manage users, all settings, all stocks, all trades |
-| VIEWER | Read-only — view dashboard, stats, trade history. Cannot change settings or trade config |
+| VIEWER | Read-only — view dashboard, stats, trade history, and stock configuration (including per-stock trading conditions). Cannot change any settings or trade config |
 
 > v1 keeps this deliberately simple: two roles only. The first user (Vipul) is ADMIN, created during deployment via a seed script.
 
@@ -311,9 +315,9 @@ A simple user management system so an admin can create additional portal users w
 
 1. Admin goes to Users page → clicks "Add User"
 2. Enters: name, email, role (Admin / Viewer)
-3. System generates a temporary password and shows it once
+3. System generates a temporary password, shows it once to the admin, and emails the new user an invite (temp password + portal link)
 4. New user logs in with the temp password
-5. On first login, user is forced to set a new password and set up 2FA
+5. On first login, the user is forced to set a new password, then can optionally enable two-factor authentication
 6. Done — minimal friction
 
 ### User Table Behaviour
@@ -335,8 +339,9 @@ A simple user management system so an admin can create additional portal users w
 | AWS_REGION | AWS region | eu-west-2 |
 | DB_HOST | Always localhost | 127.0.0.1 |
 | DB_PORT | PostgreSQL port | 5432 |
-| DB_NAME | Database name | trading_bot |
-| FRONTEND_ORIGIN | Portal URL (CORS) | https://portal.your-domain.com |
+| DB_NAME | Database name | trading_view_bot |
+| FRONTEND_ORIGIN | Portal URL (CORS + emailed portal links) | https://portal.your-domain.com |
+| EMAIL_FROM | Verified SES sender identity | no-reply@your-domain.com |
 | SECRET_NAME_IG | Secrets Manager key name | prod/trading-bot/ig |
 | SECRET_NAME_APP | Secrets Manager key name | prod/trading-bot/app |
 
@@ -348,7 +353,6 @@ A simple user management system so an admin can create additional portal users w
 | DB_PASSWORD | prod/trading-bot/app |
 | JWT_SECRET | prod/trading-bot/app |
 | WEBHOOK_SECRET | prod/trading-bot/app |
-| TOTP_ENCRYPTION_KEY | prod/trading-bot/app |
 
 ---
 
@@ -374,9 +378,12 @@ A simple user management system so an admin can create additional portal users w
 | password_hash | VARCHAR(255) | bcrypt cost 12 |
 | role | VARCHAR(20) | ADMIN or VIEWER |
 | active | BOOLEAN | Soft delete flag, default true |
-| totp_secret | VARCHAR(255), Nullable | Encrypted TOTP secret |
-| totp_enabled | BOOLEAN | Default false until 2FA set up |
-| recovery_codes | TEXT, Nullable | Encrypted JSON array of codes |
+| two_factor_enabled | BOOLEAN | Default false; user opts in after first login or via Settings |
+| otp_code_hash | VARCHAR(64), Nullable | SHA-256 hash of the current email OTP |
+| otp_expires_at | TIMESTAMP, Nullable | OTP expiry (10 min from send) |
+| otp_purpose | VARCHAR(10), Nullable | LOGIN or SETUP |
+| otp_attempts | INTEGER | Wrong-code counter; OTP invalidated after 5 |
+| otp_last_sent_at | TIMESTAMP, Nullable | Drives the 30s resend cooldown |
 | must_change_password | BOOLEAN | True for new users, forces reset on first login |
 | failed_login_attempts | INTEGER | Brute force counter |
 | locked_until | TIMESTAMP, Nullable | Set when locked |
@@ -451,7 +458,11 @@ A simple user management system so an admin can create additional portal users w
 
 ### Trade Log Status Values
 
-SUCCESS, FAILED, MARKET_CLOSED, NOT_MAPPED, DISABLED, NO_POSITION, BOT_PAUSED, BUY_DISABLED, SELL_DISABLED, DAILY_TOTAL_LIMIT, DAILY_TRADE_LIMIT, GLOBAL_POSITION_LIMIT, STOCK_DAILY_LIMIT, COOL_DOWN, MAX_POSITIONS_STOCK, AUTO_PAUSED
+SUCCESS, FAILED, MARKET_CLOSED, NOT_MAPPED, DISABLED, NO_POSITION, BOT_PAUSED, BUY_DISABLED, SELL_DISABLED, DAILY_TOTAL_LIMIT, DAILY_TRADE_LIMIT, GLOBAL_POSITION_LIMIT, STOCK_DAILY_LIMIT, COOL_DOWN, MAX_POSITIONS_STOCK, AUTO_PAUSED, DUPLICATE_SIGNAL
+
+> 17 statuses total. `DUPLICATE_SIGNAL` is logged by the technical resend-guard described in Section 9 — it isn't one of the 15 numbered business-rule steps, but every signal that reaches the pipeline still gets a `trade_log` row, so it's a real status value the frontend must render a badge for.
+
+> No `closing_price` / `profit_loss` / `profit_loss_pct` columns — P&L display was tried (computed from the TradingView signal price on the closing trade) and removed app-wide. See Section 19 Limitation 1.
 
 ---
 
@@ -460,6 +471,8 @@ SUCCESS, FAILED, MARKET_CLOSED, NOT_MAPPED, DISABLED, NO_POSITION, BOT_PAUSED, B
 ### Condition Check Order
 
 When a signal arrives, conditions are checked in sequence. The first failure stops processing.
+
+> Ahead of step 1, a technical (non-business) duplicate-delivery guard runs: if the same ticker + direction + price arrived within the last 20 seconds, the signal is logged `DUPLICATE_SIGNAL` and skipped. This exists because TradingView can resend the same webhook on delivery retry — it's not one of the 15 numbered steps below.
 
 ```
 1.  bot_enabled = true?            → NO → BOT_PAUSED
@@ -485,7 +498,7 @@ Bot master switch, allow buy/sell toggles, daily max total investment, daily max
 
 ### Per-Stock Conditions (stock_mapping)
 
-Investment amount, max daily spend per stock, cool-down minutes, max open positions per stock, enabled toggle. Each configured individually per stock.
+Investment amount, max daily spend per stock, cool-down minutes, max open positions per stock, enabled toggle. Each configured individually per stock — editable from the Stocks list (pencil icon → edit modal) **and** directly on that stock's own detail page (`/stocks/:ticker` → "Trading conditions" card), so you don't have to leave the stock you're looking at to change how it trades.
 
 ---
 
@@ -505,16 +518,22 @@ Investment amount, max daily spend per stock, cool-down minutes, max open positi
 | MappingModule | Stock mapping CRUD + IG market search |
 | TradeModule | Trade execution + logging |
 | StatsModule | Aggregated and per-stock statistics |
+| SystemModule | Webhook URL, IG connection status, last-received-signal status |
+| RealtimeModule | WebSocket gateway — pushes live updates to the portal |
 | SchedulerModule | Token refresh + nightly backup cron |
 
 ### AuthModule
 
 | Method | Path | Description |
 |---|---|---|
-| POST | /auth/login | Email + password → returns 2FA challenge |
-| POST | /auth/login/2fa | Email + password + TOTP code → JWT cookie |
-| POST | /auth/2fa/setup | Generate QR + recovery codes (first login) |
-| POST | /auth/2fa/verify | Confirm 2FA setup with first code |
+| POST | /auth/login | Email + password → forced password change, email-OTP challenge, or a full session |
+| POST | /auth/login/2fa | Email + password + emailed code → JWT cookie |
+| POST | /auth/login/2fa/resend | Re-send the login OTP (30s cooldown) |
+| POST | /auth/2fa/setup | Email an OTP to confirm enabling 2FA |
+| POST | /auth/2fa/resend | Re-send the setup OTP (30s cooldown) |
+| POST | /auth/2fa/verify | Confirm 2FA setup with the emailed code |
+| POST | /auth/2fa/skip | Acknowledge skipping 2FA setup during onboarding |
+| POST | /auth/2fa/disable | Disable 2FA (requires password confirmation) |
 | POST | /auth/logout | Blacklist token, clear cookie |
 | GET | /auth/me | Current user |
 
@@ -546,6 +565,27 @@ Internal service. Methods: login, refreshSession, searchMarkets, getOpenPosition
 | GET | /stats/stock/:ticker | Detailed single-stock stats + chart data |
 | GET | /stats/status-breakdown | Count of each trade status |
 
+### SystemModule
+
+| Method | Path | Role | Description |
+|---|---|---|---|
+| GET | /system/status | ADMIN, VIEWER | `{ webhookUrl, igConnected, igSessionExpiresAt, lastSignalReceivedAt }` |
+
+`lastSignalReceivedAt` is the timestamp of the most recent `trade_log` row (every webhook delivery writes one, whether it traded, was skipped, or was a duplicate) — it's the only reliable way to know TradingView is actually reaching the webhook, since TradingView never confirms delivery on its own. Shown on the Settings page as "Last TradingView signal".
+
+### RealtimeModule
+
+A Socket.IO gateway, authenticated the same way as the REST API (JWT read from the same HttpOnly cookie). Replaces what used to be fixed-interval polling. Broadcasts:
+
+| Event | Payload | Triggers |
+|---|---|---|
+| `trade:created` | `TradeLog` | Every webhook delivery — trade, skip, or duplicate |
+| `rules:updated` | `TradingRules` | Global conditions saved |
+| `system:status` | `{ igConnected: boolean }` | IG session established/lost |
+| `positions:updated` | raw IG position list | After a trade executes, and once on client connect |
+
+The frontend mostly uses these events to trigger a TanStack Query refetch (`queryClient.invalidateQueries`) rather than consuming the payload directly, so payload shape drift between this and the equivalent REST endpoint is low-risk today — but don't rely on that if you add a new consumer that reads the payload directly.
+
 ---
 
 ## 11. Frontend — React
@@ -554,14 +594,14 @@ Internal service. Methods: login, refreshSession, searchMarkets, getOpenPosition
 
 | Page | Path | Description |
 |---|---|---|
-| Login | /login | Email + password + 2FA |
+| Login | /login | Email + password + optional email-OTP 2FA |
 | Dashboard | / | Global stats + charts |
 | Stocks | /stocks | Per-stock config table |
-| Stock Detail | /stocks/:ticker | Single-stock statistics + charts |
+| Stock Detail | /stocks/:ticker | Single-stock statistics + charts + per-stock trading conditions (enable/disable, investment amount, daily cap, cool-down, max positions) |
 | Trades | /trades | Full trade history with filters |
 | Conditions | /conditions | Global trading rules |
 | Users | /users | User management (Admin only) |
-| Settings | /settings | Webhook URL, IG status, password, 2FA |
+| Settings | /settings | Webhook URL, IG connection status, last TradingView signal received, password, 2FA |
 
 ### Stack
 
@@ -658,6 +698,14 @@ All statistics are computed from the `trade_log` table by the StatsModule. No ex
 - Loading states use skeletons, not spinners, for a smoother feel
 - Empty states have helpful guidance (e.g. "No stocks yet — add your first stock")
 - The Stocks table → click any row → drills into that stock's stats page
+
+### Top bar (implemented)
+
+The top bar deliberately does **not** repeat the page title a third time (sidebar nav already highlights it, the page has its own `<h1>`). Instead, left-to-right: a time-of-day greeting with a matching icon (sunrise → sun → sunset → moon) and the signed-in user's name, today's date (plus the current ticker crumb on the stock detail page), then a live socket-connection indicator ("Live"/"Offline" pill), the bot ON/OFF toggle, theme toggle, and user menu. No clock — it was removed as redundant chrome.
+
+### Sidebar collapse toggle (implemented)
+
+Lives next to the logo/brand text at the top of the sidebar (not a separate row at the bottom) — a small icon-only button using the shared `Button` component (`variant="ghost" size="icon"`), with `PanelLeftClose`/`PanelLeftOpen` icons and a tooltip. Collapsed state stacks it directly under the logo. Keeping it in the header avoids a large dead-space gap below the last nav item on pages with few nav items.
 
 > The frontend-design guidance and component tokens are detailed in the frontend repo's `.claude/skills` and design rules so the implementation stays consistent.
 
@@ -881,7 +929,7 @@ If the server is down when a signal fires, TradingView's webhook fails and that 
 - [ ] Harden SSH (key-only, disable passwords)
 - [ ] Clone repo, install deps, `pnpm audit`
 - [ ] Create non-sensitive .env
-- [ ] Run migrations (5 tables)
+- [ ] Run all pending migrations (`pnpm migration:run`)
 - [ ] Run seed script (first admin user + trading_rules row)
 - [ ] Build NestJS, start with PM2
 - [ ] Nginx reverse proxy + serve frontend build
@@ -914,7 +962,7 @@ If the server is down when a signal fires, TradingView's webhook fails and that 
 
 | # | Limitation | Detail |
 |---|---|---|
-| 1 | No real-time P&L | IG API has no share price data; view P&L on IG platform |
+| 1 | No P&L shown in the portal, at all | IG API has no share price data for shares. A "realized P&L" was briefly computed from TradingView signal prices on close, but the numbers weren't authoritative (not IG's actual fill price) so it was removed app-wide. View real P&L on the IG platform directly |
 | 2 | API key needs live account | Cannot create from standalone demo |
 | 3 | SELL could short without position check | Mitigated by mandatory position check |
 | 4 | IG minimum deal size | Low amounts may be rejected; raise investment amount |
@@ -928,4 +976,5 @@ If the server is down when a signal fires, TradingView's webhook fails and that 
 
 ---
 
+*Last updated: July 2026*
 *Architecture: Smit Patel | Implementation: Yash Modi | Client: Vipul Patel*

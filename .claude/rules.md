@@ -77,7 +77,7 @@ Define these in `src/index.css` and reference them everywhere — never hardcode
 
 ## Layout
 
-- Sidebar nav (collapsible) + top bar with the bot toggle, theme switch, user menu.
+- Sidebar nav (collapsible via a small icon button next to the logo/brand text — not a separate footer row, which leaves an awkward dead-space gap below the last nav item) + top bar with a time-of-day greeting + date (+ ticker crumb on stock detail), a live socket-connection pill, the bot toggle, theme switch, and user menu. The top bar deliberately does not repeat the page title — the sidebar and page `<h1>` already show it.
 - Dashboard: responsive grid of stat cards, then charts.
 - Max content width on large screens; comfortable spacing.
 - Works down to tablet width; usable on mobile for quick checks.
@@ -92,6 +92,7 @@ Define these in `src/index.css` and reference them everywhere — never hardcode
 ## The per-stock detail page (important)
 
 `/stocks/:ticker` must feel like a mini dashboard for that one stock:
+- A "Trading conditions" card near the top — enable/disable trading, investment per trade, max daily spend, cool-down, max open positions for this ticker specifically. Admin-editable, read-only for VIEWER. This is the same data as the Stocks list's edit modal, just scoped and always-visible here so you don't have to leave the stock you're looking at to change how it trades.
 - Row of stat cards (total trades, invested, buy/sell counts, success rate, last traded).
 - Charts: trade timeline (line), entry prices (line), buy/sell split (donut), status breakdown (bar), invested over time (bar).
 - Full trade history table for that stock below the charts.
