@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mail } from 'lucide-react'
-import { login, loginWithTwoFactor, resendLoginTwoFactorCode, getMe } from '@/api/auth'
+import { Mail, MailCheck } from 'lucide-react'
+import { login, loginWithTwoFactor, resendLoginTwoFactorCode, forgotPassword, getMe } from '@/api/auth'
 import { useAuth } from '@/context/AuthContext'
 import { AuthShell } from '@/components/common/AuthShell'
 import { Button } from '@/components/ui/button'
@@ -10,7 +10,7 @@ import { PasswordInput } from '@/components/common/PasswordInput'
 import { OtpInput } from '@/components/common/OtpInput'
 import { Label } from '@/components/ui/label'
 
-type Step = 'credentials' | 'twofactor'
+type Step = 'credentials' | 'twofactor' | 'forgot'
 
 export function Login() {
   const navigate = useNavigate()
@@ -23,6 +23,8 @@ export function Login() {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [resending, setResending] = useState(false)
+  const [forgotEmail, setForgotEmail] = useState('')
+  const [forgotSubmitted, setForgotSubmitted] = useState(false)
 
   async function handleCredentialsSubmit(e: FormEvent) {
     e.preventDefault()
@@ -84,6 +86,35 @@ export function Login() {
     await verifyTwoFactor(code)
   }
 
+  async function handleForgotSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+
+    if (!forgotEmail) {
+      setError('Enter your email.')
+      return
+    }
+
+    setPending(true)
+    try {
+      await forgotPassword(forgotEmail)
+      setForgotSubmitted(true)
+    } catch {
+      // Enumeration-safe: the backend never signals failure for this endpoint,
+      // so any error here is a genuine network/server problem, not "email not found".
+      setError('Something went wrong. Please try again.')
+    } finally {
+      setPending(false)
+    }
+  }
+
+  function backToLogin() {
+    setStep('credentials')
+    setError(null)
+    setForgotEmail('')
+    setForgotSubmitted(false)
+  }
+
   async function handleResend() {
     setError(null)
     setResending(true)
@@ -99,8 +130,18 @@ export function Login() {
 
   return (
     <AuthShell
-      title={step === 'credentials' ? 'Welcome back' : 'Check your email'}
-      subtitle={step === 'credentials' ? 'Sign in to continue' : 'Enter the code we just sent you'}
+      title={
+        step === 'credentials' ? 'Welcome back' : step === 'twofactor' ? 'Check your email' : 'Reset password'
+      }
+      subtitle={
+        step === 'credentials'
+          ? 'Sign in to continue'
+          : step === 'twofactor'
+            ? 'Enter the code we just sent you'
+            : forgotSubmitted
+              ? 'Check your inbox for next steps'
+              : "We'll email you instructions"
+      }
     >
       {step === 'credentials' ? (
         <form onSubmit={handleCredentialsSubmit} className="flex flex-col gap-4">
@@ -116,7 +157,20 @@ export function Login() {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="password">Password</Label>
+              <button
+                type="button"
+                className="text-xs text-text-tertiary hover:text-text-secondary"
+                onClick={() => {
+                  setForgotEmail(email)
+                  setError(null)
+                  setStep('forgot')
+                }}
+              >
+                Forgot password?
+              </button>
+            </div>
             <PasswordInput
               id="password"
               autoComplete="current-password"
@@ -130,6 +184,49 @@ export function Login() {
             {pending ? 'Signing in…' : 'Sign in'}
           </Button>
         </form>
+      ) : step === 'forgot' ? (
+        forgotSubmitted ? (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-surface-2 p-3">
+              <MailCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+              <p className="text-left text-xs text-text-secondary">
+                If that email is registered, we have sent password reset instructions.
+              </p>
+            </div>
+            <Button type="button" onClick={backToLogin} className="mt-1">
+              Back to login
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={handleForgotSubmit} className="flex flex-col gap-4">
+            <p className="text-left text-xs text-text-secondary">
+              Enter your account email and we&apos;ll send you instructions to reset your password.
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="forgot-email">Email</Label>
+              <Input
+                id="forgot-email"
+                type="email"
+                autoComplete="email"
+                value={forgotEmail}
+                onChange={(e) => setForgotEmail(e.target.value)}
+                disabled={pending}
+                autoFocus
+              />
+            </div>
+            {error && <p className="text-sm text-danger">{error}</p>}
+            <Button type="submit" disabled={pending} className="mt-1">
+              {pending ? 'Sending…' : 'Send reset instructions'}
+            </Button>
+            <button
+              type="button"
+              className="text-xs text-text-tertiary hover:text-text-secondary"
+              onClick={backToLogin}
+            >
+              Back to login
+            </button>
+          </form>
+        )
       ) : (
         <form onSubmit={handleTwoFactorSubmit} className="flex flex-col gap-4">
           {twoFactorMessage && (

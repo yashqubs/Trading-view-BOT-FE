@@ -22,6 +22,10 @@ export function resendLoginTwoFactorCode(email: string, password: string) {
     .then((r) => r.data)
 }
 
+export function forgotPassword(email: string) {
+  return api.post<{ message: string }>('/auth/forgot-password', { email }).then((r) => r.data)
+}
+
 export interface TwoFactorSetup {
   message: string
   maskedEmail?: string

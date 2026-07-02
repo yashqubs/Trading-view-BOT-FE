@@ -62,6 +62,14 @@ export const handlers = [
     return HttpResponse.json({ message: 'A new code has been sent to your email.' })
   }),
 
+  // POST /auth/forgot-password — always the same generic response (enumeration-safe)
+  http.post(url('/auth/forgot-password'), async () => {
+    await delay(LATENCY)
+    return HttpResponse.json({
+      message: 'If that email is registered, we have sent password reset instructions.',
+    })
+  }),
+
   // POST /auth/2fa/setup
   http.post(url('/auth/2fa/setup'), async () => {
     await delay(LATENCY)

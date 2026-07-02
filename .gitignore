@@ -12,9 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Env files — .env holds per-developer/per-environment values (VITE_MOCK,
+# VITE_API_BASE_URL) that shouldn't be shared via git. .env.example is the
+# committed template.
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
 .DS_Store
 *.suo
