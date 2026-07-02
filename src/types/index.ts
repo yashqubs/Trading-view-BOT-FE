@@ -14,6 +14,14 @@ export interface User {
 
 export type TradeDirection = 'BUY' | 'SELL'
 
+/** MARKET fills immediately at IG's current price (default). SIGNAL_PRICE
+ * places a LIMIT order at the exact TradingView signal price — it only
+ * fills at that price or better, so it can go unfilled if the market has
+ * already moved past it (logged FAILED the same as a rejected market order,
+ * there's no pending/working-order state). */
+export const EXECUTION_MODES = ['MARKET', 'SIGNAL_PRICE'] as const
+export type ExecutionMode = (typeof EXECUTION_MODES)[number]
+
 export const TRADE_STATUSES = [
   'SUCCESS',
   'FAILED',
@@ -42,6 +50,9 @@ export interface TradeLog {
   igEpic: string | null
   direction: TradeDirection
   signalPrice: number
+  /** Actual IG fill price. Orders are placed at market, not limit, so this
+   * can legitimately differ from signalPrice. Null unless status is SUCCESS. */
+  executedPrice: number | null
   investmentAmount: number | null
   quantity: number | null
   dealReference: string | null
@@ -78,6 +89,8 @@ export interface StockMapping {
   maxDailySpend: number | null
   coolDownMinutes: number | null
   maxOpenPositions: number
+  /** Null = inherit TradingRules.executionMode (the global default). */
+  executionMode: ExecutionMode | null
   createdAt: string
   updatedAt: string
 }
@@ -105,6 +118,7 @@ export interface TradingRules {
   tradeStartTimeUtc: string
   tradeEndTimeUtc: string
   tradeWeekdaysOnly: boolean
+  executionMode: ExecutionMode
   updatedAt: string
   updatedBy: string | null
 }

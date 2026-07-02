@@ -94,6 +94,7 @@ export const MOCK_TRADING_RULES: TradingRules = {
   tradeStartTimeUtc: '08:00',
   tradeEndTimeUtc: '16:30',
   tradeWeekdaysOnly: true,
+  executionMode: 'MARKET',
   updatedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
   updatedBy: 'Alex Mercer',
 }
@@ -112,6 +113,7 @@ export const MOCK_STOCKS: StockMapping[] = [
     maxDailySpend: 1500,
     coolDownMinutes: 60,
     maxOpenPositions: 3,
+    executionMode: null,
     createdAt: '2025-01-20T10:00:00.000Z',
     updatedAt: '2025-06-01T08:30:00.000Z',
   },
@@ -126,6 +128,8 @@ export const MOCK_STOCKS: StockMapping[] = [
     maxDailySpend: 2000,
     coolDownMinutes: 30,
     maxOpenPositions: 2,
+    // Overrides the global default to demonstrate the per-stock toggle.
+    executionMode: 'SIGNAL_PRICE',
     createdAt: '2025-02-10T11:00:00.000Z',
     updatedAt: '2025-06-10T09:00:00.000Z',
   },
@@ -140,6 +144,7 @@ export const MOCK_STOCKS: StockMapping[] = [
     maxDailySpend: 3000,
     coolDownMinutes: 45,
     maxOpenPositions: 3,
+    executionMode: null,
     createdAt: '2025-03-05T09:00:00.000Z',
     updatedAt: '2025-06-15T12:00:00.000Z',
   },
@@ -154,6 +159,7 @@ export const MOCK_STOCKS: StockMapping[] = [
     maxDailySpend: null,
     coolDownMinutes: null,
     maxOpenPositions: 2,
+    executionMode: null,
     createdAt: '2025-04-01T10:00:00.000Z',
     updatedAt: '2025-06-20T14:00:00.000Z',
   },
@@ -167,6 +173,7 @@ export const MOCK_STOCKS: StockMapping[] = [
     investmentAmount: 800,
     maxDailySpend: 2400,
     coolDownMinutes: 60,
+    executionMode: null,
     maxOpenPositions: 3,
     createdAt: '2025-04-15T10:00:00.000Z',
     updatedAt: '2025-06-25T10:00:00.000Z',
@@ -350,12 +357,16 @@ const ALL_STATUS_TRADES: TradeLog[] = TRADE_STATUSES.map((status, i) => {
   const signalAt = hoursAgo(i * 2 + 1)
   const investmentAmount = isSuccess ? 500 + i * 50 : null
   const quantity = isSuccess && investmentAmount ? Math.floor(investmentAmount / signalPrice) : null
+  // Market orders fill at whatever price IG has right now, not the signal
+  // price — a small drift here mirrors that instead of implying an exact match.
+  const executedPrice = isSuccess ? parseFloat((signalPrice * (1 + (seeded(i * 9) - 0.5) * 0.01)).toFixed(2)) : null
   return {
     id: i + 1,
     tvTicker: ticker,
     igEpic: isSuccess ? EPICS[ticker] : null,
     direction,
     signalPrice,
+    executedPrice,
     investmentAmount,
     quantity,
     dealReference: isSuccess ? randomId(i * 11, 'DRF') : null,
@@ -380,12 +391,18 @@ const BULK_TRADES: TradeLog[] = Array.from({ length: 100 }, (_, i) => {
   const signalAt = hoursAgo(i * 0.5 + 1)
   const investmentAmount = isSuccess ? 500 + (i % 5) * 100 : null
   const quantity = isSuccess && investmentAmount ? parseFloat((investmentAmount / signalPrice).toFixed(4)) : null
+  // Market orders fill at whatever price IG has right now, not the signal
+  // price — a small drift here mirrors that instead of implying an exact match.
+  const executedPrice = isSuccess
+    ? parseFloat((signalPrice * (1 + (seeded((i + 100) * 9) - 0.5) * 0.01)).toFixed(2))
+    : null
   return {
     id: 100 + i,
     tvTicker: ticker,
     igEpic: EPICS[ticker],
     direction,
     signalPrice,
+    executedPrice,
     investmentAmount,
     quantity,
     dealReference: isSuccess ? randomId((i + 100) * 11, 'DRF') : null,

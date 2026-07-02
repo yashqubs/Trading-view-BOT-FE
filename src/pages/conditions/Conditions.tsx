@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ExecutionModeToggle } from '@/components/common/ExecutionModeToggle'
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,7 @@ import {
 } from '@/components/ui/dialog'
 import { useTradingRules, useUpdateTradingRules } from '@/hooks/useRules'
 import { useAuth } from '@/context/AuthContext'
+import type { ExecutionMode } from '@/types'
 
 interface RulesFormSnapshot {
   botEnabled: boolean
@@ -28,6 +30,7 @@ interface RulesFormSnapshot {
   maxConsecutiveFailures: string
   tradeStartTimeUtc: string
   tradeEndTimeUtc: string
+  executionMode: ExecutionMode
 }
 
 export function Conditions() {
@@ -45,6 +48,7 @@ export function Conditions() {
   const [maxConsecutiveFailures, setMaxConsecutiveFailures] = useState('3')
   const [tradeStartTimeUtc, setTradeStartTimeUtc] = useState('14:30')
   const [tradeEndTimeUtc, setTradeEndTimeUtc] = useState('21:00')
+  const [executionMode, setExecutionMode] = useState<ExecutionMode>('MARKET')
 
   // The last-saved (or last-loaded) form values — comparing against this is
   // how we know there are unsaved changes, without re-deriving from `rules`
@@ -63,6 +67,7 @@ export function Conditions() {
       maxConsecutiveFailures: String(rules.maxConsecutiveFailures),
       tradeStartTimeUtc: rules.tradeStartTimeUtc,
       tradeEndTimeUtc: rules.tradeEndTimeUtc,
+      executionMode: rules.executionMode,
     }
     setBaseline(snapshot)
     setBotEnabled(snapshot.botEnabled)
@@ -74,6 +79,7 @@ export function Conditions() {
     setMaxConsecutiveFailures(snapshot.maxConsecutiveFailures)
     setTradeStartTimeUtc(snapshot.tradeStartTimeUtc)
     setTradeEndTimeUtc(snapshot.tradeEndTimeUtc)
+    setExecutionMode(snapshot.executionMode)
   }, [rules])
 
   const isDirty =
@@ -86,7 +92,8 @@ export function Conditions() {
       maxOpenPositionsGlobal !== baseline.maxOpenPositionsGlobal ||
       maxConsecutiveFailures !== baseline.maxConsecutiveFailures ||
       tradeStartTimeUtc !== baseline.tradeStartTimeUtc ||
-      tradeEndTimeUtc !== baseline.tradeEndTimeUtc)
+      tradeEndTimeUtc !== baseline.tradeEndTimeUtc ||
+      executionMode !== baseline.executionMode)
 
   // Block in-app navigation while there are unsaved changes.
   const blocker = useBlocker(({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname)
@@ -114,6 +121,7 @@ export function Conditions() {
         maxConsecutiveFailures: Number(maxConsecutiveFailures) || 3,
         tradeStartTimeUtc,
         tradeEndTimeUtc,
+        executionMode,
       })
       setBaseline({
         botEnabled: saved.botEnabled,
@@ -125,6 +133,7 @@ export function Conditions() {
         maxConsecutiveFailures: String(saved.maxConsecutiveFailures),
         tradeStartTimeUtc: saved.tradeStartTimeUtc,
         tradeEndTimeUtc: saved.tradeEndTimeUtc,
+        executionMode: saved.executionMode,
       })
       toast.success('Trading conditions saved')
     } catch {
@@ -170,6 +179,27 @@ export function Conditions() {
             <Label htmlFor="allow-sell">Allow sell signals</Label>
             <Switch id="allow-sell" checked={allowSell} onCheckedChange={setAllowSell} disabled={!isAdmin} />
           </div>
+        </div>
+      </Card>
+
+      <Card className="animate-fade-slide-in">
+        <CardHeader>
+          <CardTitle>Execution</CardTitle>
+        </CardHeader>
+        <div className="flex flex-col gap-3">
+          <div>
+            <Label>Default fill price</Label>
+            <p className="mt-0.5 text-xs text-text-tertiary">
+              How every trade fills unless a stock's own settings override it. Applies globally.
+            </p>
+          </div>
+          <ExecutionModeToggle value={executionMode} onChange={setExecutionMode} disabled={!isAdmin} />
+          {executionMode === 'SIGNAL_PRICE' && (
+            <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+              Signal price places a limit order — if the market has already moved past that exact price, the
+              trade won't fill and is logged as failed instead of chasing the market.
+            </p>
+          )}
         </div>
       </Card>
 

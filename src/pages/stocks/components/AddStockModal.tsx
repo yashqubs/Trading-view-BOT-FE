@@ -13,10 +13,18 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { EmptyState } from '@/components/common/EmptyState'
+import { ExecutionModeToggle } from '@/components/common/ExecutionModeToggle'
 import { useCreateStock, useIgMarketSearch } from '@/hooks/useStocks'
+import { useTradingRules } from '@/hooks/useRules'
 import { cn } from '@/lib/utils'
-import type { IgMarketResult } from '@/types'
+import type { ExecutionMode, IgMarketResult } from '@/types'
+
+const EXECUTION_MODE_LABELS: Record<ExecutionMode, string> = {
+  MARKET: 'Market price',
+  SIGNAL_PRICE: 'Signal price',
+}
 
 export function AddStockModal() {
   const [open, setOpen] = useState(false)
@@ -27,10 +35,12 @@ export function AddStockModal() {
   const [maxDailySpend, setMaxDailySpend] = useState('')
   const [coolDownMinutes, setCoolDownMinutes] = useState('')
   const [maxOpenPositions, setMaxOpenPositions] = useState('1')
+  const [executionMode, setExecutionMode] = useState<ExecutionMode | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   const search = useIgMarketSearch(debouncedTerm)
   const createStock = useCreateStock()
+  const { data: rules } = useTradingRules()
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedTerm(term), 300)
@@ -45,6 +55,7 @@ export function AddStockModal() {
     setMaxDailySpend('')
     setCoolDownMinutes('')
     setMaxOpenPositions('1')
+    setExecutionMode(null)
     setError(null)
   }
 
@@ -72,6 +83,7 @@ export function AddStockModal() {
         maxDailySpend: maxDailySpend ? Number(maxDailySpend) : null,
         coolDownMinutes: coolDownMinutes ? Number(coolDownMinutes) : null,
         maxOpenPositions: Number(maxOpenPositions) || 1,
+        ...(executionMode ? { executionMode } : {}),
       })
       toast.success(`${selected.instrumentName} added`)
       setOpen(false)
@@ -197,6 +209,28 @@ export function AddStockModal() {
                 onChange={(e) => setMaxOpenPositions(e.target.value)}
               />
             </div>
+
+            <div className="flex flex-col gap-2 rounded-lg border border-border px-3 py-2.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="add-execution-override">Override fill price</Label>
+                  <p className="text-xs text-text-tertiary">
+                    {executionMode === null
+                      ? `Off — will use the global default (${rules ? EXECUTION_MODE_LABELS[rules.executionMode] : '…'}).`
+                      : 'On — this stock will ignore the global default.'}
+                  </p>
+                </div>
+                <Switch
+                  id="add-execution-override"
+                  checked={executionMode !== null}
+                  onCheckedChange={(checked) => setExecutionMode(checked ? (rules?.executionMode ?? 'MARKET') : null)}
+                />
+              </div>
+              {executionMode !== null && (
+                <ExecutionModeToggle value={executionMode} onChange={setExecutionMode} stacked />
+              )}
+            </div>
+
             {error && <p className="text-sm text-danger">{error}</p>}
             <DialogFooter>
               <Button type="button" variant="secondary" onClick={() => setSelected(null)}>

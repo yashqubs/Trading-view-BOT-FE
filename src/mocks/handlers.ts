@@ -212,6 +212,7 @@ export const handlers = [
       maxDailySpend: body.maxDailySpend ?? null,
       coolDownMinutes: body.coolDownMinutes ?? null,
       maxOpenPositions: body.maxOpenPositions ?? 3,
+      executionMode: body.executionMode ?? null,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -346,7 +347,7 @@ export const handlers = [
       sortOrder: (sp.get('sortOrder') as TradeFilters['sortOrder']) ?? undefined,
       pageSize: 10000,
     }
-    const header = 'id,ticker,direction,status,signalPrice,quantity,investmentAmount,dealId,signalReceivedAt,executedAt\n'
+    const header = 'id,ticker,direction,status,signalPrice,executedPrice,quantity,investmentAmount,dealId,signalReceivedAt,executedAt\n'
     const rows = getMockTradesPage(filters)
       .items.map((t) =>
         [
@@ -355,6 +356,7 @@ export const handlers = [
           t.direction,
           t.status,
           t.signalPrice.toFixed(2),
+          t.executedPrice?.toFixed(2) ?? '',
           t.quantity ?? '',
           t.investmentAmount ?? '',
           t.dealId ?? '',

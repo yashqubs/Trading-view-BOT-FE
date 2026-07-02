@@ -158,6 +158,7 @@ export function Stocks() {
                 <SortableHeader sortKey="maxDailySpend" current={sort} onSort={handleSort}>Daily cap</SortableHeader>
                 <SortableHeader sortKey="coolDownMinutes" current={sort} onSort={handleSort}>Cool-down</SortableHeader>
                 <SortableHeader sortKey="maxOpenPositions" current={sort} onSort={handleSort}>Max positions</SortableHeader>
+                <TableHead>Fill price</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -188,6 +189,15 @@ export function Stocks() {
                   <TableCell>{stock.maxDailySpend ? formatMoney(stock.maxDailySpend) : '—'}</TableCell>
                   <TableCell>{stock.coolDownMinutes ? `${stock.coolDownMinutes}m` : '—'}</TableCell>
                   <TableCell>{stock.maxOpenPositions}</TableCell>
+                  <TableCell>
+                    {stock.executionMode ? (
+                      <Badge variant={stock.executionMode === 'SIGNAL_PRICE' ? 'accent' : 'neutral'}>
+                        {stock.executionMode === 'SIGNAL_PRICE' ? 'Signal' : 'Market'}
+                      </Badge>
+                    ) : (
+                      <span className="text-xs text-text-tertiary">Default</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <RoleGate allow={['ADMIN']}>
                       <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>

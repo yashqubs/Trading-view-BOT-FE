@@ -14,8 +14,15 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { ExecutionModeToggle } from '@/components/common/ExecutionModeToggle'
 import { useUpdateStock } from '@/hooks/useStocks'
-import type { StockMapping } from '@/types'
+import { useTradingRules } from '@/hooks/useRules'
+import type { ExecutionMode, StockMapping } from '@/types'
+
+const EXECUTION_MODE_LABELS: Record<ExecutionMode, string> = {
+  MARKET: 'Market price',
+  SIGNAL_PRICE: 'Signal price',
+}
 
 export function EditStockModal({ stock }: { stock: StockMapping }) {
   const [open, setOpen] = useState(false)
@@ -24,9 +31,11 @@ export function EditStockModal({ stock }: { stock: StockMapping }) {
   const [coolDownMinutes, setCoolDownMinutes] = useState(stock.coolDownMinutes ? String(stock.coolDownMinutes) : '')
   const [maxOpenPositions, setMaxOpenPositions] = useState(String(stock.maxOpenPositions))
   const [enabled, setEnabled] = useState(stock.enabled)
+  const [executionMode, setExecutionMode] = useState<ExecutionMode | null>(stock.executionMode)
   const [error, setError] = useState<string | null>(null)
 
   const updateStock = useUpdateStock()
+  const { data: rules } = useTradingRules()
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -46,6 +55,7 @@ export function EditStockModal({ stock }: { stock: StockMapping }) {
           coolDownMinutes: coolDownMinutes ? Number(coolDownMinutes) : null,
           maxOpenPositions: Number(maxOpenPositions) || 1,
           enabled,
+          executionMode,
         },
       })
       toast.success(`${stock.tvTicker} updated`)
@@ -118,6 +128,28 @@ export function EditStockModal({ stock }: { stock: StockMapping }) {
               onChange={(e) => setMaxOpenPositions(e.target.value)}
             />
           </div>
+
+          <div className="flex flex-col gap-2 rounded-lg border border-border px-3 py-2.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="edit-execution-override">Override fill price</Label>
+                <p className="text-xs text-text-tertiary">
+                  {executionMode === null
+                    ? `Using global default (${rules ? EXECUTION_MODE_LABELS[rules.executionMode] : '…'}).`
+                    : 'Ignoring the global default for this stock.'}
+                </p>
+              </div>
+              <Switch
+                id="edit-execution-override"
+                checked={executionMode !== null}
+                onCheckedChange={(checked) => setExecutionMode(checked ? (rules?.executionMode ?? 'MARKET') : null)}
+              />
+            </div>
+            {executionMode !== null && (
+              <ExecutionModeToggle value={executionMode} onChange={setExecutionMode} stacked />
+            )}
+          </div>
+
           {error && <p className="text-sm text-danger">{error}</p>}
           <DialogFooter>
             <Button type="button" variant="secondary" onClick={() => setOpen(false)}>

@@ -27,6 +27,7 @@ import { StatusPill } from '@/components/common/StatusPill'
 import { EmptyState } from '@/components/common/EmptyState'
 import { StatGridSkeleton } from '@/components/common/PageSkeleton'
 import { DateRangePicker, type DateRangeValue } from '@/components/common/DateRangePicker'
+import { ExecutionModeToggle } from '@/components/common/ExecutionModeToggle'
 import { LineChartCard } from '@/components/charts/LineChartCard'
 import { BarChartCard } from '@/components/charts/BarChartCard'
 import { DonutChartCard } from '@/components/charts/DonutChartCard'
@@ -34,9 +35,16 @@ import { ChartExpandModal } from '@/components/charts/ChartExpandModal'
 import { useStockStats } from '@/hooks/useStats'
 import { useTrades } from '@/hooks/useTrades'
 import { useStock, useUpdateStock } from '@/hooks/useStocks'
+import { useTradingRules } from '@/hooks/useRules'
 import { useAuth } from '@/context/AuthContext'
 import { exportTradesCsv, type TradeFilters, type TradeSortBy } from '@/api/trades'
-import { TRADE_STATUSES, type StockMapping, type TradeDirection, type TradeStatus } from '@/types'
+import {
+  TRADE_STATUSES,
+  type ExecutionMode,
+  type StockMapping,
+  type TradeDirection,
+  type TradeStatus,
+} from '@/types'
 import { formatCount, formatDateTime, formatMoney, formatPercent, formatPrice, formatQuantity } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -103,6 +111,7 @@ interface StockConditionsSnapshot {
   maxDailySpend: string
   coolDownMinutes: string
   maxOpenPositions: string
+  executionMode: ExecutionMode | null
 }
 
 function snapshotStock(stock: StockMapping): StockConditionsSnapshot {
@@ -112,11 +121,18 @@ function snapshotStock(stock: StockMapping): StockConditionsSnapshot {
     maxDailySpend: stock.maxDailySpend != null ? String(stock.maxDailySpend) : '',
     coolDownMinutes: stock.coolDownMinutes != null ? String(stock.coolDownMinutes) : '',
     maxOpenPositions: String(stock.maxOpenPositions),
+    executionMode: stock.executionMode,
   }
+}
+
+const EXECUTION_MODE_LABELS: Record<ExecutionMode, string> = {
+  MARKET: 'Market price',
+  SIGNAL_PRICE: 'Signal price',
 }
 
 function StockConditionsCard({ stock, isAdmin }: { stock: StockMapping; isAdmin: boolean }) {
   const updateStock = useUpdateStock()
+  const { data: rules } = useTradingRules()
   const [form, setForm] = useState<StockConditionsSnapshot>(() => snapshotStock(stock))
   const [baseline, setBaseline] = useState<StockConditionsSnapshot>(() => snapshotStock(stock))
   const [error, setError] = useState<string | null>(null)
@@ -134,7 +150,8 @@ function StockConditionsCard({ stock, isAdmin }: { stock: StockMapping; isAdmin:
     form.investmentAmount !== baseline.investmentAmount ||
     form.maxDailySpend !== baseline.maxDailySpend ||
     form.coolDownMinutes !== baseline.coolDownMinutes ||
-    form.maxOpenPositions !== baseline.maxOpenPositions
+    form.maxOpenPositions !== baseline.maxOpenPositions ||
+    form.executionMode !== baseline.executionMode
 
   function set<K extends keyof StockConditionsSnapshot>(key: K, value: StockConditionsSnapshot[K]) {
     setForm((f) => ({ ...f, [key]: value }))
@@ -156,6 +173,7 @@ function StockConditionsCard({ stock, isAdmin }: { stock: StockMapping; isAdmin:
           maxDailySpend: form.maxDailySpend ? Number(form.maxDailySpend) : null,
           coolDownMinutes: form.coolDownMinutes ? Number(form.coolDownMinutes) : null,
           maxOpenPositions: Number(form.maxOpenPositions) || 1,
+          executionMode: form.executionMode,
         },
       })
       toast.success(`${stock.tvTicker} conditions saved`)
@@ -234,6 +252,32 @@ function StockConditionsCard({ stock, isAdmin }: { stock: StockMapping; isAdmin:
               disabled={!isAdmin}
             />
           </div>
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-lg border border-border px-3 py-2.5">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="stock-execution-override">Override fill price for {stock.tvTicker}</Label>
+              <p className="text-xs text-text-tertiary">
+                {form.executionMode === null
+                  ? `Off — using the global default (${rules ? EXECUTION_MODE_LABELS[rules.executionMode] : '…'}).`
+                  : 'On — this stock ignores the global default below.'}
+              </p>
+            </div>
+            <Switch
+              id="stock-execution-override"
+              checked={form.executionMode !== null}
+              onCheckedChange={(checked) => set('executionMode', checked ? (rules?.executionMode ?? 'MARKET') : null)}
+              disabled={!isAdmin}
+            />
+          </div>
+          {form.executionMode !== null && (
+            <ExecutionModeToggle
+              value={form.executionMode}
+              onChange={(mode) => set('executionMode', mode)}
+              disabled={!isAdmin}
+            />
+          )}
         </div>
 
         {error && <p className="text-sm text-danger">{error}</p>}
@@ -641,6 +685,7 @@ export function StockDetail() {
                     <SortHead col="signalReceivedAt">Date</SortHead>
                     <TableHead>Direction</TableHead>
                     <SortHead col="signalPrice" className="text-right">Signal price</SortHead>
+                    <TableHead className="text-right">Executed price</TableHead>
                     <TableHead className="text-right">Qty</TableHead>
                     <SortHead col="investmentAmount" className="text-right">Invested</SortHead>
                     <TableHead>Status</TableHead>
@@ -662,6 +707,9 @@ export function StockDetail() {
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {formatPrice(trade.signalPrice)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-text-secondary">
+                        {trade.executedPrice != null ? formatPrice(trade.executedPrice) : '—'}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {formatQuantity(trade.quantity)}

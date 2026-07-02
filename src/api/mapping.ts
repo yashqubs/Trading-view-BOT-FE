@@ -1,5 +1,5 @@
 import { api } from './axios'
-import type { IgMarketResult, StockMapping } from '@/types'
+import type { ExecutionMode, IgMarketResult, StockMapping } from '@/types'
 
 export function listStocks() {
   return api.get<StockMapping[]>('/mapping').then((r) => r.data)
@@ -22,6 +22,8 @@ export interface CreateStockInput {
   maxDailySpend?: number | null
   coolDownMinutes?: number | null
   maxOpenPositions?: number
+  /** Omit to inherit the global default (TradingRules.executionMode). */
+  executionMode?: ExecutionMode
 }
 
 export function createStock(input: CreateStockInput) {
@@ -29,8 +31,8 @@ export function createStock(input: CreateStockInput) {
 }
 
 export type UpdateStockInput = Partial<
-  Omit<CreateStockInput, 'tvTicker' | 'igEpic' | 'instrumentName' | 'instrumentType'>
-> & { enabled?: boolean }
+  Omit<CreateStockInput, 'tvTicker' | 'igEpic' | 'instrumentName' | 'instrumentType' | 'executionMode'>
+> & { enabled?: boolean; executionMode?: ExecutionMode | null }
 
 export function updateStock(id: number, input: UpdateStockInput) {
   return api.patch<StockMapping>(`/mapping/${id}`, input).then((r) => r.data)

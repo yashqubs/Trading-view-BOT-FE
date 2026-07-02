@@ -433,6 +433,7 @@ export function Trades() {
                   <SortHead col="tvTicker">Ticker</SortHead>
                   <TableHead>Direction</TableHead>
                   <SortHead col="signalPrice" className="text-right">Signal price</SortHead>
+                  <TableHead className="text-right">Executed price</TableHead>
                   <TableHead className="text-right">Qty</TableHead>
                   <SortHead col="investmentAmount" className="text-right">Invested</SortHead>
                   <TableHead>Status</TableHead>
@@ -456,6 +457,9 @@ export function Trades() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatPrice(trade.signalPrice)}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-text-secondary">
+                      {trade.executedPrice != null ? formatPrice(trade.executedPrice) : '—'}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatQuantity(trade.quantity)}

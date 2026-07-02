@@ -416,6 +416,7 @@ A simple user management system so an admin can create additional portal users w
 | max_daily_spend | DECIMAL(12,2), Nullable | Per-stock daily cap |
 | cool_down_minutes | INTEGER, Nullable | Min gap between trades |
 | max_open_positions | INTEGER | Default 1 |
+| execution_mode | VARCHAR(20), Nullable | MARKET or SIGNAL_PRICE. NULL = inherit trading_rules.execution_mode |
 | created_at | TIMESTAMP | |
 | updated_at | TIMESTAMP | |
 
@@ -435,6 +436,7 @@ A simple user management system so an admin can create additional portal users w
 | trade_start_time_utc | TIME | 14:30 | NYSE open |
 | trade_end_time_utc | TIME | 21:00 | NYSE close |
 | trade_weekdays_only | BOOLEAN | true | No weekends |
+| execution_mode | VARCHAR(20) | MARKET | Global default fill mode — MARKET or SIGNAL_PRICE. See "Execution Mode" below |
 | updated_at | TIMESTAMP | Auto | |
 | updated_by | UUID | NULL | Audit |
 
@@ -446,7 +448,8 @@ A simple user management system so an admin can create additional portal users w
 | tv_ticker | VARCHAR(20) | |
 | ig_epic | VARCHAR(60), Nullable | |
 | direction | VARCHAR(4) | BUY or SELL |
-| signal_price | DECIMAL(12,4) | From TradingView |
+| signal_price | DECIMAL(12,4) | From TradingView — used only to size the trade, not an execution price |
+| executed_price | DECIMAL(12,4), Nullable | Actual IG fill price (`confirmDeal`'s `level`). Orders are MARKET not LIMIT, so this can differ from signal_price. Null unless status = SUCCESS |
 | investment_amount | DECIMAL(12,2), Nullable | |
 | quantity | DECIMAL(12,4), Nullable | amount ÷ price |
 | deal_reference | VARCHAR(100), Nullable | IG temp ref |
@@ -501,6 +504,21 @@ Bot master switch, allow buy/sell toggles, daily max total investment, daily max
 ### Per-Stock Conditions (stock_mapping)
 
 Investment amount, max daily spend per stock, cool-down minutes, max open positions per stock, enabled toggle. Each configured individually per stock — editable from the Stocks list (pencil icon → edit modal) **and** directly on that stock's own detail page (`/stocks/:ticker` → "Trading conditions" card), so you don't have to leave the stock you're looking at to change how it trades.
+
+### Execution Mode — Market Price vs. Signal Price
+
+Controls the price a trade actually fills at (separate from quantity sizing, which is always `investment_amount / signal_price` no matter what this is set to).
+
+- **Market price** (default) — fills immediately at IG's current price. This was the only behaviour before this setting existed.
+- **Signal price** — places a LIMIT order at the exact TradingView signal price. Only fills at that price or better; if the market has already moved past it, the trade doesn't fill.
+
+**Where to set it:**
+- **Global default** — Conditions page → "Execution" card. Applies to every stock unless overridden.
+- **Per-stock override** — that stock's detail page (`/stocks/:ticker`) → "Trading conditions" card → "Override fill price for TICKER" switch. When off, the stock inherits the global default (shown in the helper text); when on, it uses its own choice regardless of the global setting.
+
+Both use the same `ExecutionModeToggle` component (`src/components/common/ExecutionModeToggle.tsx`) — a two-option card-style segmented control with icons (⚡ Market, 🎯 Signal), not a plain switch, since it's a named-mode choice rather than a boolean.
+
+**Important:** if a signal-price limit order can't fill immediately, it is logged `FAILED` exactly like a rejected market order — there is no pending/working-order state, no retry, no cancellation timer. This is a deliberate scope decision on the backend, not a placeholder for a future working-order feature.
 
 ---
 
@@ -787,16 +805,16 @@ Body: identifier (username), password. Returns CST and X-SECURITY-TOKEN in respo
 Returns array of markets, each with: epic, instrumentName, instrumentType, marketStatus, bid, offer. Can return multiple results — user selects correct one in the portal.
 
 **4. Place Position (POST /positions/otc, v2)**
-Body: epic, direction (BUY/SELL), size (quantity), orderType (MARKET), currencyCode (GBP), forceOpen (true), guaranteedStop (false), expiry (-). Returns dealReference.
+Body: epic, direction (BUY/SELL), size (quantity), orderType (MARKET by default, or LIMIT — see "Execution Mode" above), `level` (signal price, only when orderType is LIMIT), currencyCode (GBP), forceOpen (true), guaranteedStop (false), expiry (-). Returns dealReference.
 
 **5. Confirm Deal (GET /confirms/{dealReference}, v1)**
-Returns dealId, dealStatus (ACCEPTED/REJECTED), status (OPEN/CLOSED). Always call after placing.
+Returns dealId, dealStatus (ACCEPTED/REJECTED), status (OPEN/CLOSED), and `level` — the actual fill price, stored as `trade_log.executed_price` and shown in the Trades table. Always call after placing.
 
 **6. Get Open Positions (GET /positions, v2)**
 Returns array of positions with position.dealId, position.size, position.direction, market.epic, market.instrumentName. Used for all position checks.
 
 **7. Close Position (DELETE /positions/otc, v1)**
-Body: dealId, direction (opposite of open), size, orderType (MARKET), expiry (-). Used when a SELL signal closes an existing long position.
+Body: dealId, direction (opposite of open), size, orderType (MARKET by default, or LIMIT — same Execution Mode setting), `level` (only when LIMIT), expiry (-). Used when a SELL signal closes an existing long position.
 
 ### IG Epic Code Structure
 

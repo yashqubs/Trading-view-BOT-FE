@@ -33,6 +33,7 @@ The full project documentation lives at `.claude/PROJECT_DOCUMENTATION.md`. Read
 - Auth uses HttpOnly cookie — `withCredentials: true` on every Axios call, plus an `X-CSRF-Token` header (read from the `csrf_token` cookie) on mutating requests. Never localStorage.
 - Two roles: ADMIN sees and edits everything; VIEWER sees dashboard, trades, stats, and stock configuration read-only (including per-stock trading conditions). Gate mutations, not reads.
 - The per-stock detail page `/stocks/:ticker` is a mandatory, fully featured mini-dashboard with five chart types and a stat row (Section 12) — plus its own "Trading conditions" card so a stock's settings can be managed without leaving the page.
+- Execution mode (Market price vs. Signal price) has a global default on the Conditions page and an optional per-stock override on the stock detail page — both use the shared `ExecutionModeToggle` component (Section 9 "Execution Mode"), not a plain Switch, since it's a named-mode choice.
 - Realtime updates come over a Socket.IO connection (`src/lib/socket.ts`, `useSocketEvent`), not polling — see Section 10 RealtimeModule for the event list.
 
 ---
