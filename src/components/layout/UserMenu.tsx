@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { LogOut, Settings, User as UserIcon } from 'lucide-react'
+import { LogOut, Settings } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -45,10 +45,6 @@ export function UserMenu() {
         <DropdownMenuItem onSelect={() => navigate('/settings')}>
           <Settings className="mr-2 h-4 w-4" />
           Settings
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => navigate('/settings')}>
-          <UserIcon className="mr-2 h-4 w-4" />
-          Profile
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={handleLogout} className="text-danger">

@@ -346,7 +346,7 @@ export const handlers = [
       sortOrder: (sp.get('sortOrder') as TradeFilters['sortOrder']) ?? undefined,
       pageSize: 10000,
     }
-    const header = 'id,ticker,direction,status,signalPrice,closingPrice,quantity,investmentAmount,profitLoss,profitLossPct,dealId,signalReceivedAt,executedAt\n'
+    const header = 'id,ticker,direction,status,signalPrice,quantity,investmentAmount,dealId,signalReceivedAt,executedAt\n'
     const rows = getMockTradesPage(filters)
       .items.map((t) =>
         [
@@ -355,11 +355,8 @@ export const handlers = [
           t.direction,
           t.status,
           t.signalPrice.toFixed(2),
-          t.closingPrice?.toFixed(2) ?? '',
           t.quantity ?? '',
           t.investmentAmount ?? '',
-          t.profitLoss?.toFixed(2) ?? '',
-          t.profitLossPct?.toFixed(2) ?? '',
           t.dealId ?? '',
           t.signalReceivedAt,
           t.executedAt ?? '',

@@ -18,6 +18,7 @@ const STATUS_VARIANT: Record<TradeStatus, BadgeProps['variant']> = {
   BUY_DISABLED: 'neutral',
   SELL_DISABLED: 'neutral',
   COOL_DOWN: 'neutral',
+  DUPLICATE_SIGNAL: 'neutral',
 }
 
 const STATUS_LABEL: Record<TradeStatus, string> = {
@@ -37,6 +38,7 @@ const STATUS_LABEL: Record<TradeStatus, string> = {
   COOL_DOWN: 'Cool-down',
   MAX_POSITIONS_STOCK: 'Max positions reached',
   AUTO_PAUSED: 'Auto-paused',
+  DUPLICATE_SIGNAL: 'Duplicate signal',
 }
 
 export function StatusPill({ status }: { status: TradeStatus }) {

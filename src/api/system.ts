@@ -4,6 +4,7 @@ export interface SystemStatus {
   webhookUrl: string
   igConnected: boolean
   igSessionExpiresAt: string | null
+  lastSignalReceivedAt: string | null
 }
 
 export function getSystemStatus() {

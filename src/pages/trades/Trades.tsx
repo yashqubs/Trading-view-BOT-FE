@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
   Download,
   ArrowUpDown,
@@ -23,8 +24,15 @@ import { StatusPill } from '@/components/common/StatusPill'
 import { EmptyState } from '@/components/common/EmptyState'
 import { DateRangePicker, type DateRangeValue, type PresetKey } from '@/components/common/DateRangePicker'
 import { useTrades } from '@/hooks/useTrades'
+import { useSocketEvent } from '@/hooks/useSocketEvent'
 import { exportTradesCsv, type TradeFilters, type TradeSortBy } from '@/api/trades'
-import { TRADE_STATUSES, type TradeDirection, type TradeStatus, type TradeSummary } from '@/types'
+import {
+  TRADE_STATUSES,
+  type TradeDirection,
+  type TradeLog,
+  type TradeStatus,
+  type TradeSummary,
+} from '@/types'
 import { formatDateTime, formatMoney, formatPrice, formatQuantity } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -49,6 +57,7 @@ const STATUS_LABELS: Record<TradeStatus, string> = {
   COOL_DOWN: 'Cool-down',
   MAX_POSITIONS_STOCK: 'Max positions',
   AUTO_PAUSED: 'Auto-paused',
+  DUPLICATE_SIGNAL: 'Duplicate signal',
 }
 
 // ─── Sort helpers ─────────────────────────────────────────────────────────────
@@ -60,7 +69,6 @@ const SORT_COLUMNS: { key: TradeSortBy; label: string }[] = [
   { key: 'tvTicker', label: 'Ticker' },
   { key: 'signalPrice', label: 'Signal price' },
   { key: 'investmentAmount', label: 'Invested' },
-  { key: 'profitLoss', label: 'P&L' },
 ]
 
 // "Newest/Oldest" only makes sense for the date column — ticker is
@@ -77,27 +85,6 @@ function SortIcon({ sortKey, current }: { sortKey: TradeSortBy; current: SortCon
   return current.order === 'asc'
     ? <ArrowUp className="ml-1 h-3 w-3 text-accent" />
     : <ArrowDown className="ml-1 h-3 w-3 text-accent" />
-}
-
-// ─── P&L cell ─────────────────────────────────────────────────────────────────
-
-function PnLCell({ value, pct }: { value: number | null; pct: number | null }) {
-  const isPositive = value !== null && value >= 0
-  return (
-    <div
-      className={cn(
-        'flex flex-col',
-        value === null ? 'text-text-tertiary' : isPositive ? 'text-success' : 'text-danger',
-      )}
-    >
-      <span className="font-medium tabular-nums">
-        {value === null ? 'Open' : `${isPositive ? '+' : ''}${formatMoney(value)}`}
-      </span>
-      <span className="text-xs opacity-80 tabular-nums">
-        {value !== null && pct !== null ? `${isPositive ? '+' : ''}${pct.toFixed(2)}%` : ' '}
-      </span>
-    </div>
-  )
 }
 
 // ─── Summary stat cards ───────────────────────────────────────────────────────
@@ -142,11 +129,8 @@ function SummaryCard({
 }
 
 function SummaryRow({ summary, loading }: { summary: TradeSummary | undefined; loading: boolean }) {
-  const pnlPositive =
-    summary?.totalProfitLoss == null ? null : summary.totalProfitLoss >= 0
-
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       <SummaryCard
         label="Total trades"
         value={summary ? String(summary.totalTrades) : '—'}
@@ -170,23 +154,6 @@ function SummaryRow({ summary, loading }: { summary: TradeSummary | undefined; l
         label="Total invested"
         value={summary ? formatMoney(summary.totalInvested) : '—'}
         sub={summary?.avgInvestment != null ? `Avg ${formatMoney(summary.avgInvestment)}` : undefined}
-        loading={loading}
-      />
-      <SummaryCard
-        label="Realized P&L"
-        value={
-          summary?.totalProfitLoss == null
-            ? '—'
-            : `${summary.totalProfitLoss >= 0 ? '+' : ''}${formatMoney(summary.totalProfitLoss)}`
-        }
-        sub={summary?.avgProfitLoss != null ? `Avg ${formatMoney(summary.avgProfitLoss)}` : undefined}
-        positive={pnlPositive}
-        loading={loading}
-      />
-      <SummaryCard
-        label="Win / Loss"
-        value={summary ? `${summary.winCount}W · ${summary.lossCount}L` : '—'}
-        positive={summary && summary.winCount > summary.lossCount ? true : summary && summary.lossCount > summary.winCount ? false : null}
         loading={loading}
       />
     </div>
@@ -272,6 +239,19 @@ export function Trades() {
   const { data, isLoading, isFetching } = useTrades(filters)
   const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1
 
+  // Scoped to this page specifically (not the shared useTrades hook, which
+  // StockDetail also uses) — a toast for every trade shouldn't fire while
+  // someone's looking at one unrelated stock's detail page.
+  useSocketEvent<TradeLog>('trade:created', (trade) => {
+    if (trade.status === 'SUCCESS') {
+      toast.success(`${trade.tvTicker} ${trade.direction} executed`)
+    } else if (trade.status === 'FAILED') {
+      toast.error(`${trade.tvTicker} ${trade.direction} failed`)
+    }
+    // Skips (BOT_PAUSED, MARKET_CLOSED, DUPLICATE_SIGNAL, etc.) are frequent
+    // and expected — no toast noise for those, the row still appears live.
+  })
+
   async function handleExport() {
     setExporting(true)
     try {
@@ -316,7 +296,7 @@ export function Trades() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-medium text-text-primary">Trade history</h1>
-          <p className="text-sm text-text-secondary">Signal log with execution details, P&amp;L, and statistics.</p>
+          <p className="text-sm text-text-secondary">Signal log with execution details and statistics.</p>
         </div>
         <Button variant="secondary" onClick={handleExport} disabled={exporting}>
           <Download className="h-4 w-4" />
@@ -453,10 +433,8 @@ export function Trades() {
                   <SortHead col="tvTicker">Ticker</SortHead>
                   <TableHead>Direction</TableHead>
                   <SortHead col="signalPrice" className="text-right">Signal price</SortHead>
-                  <TableHead className="text-right">Closing price</TableHead>
                   <TableHead className="text-right">Qty</TableHead>
                   <SortHead col="investmentAmount" className="text-right">Invested</SortHead>
-                  <SortHead col="profitLoss" className="text-right">P&amp;L</SortHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Deal ID</TableHead>
                 </TableRow>
@@ -479,17 +457,11 @@ export function Trades() {
                     <TableCell className="text-right tabular-nums">
                       {formatPrice(trade.signalPrice)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-text-secondary">
-                      {trade.closingPrice ? formatPrice(trade.closingPrice) : <span className="text-text-tertiary">—</span>}
-                    </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatQuantity(trade.quantity)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatMoney(trade.investmentAmount)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <PnLCell value={trade.profitLoss} pct={trade.profitLossPct} />
                     </TableCell>
                     <TableCell>
                       <StatusPill status={trade.status} />

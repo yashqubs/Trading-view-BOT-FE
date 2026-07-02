@@ -51,3 +51,19 @@ export function formatQuantity(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(value)) return '—'
   return value.toFixed(4).replace(/0+$/, '').replace(/\.$/, '')
 }
+
+export function formatRelativeTime(value: string | Date | null | undefined) {
+  if (!value) return null
+  const date = typeof value === 'string' ? new Date(value) : value
+  if (Number.isNaN(date.getTime())) return null
+
+  const diffSeconds = Math.round((date.getTime() - Date.now()) / 1000)
+  const absSeconds = Math.abs(diffSeconds)
+  const rtf = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' })
+
+  if (absSeconds < 60) return rtf.format(diffSeconds, 'second')
+  if (absSeconds < 3600) return rtf.format(Math.round(diffSeconds / 60), 'minute')
+  if (absSeconds < 86400) return rtf.format(Math.round(diffSeconds / 3600), 'hour')
+  if (absSeconds < 604800) return rtf.format(Math.round(diffSeconds / 86400), 'day')
+  return rtf.format(Math.round(diffSeconds / 604800), 'week')
+}

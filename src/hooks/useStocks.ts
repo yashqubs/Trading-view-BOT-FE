@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   createStock,
   deleteStock,
+  getStock,
   listStocks,
   searchIgMarkets,
   updateStock,
@@ -11,6 +12,14 @@ import {
 
 export function useStocks() {
   return useQuery({ queryKey: ['stocks'], queryFn: listStocks })
+}
+
+export function useStock(ticker: string) {
+  return useQuery({
+    queryKey: ['stocks', ticker],
+    queryFn: () => getStock(ticker),
+    enabled: !!ticker,
+  })
 }
 
 export function useIgMarketSearch(term: string) {

@@ -2,6 +2,7 @@ import { createContext, type ReactNode, useContext, useEffect, useState } from '
 import { useQueryClient } from '@tanstack/react-query'
 import { getMe, logout as apiLogout } from '@/api/auth'
 import { registerUnauthorizedHandler } from '@/api/axios'
+import { connectSocket, disconnectSocket } from '@/lib/socket'
 import type { User } from '@/types'
 
 interface AuthContextValue {
@@ -31,6 +32,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       queryClient.clear()
     })
   }, [queryClient])
+
+  // The socket authenticates with the same httpOnly cookie the REST API
+  // uses, so it only makes sense to hold a connection open while there's an
+  // actual logged-in user — connect the moment we have one, disconnect the
+  // moment we don't (logout, 401, or failed session restore on load).
+  useEffect(() => {
+    if (user) {
+      connectSocket()
+    } else {
+      disconnectSocket()
+    }
+  }, [user])
 
   async function logout() {
     try {

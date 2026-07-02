@@ -20,6 +20,7 @@ import {
 import { useSystemStatus } from '@/hooks/useSystem'
 import { changeOwnPassword, disableTwoFactor } from '@/api/auth'
 import { useAuth } from '@/context/AuthContext'
+import { formatDateTime, formatRelativeTime } from '@/lib/format'
 
 export function Settings() {
   const { user, setUser } = useAuth()
@@ -119,6 +120,19 @@ export function Settings() {
               <Badge variant={system.data?.igConnected ? 'success' : 'danger'}>
                 {system.data?.igConnected ? 'Connected' : 'Disconnected'}
               </Badge>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+              <Label>Last TradingView signal</Label>
+              {system.data?.lastSignalReceivedAt ? (
+                <span
+                  className="text-sm text-text-primary"
+                  title={formatDateTime(system.data.lastSignalReceivedAt)}
+                >
+                  {formatRelativeTime(system.data.lastSignalReceivedAt)}
+                </span>
+              ) : (
+                <Badge variant="neutral">None received yet</Badge>
+              )}
             </div>
           </div>
         )}

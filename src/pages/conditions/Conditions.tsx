@@ -28,7 +28,6 @@ interface RulesFormSnapshot {
   maxConsecutiveFailures: string
   tradeStartTimeUtc: string
   tradeEndTimeUtc: string
-  tradeWeekdaysOnly: boolean
 }
 
 export function Conditions() {
@@ -46,7 +45,6 @@ export function Conditions() {
   const [maxConsecutiveFailures, setMaxConsecutiveFailures] = useState('3')
   const [tradeStartTimeUtc, setTradeStartTimeUtc] = useState('14:30')
   const [tradeEndTimeUtc, setTradeEndTimeUtc] = useState('21:00')
-  const [tradeWeekdaysOnly, setTradeWeekdaysOnly] = useState(true)
 
   // The last-saved (or last-loaded) form values — comparing against this is
   // how we know there are unsaved changes, without re-deriving from `rules`
@@ -65,7 +63,6 @@ export function Conditions() {
       maxConsecutiveFailures: String(rules.maxConsecutiveFailures),
       tradeStartTimeUtc: rules.tradeStartTimeUtc,
       tradeEndTimeUtc: rules.tradeEndTimeUtc,
-      tradeWeekdaysOnly: rules.tradeWeekdaysOnly,
     }
     setBaseline(snapshot)
     setBotEnabled(snapshot.botEnabled)
@@ -77,7 +74,6 @@ export function Conditions() {
     setMaxConsecutiveFailures(snapshot.maxConsecutiveFailures)
     setTradeStartTimeUtc(snapshot.tradeStartTimeUtc)
     setTradeEndTimeUtc(snapshot.tradeEndTimeUtc)
-    setTradeWeekdaysOnly(snapshot.tradeWeekdaysOnly)
   }, [rules])
 
   const isDirty =
@@ -90,8 +86,7 @@ export function Conditions() {
       maxOpenPositionsGlobal !== baseline.maxOpenPositionsGlobal ||
       maxConsecutiveFailures !== baseline.maxConsecutiveFailures ||
       tradeStartTimeUtc !== baseline.tradeStartTimeUtc ||
-      tradeEndTimeUtc !== baseline.tradeEndTimeUtc ||
-      tradeWeekdaysOnly !== baseline.tradeWeekdaysOnly)
+      tradeEndTimeUtc !== baseline.tradeEndTimeUtc)
 
   // Block in-app navigation while there are unsaved changes.
   const blocker = useBlocker(({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname)
@@ -119,7 +114,6 @@ export function Conditions() {
         maxConsecutiveFailures: Number(maxConsecutiveFailures) || 3,
         tradeStartTimeUtc,
         tradeEndTimeUtc,
-        tradeWeekdaysOnly,
       })
       setBaseline({
         botEnabled: saved.botEnabled,
@@ -131,7 +125,6 @@ export function Conditions() {
         maxConsecutiveFailures: String(saved.maxConsecutiveFailures),
         tradeStartTimeUtc: saved.tradeStartTimeUtc,
         tradeEndTimeUtc: saved.tradeEndTimeUtc,
-        tradeWeekdaysOnly: saved.tradeWeekdaysOnly,
       })
       toast.success('Trading conditions saved')
     } catch {
@@ -263,15 +256,6 @@ export function Conditions() {
               disabled={!isAdmin}
             />
           </div>
-        </div>
-        <div className="mt-4 flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
-          <Label htmlFor="weekdays-only">Weekdays only</Label>
-          <Switch
-            id="weekdays-only"
-            checked={tradeWeekdaysOnly}
-            onCheckedChange={setTradeWeekdaysOnly}
-            disabled={!isAdmin}
-          />
         </div>
       </Card>
 

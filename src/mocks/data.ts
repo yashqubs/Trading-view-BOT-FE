@@ -75,6 +75,7 @@ export const MOCK_SYSTEM_STATUS: SystemStatus = {
   webhookUrl: 'https://api.tradingbot.io/webhook/abc123xyz',
   igConnected: true,
   igSessionExpiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
+  lastSignalReceivedAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
 }
 
 // ─── Trading Rules ────────────────────────────────────────────────────────────
@@ -82,6 +83,7 @@ export const MOCK_SYSTEM_STATUS: SystemStatus = {
 export const MOCK_TRADING_RULES: TradingRules = {
   id: 1,
   botEnabled: true,
+  autoPaused: false,
   allowBuy: true,
   allowSell: true,
   dailyMaxTotalInvestment: 5000,
@@ -331,32 +333,6 @@ function seeded(seed: number) {
   return x - Math.floor(x)
 }
 
-function makePnL(
-  seed: number,
-  isSuccess: boolean,
-  direction: 'BUY' | 'SELL',
-  signalPrice: number,
-  investmentAmount: number | null,
-  quantity: number | null,
-): { closingPrice: number | null; profitLoss: number | null; profitLossPct: number | null } {
-  if (!isSuccess || investmentAmount === null || quantity === null) {
-    return { closingPrice: null, profitLoss: null, profitLossPct: null }
-  }
-  // ~30% of successful trades are still open (no closing price yet)
-  if (seeded(seed * 7) < 0.3) {
-    return { closingPrice: null, profitLoss: null, profitLossPct: null }
-  }
-  // Price movement: ±6%, skewed slightly positive (60% win rate)
-  const pricePct = (seeded(seed * 3) - 0.40) * 0.12
-  const closingPrice = parseFloat((signalPrice * (1 + pricePct)).toFixed(2))
-  const rawPnL = direction === 'BUY'
-    ? (closingPrice - signalPrice) * quantity
-    : (signalPrice - closingPrice) * quantity
-  const profitLoss = parseFloat(rawPnL.toFixed(2))
-  const profitLossPct = parseFloat(((profitLoss / investmentAmount) * 100).toFixed(2))
-  return { closingPrice, profitLoss, profitLossPct }
-}
-
 function randomId(seed: number, prefix: string) {
   return `${prefix}${Math.abs(Math.floor(seeded(seed) * 0xFFFFFF)).toString(16).toUpperCase().padStart(6, '0')}`
 }
@@ -374,7 +350,6 @@ const ALL_STATUS_TRADES: TradeLog[] = TRADE_STATUSES.map((status, i) => {
   const signalAt = hoursAgo(i * 2 + 1)
   const investmentAmount = isSuccess ? 500 + i * 50 : null
   const quantity = isSuccess && investmentAmount ? Math.floor(investmentAmount / signalPrice) : null
-  const { closingPrice, profitLoss, profitLossPct } = makePnL(i, isSuccess, direction, signalPrice, investmentAmount, quantity)
   return {
     id: i + 1,
     tvTicker: ticker,
@@ -391,13 +366,10 @@ const ALL_STATUS_TRADES: TradeLog[] = TRADE_STATUSES.map((status, i) => {
     signalReceivedAt: signalAt,
     executedAt: isSuccess ? new Date(new Date(signalAt).getTime() + 800).toISOString() : null,
     createdAt: signalAt,
-    closingPrice,
-    profitLoss,
-    profitLossPct,
   }
 })
 
-// Bulk trades (100 trades, mix of statuses, varied P&L)
+// Bulk trades (100 trades, mix of statuses)
 const BULK_TRADES: TradeLog[] = Array.from({ length: 100 }, (_, i) => {
   const ticker = TICKERS[i % TICKERS.length]
   const s = seeded(i * 17)
@@ -408,7 +380,6 @@ const BULK_TRADES: TradeLog[] = Array.from({ length: 100 }, (_, i) => {
   const signalAt = hoursAgo(i * 0.5 + 1)
   const investmentAmount = isSuccess ? 500 + (i % 5) * 100 : null
   const quantity = isSuccess && investmentAmount ? parseFloat((investmentAmount / signalPrice).toFixed(4)) : null
-  const { closingPrice, profitLoss, profitLossPct } = makePnL(i + 100, isSuccess, direction, signalPrice, investmentAmount, quantity)
   return {
     id: 100 + i,
     tvTicker: ticker,
@@ -425,9 +396,6 @@ const BULK_TRADES: TradeLog[] = Array.from({ length: 100 }, (_, i) => {
     signalReceivedAt: signalAt,
     executedAt: isSuccess ? new Date(new Date(signalAt).getTime() + 650).toISOString() : null,
     createdAt: signalAt,
-    closingPrice,
-    profitLoss,
-    profitLossPct,
   }
 })
 
@@ -444,13 +412,6 @@ function computeSummary(trades: TradeLog[]): TradeSummary {
   const buyCount = trades.filter((t) => t.direction === 'BUY').length
   const sellCount = trades.filter((t) => t.direction === 'SELL').length
   const totalInvested = trades.reduce((s, t) => s + (t.investmentAmount ?? 0), 0)
-  const closedTrades = trades.filter((t) => t.profitLoss !== null)
-  const totalProfitLoss =
-    closedTrades.length > 0 ? closedTrades.reduce((s, t) => s + (t.profitLoss ?? 0), 0) : null
-  const avgProfitLoss =
-    closedTrades.length > 0 ? (totalProfitLoss ?? 0) / closedTrades.length : null
-  const winCount = closedTrades.filter((t) => (t.profitLoss ?? 0) > 0).length
-  const lossCount = closedTrades.filter((t) => (t.profitLoss ?? 0) < 0).length
   const executedTrades = trades.filter((t) => t.investmentAmount !== null)
   const avgInvestment =
     executedTrades.length > 0
@@ -465,12 +426,8 @@ function computeSummary(trades: TradeLog[]): TradeSummary {
     buyCount,
     sellCount,
     totalInvested,
-    totalProfitLoss,
-    avgProfitLoss,
     successRate: trades.length > 0 ? (successCount / trades.length) * 100 : 0,
     avgInvestment,
-    winCount,
-    lossCount,
   }
 }
 
@@ -510,7 +467,6 @@ export function getMockTradesPage(filters: TradeFilters = {}): TradeListResponse
       case 'executedAt': av = a.executedAt ?? ''; bv = b.executedAt ?? ''; break
       case 'signalPrice': av = a.signalPrice; bv = b.signalPrice; break
       case 'investmentAmount': av = a.investmentAmount ?? -1; bv = b.investmentAmount ?? -1; break
-      case 'profitLoss': av = a.profitLoss ?? -Infinity; bv = b.profitLoss ?? -Infinity; break
       case 'tvTicker': av = a.tvTicker; bv = b.tvTicker; break
       default: av = a.signalReceivedAt; bv = b.signalReceivedAt
     }
