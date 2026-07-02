@@ -1,7 +1,15 @@
 import { type FormEvent, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Mail, MailCheck } from 'lucide-react'
-import { login, loginWithTwoFactor, resendLoginTwoFactorCode, forgotPassword, getMe } from '@/api/auth'
+import { toast } from 'sonner'
+import { Mail } from 'lucide-react'
+import {
+  login,
+  loginWithTwoFactor,
+  resendLoginTwoFactorCode,
+  forgotPassword,
+  resetPassword,
+  getMe,
+} from '@/api/auth'
 import { useAuth } from '@/context/AuthContext'
 import { AuthShell } from '@/components/common/AuthShell'
 import { Button } from '@/components/ui/button'
@@ -11,6 +19,7 @@ import { OtpInput } from '@/components/common/OtpInput'
 import { Label } from '@/components/ui/label'
 
 type Step = 'credentials' | 'twofactor' | 'forgot'
+type ForgotStage = 'email' | 'code' | 'password'
 
 export function Login() {
   const navigate = useNavigate()
@@ -23,8 +32,12 @@ export function Login() {
   const [error, setError] = useState<string | null>(null)
   const [pending, setPending] = useState(false)
   const [resending, setResending] = useState(false)
+  const [forgotStage, setForgotStage] = useState<ForgotStage>('email')
   const [forgotEmail, setForgotEmail] = useState('')
-  const [forgotSubmitted, setForgotSubmitted] = useState(false)
+  const [forgotCode, setForgotCode] = useState('')
+  const [forgotNewPassword, setForgotNewPassword] = useState('')
+  const [forgotConfirmPassword, setForgotConfirmPassword] = useState('')
+  const [forgotResending, setForgotResending] = useState(false)
 
   async function handleCredentialsSubmit(e: FormEvent) {
     e.preventDefault()
@@ -52,10 +65,12 @@ export function Login() {
 
       // requiresPasswordChange — no user in the response yet, but the pending
       // cookie already grants /auth/me so we can populate the session before
-      // routing to /change-password.
+      // routing to /change-password. Carry the temp password the user just
+      // typed along in router state so ChangePassword doesn't make them
+      // retype it a second time.
       const user = await getMe()
       setUser(user)
-      navigate('/change-password')
+      navigate('/change-password', { state: { tempPassword: password } })
     } catch {
       setError('Incorrect email or password.')
     } finally {
@@ -86,7 +101,7 @@ export function Login() {
     await verifyTwoFactor(code)
   }
 
-  async function handleForgotSubmit(e: FormEvent) {
+  async function handleForgotEmailSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
 
@@ -98,11 +113,59 @@ export function Login() {
     setPending(true)
     try {
       await forgotPassword(forgotEmail)
-      setForgotSubmitted(true)
+      // Always advance, regardless of whether the email is actually registered —
+      // the backend response never reveals that, so neither can the UI.
+      setForgotStage('code')
     } catch {
-      // Enumeration-safe: the backend never signals failure for this endpoint,
-      // so any error here is a genuine network/server problem, not "email not found".
       setError('Something went wrong. Please try again.')
+    } finally {
+      setPending(false)
+    }
+  }
+
+  async function handleForgotResend() {
+    setError(null)
+    setForgotResending(true)
+    try {
+      await forgotPassword(forgotEmail)
+      toast.success('A new code has been sent.')
+    } catch {
+      setError('Could not resend code. Try again in a moment.')
+    } finally {
+      setForgotResending(false)
+    }
+  }
+
+  function handleForgotCodeComplete(submittedCode: string) {
+    setForgotCode(submittedCode)
+    setError(null)
+    setForgotStage('password')
+  }
+
+  async function handleForgotPasswordSubmit(e: FormEvent) {
+    e.preventDefault()
+    setError(null)
+
+    if (forgotNewPassword.length < 8) {
+      setError('New password must be at least 8 characters.')
+      return
+    }
+    if (forgotNewPassword !== forgotConfirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
+
+    setPending(true)
+    try {
+      await resetPassword(forgotEmail, forgotCode, forgotNewPassword)
+      toast.success('Password updated. Sign in with your new password.')
+      backToLogin()
+    } catch {
+      // The code may have been wrong or expired — send them back to re-enter it
+      // rather than making them retype the new password too.
+      setError('That code was invalid or has expired. Please re-enter it.')
+      setForgotCode('')
+      setForgotStage('code')
     } finally {
       setPending(false)
     }
@@ -111,8 +174,11 @@ export function Login() {
   function backToLogin() {
     setStep('credentials')
     setError(null)
+    setForgotStage('email')
     setForgotEmail('')
-    setForgotSubmitted(false)
+    setForgotCode('')
+    setForgotNewPassword('')
+    setForgotConfirmPassword('')
   }
 
   async function handleResend() {
@@ -138,9 +204,11 @@ export function Login() {
           ? 'Sign in to continue'
           : step === 'twofactor'
             ? 'Enter the code we just sent you'
-            : forgotSubmitted
-              ? 'Check your inbox for next steps'
-              : "We'll email you instructions"
+            : forgotStage === 'email'
+              ? "We'll email you a verification code"
+              : forgotStage === 'code'
+                ? 'Enter the code we just sent you'
+                : 'Choose a new password'
       }
     >
       {step === 'credentials' ? (
@@ -165,6 +233,7 @@ export function Login() {
                 onClick={() => {
                   setForgotEmail(email)
                   setError(null)
+                  setForgotStage('email')
                   setStep('forgot')
                 }}
               >
@@ -185,22 +254,10 @@ export function Login() {
           </Button>
         </form>
       ) : step === 'forgot' ? (
-        forgotSubmitted ? (
-          <div className="flex flex-col gap-4">
-            <div className="flex items-start gap-2 rounded-lg border border-border bg-surface-2 p-3">
-              <MailCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
-              <p className="text-left text-xs text-text-secondary">
-                If that email is registered, we have sent password reset instructions.
-              </p>
-            </div>
-            <Button type="button" onClick={backToLogin} className="mt-1">
-              Back to login
-            </Button>
-          </div>
-        ) : (
-          <form onSubmit={handleForgotSubmit} className="flex flex-col gap-4">
+        forgotStage === 'email' ? (
+          <form onSubmit={handleForgotEmailSubmit} className="flex flex-col gap-4">
             <p className="text-left text-xs text-text-secondary">
-              Enter your account email and we&apos;ll send you instructions to reset your password.
+              Enter your account email and we&apos;ll send you a verification code.
             </p>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="forgot-email">Email</Label>
@@ -216,7 +273,77 @@ export function Login() {
             </div>
             {error && <p className="text-sm text-danger">{error}</p>}
             <Button type="submit" disabled={pending} className="mt-1">
-              {pending ? 'Sending…' : 'Send reset instructions'}
+              {pending ? 'Sending…' : 'Send code'}
+            </Button>
+            <button
+              type="button"
+              className="text-xs text-text-tertiary hover:text-text-secondary"
+              onClick={backToLogin}
+            >
+              Back to login
+            </button>
+          </form>
+        ) : forgotStage === 'code' ? (
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start gap-2 rounded-lg border border-border bg-surface-2 p-3">
+              <Mail className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+              <p className="text-left text-xs text-text-secondary">
+                If that email is registered, a 6-digit code was sent to it.
+              </p>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>6-digit code</Label>
+              <OtpInput
+                value={forgotCode}
+                onChange={setForgotCode}
+                onComplete={handleForgotCodeComplete}
+                disabled={pending}
+                autoFocus
+              />
+            </div>
+            {error && <p className="text-sm text-danger">{error}</p>}
+            <button
+              type="button"
+              className="text-xs text-text-tertiary hover:text-text-secondary disabled:opacity-50"
+              onClick={handleForgotResend}
+              disabled={forgotResending || pending}
+            >
+              {forgotResending ? 'Sending…' : "Didn't get a code? Resend"}
+            </button>
+            <button
+              type="button"
+              className="text-xs text-text-tertiary hover:text-text-secondary"
+              onClick={backToLogin}
+            >
+              Back to login
+            </button>
+          </div>
+        ) : (
+          <form onSubmit={handleForgotPasswordSubmit} className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="forgot-new-password">New password</Label>
+              <PasswordInput
+                id="forgot-new-password"
+                autoComplete="new-password"
+                value={forgotNewPassword}
+                onChange={(e) => setForgotNewPassword(e.target.value)}
+                disabled={pending}
+                autoFocus
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="forgot-confirm-password">Confirm new password</Label>
+              <PasswordInput
+                id="forgot-confirm-password"
+                autoComplete="new-password"
+                value={forgotConfirmPassword}
+                onChange={(e) => setForgotConfirmPassword(e.target.value)}
+                disabled={pending}
+              />
+            </div>
+            {error && <p className="text-sm text-danger">{error}</p>}
+            <Button type="submit" disabled={pending} className="mt-1">
+              {pending ? 'Updating…' : 'Reset password'}
             </Button>
             <button
               type="button"

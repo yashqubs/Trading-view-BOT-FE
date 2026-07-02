@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
-import { Check, Copy, KeyRound, Mail, Search, ShieldCheck, UserX, X } from 'lucide-react'
+import { Check, Copy, KeyRound, Search, ShieldCheck, UserCheck, UserX, X } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -23,7 +23,6 @@ import { CreateUserModal } from './components/CreateUserModal'
 import { useDeactivateUser, useResetUserPassword, useUpdateUser, useUsers } from '@/hooks/useUsers'
 import { useAuth } from '@/context/AuthContext'
 import { formatDateTime } from '@/lib/format'
-import { cn } from '@/lib/utils'
 import type { Role, User } from '@/types'
 
 type SortKey = 'name' | 'email' | 'role' | 'active' | 'lastLoginAt'
@@ -34,19 +33,8 @@ export function Users() {
   const updateUser = useUpdateUser()
   const deactivateUser = useDeactivateUser()
   const resetPassword = useResetUserPassword()
-  const [resetResult, setResetResult] = useState<{
-    id: string
-    name: string
-    password: string
-    /** Never logged in yet — no proven inbox access, so we still show the raw
-     *  password as a fallback the admin can hand over directly. Once a user
-     *  has registered (logged in at least once), the email is the only
-     *  channel we surface — showing the plaintext to the admin at that point
-     *  is unnecessary exposure. */
-    isUnregistered: boolean
-  } | null>(null)
+  const [resetResult, setResetResult] = useState<{ id: string; name: string; password: string } | null>(null)
   const [copied, setCopied] = useState(false)
-  const [resending, setResending] = useState(false)
 
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<Role | 'ALL'>('ALL')
@@ -105,30 +93,17 @@ export function Users() {
     }
   }
 
-  async function handleResetPassword(id: string, name: string, isUnregistered: boolean) {
+  // The backend resends the same pending password if one is already
+  // outstanding, only minting a new one when the user already has their own
+  // — so this is safe to click repeatedly without invalidating whatever was
+  // already sent or shown before.
+  async function handleResetPassword(id: string, name: string) {
     try {
       const { tempPassword } = await resetPassword.mutateAsync(id)
-      setResetResult({ id, name, password: tempPassword, isUnregistered })
-      toast.success(`Password reset — an email was sent to ${name}`)
+      setResetResult({ id, name, password: tempPassword })
+      toast.success(`Password sent to ${name}`)
     } catch {
-      toast.error('Could not reset password')
-    }
-  }
-
-  // Resetting again generates a fresh temp password and re-triggers the same
-  // "password reset" email server-side — there's no separate email-only
-  // endpoint, resetting *is* emailing, so "resend" just reruns it.
-  async function handleResendEmail() {
-    if (!resetResult) return
-    setResending(true)
-    try {
-      const { tempPassword } = await resetPassword.mutateAsync(resetResult.id)
-      setResetResult({ ...resetResult, password: tempPassword })
-      toast.success(`Email resent to ${resetResult.name}`)
-    } catch {
-      toast.error('Could not resend email')
-    } finally {
-      setResending(false)
+      toast.error('Could not send password')
     }
   }
 
@@ -267,21 +242,50 @@ export function Users() {
                       <TableCell className="text-text-tertiary">{formatDateTime(u.lastLoginAt)}</TableCell>
                       <TableCell>
                         <div className="flex items-center justify-end gap-1">
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                aria-label={`Reset password for ${u.name}`}
-                                onClick={() => handleResetPassword(u.id, u.name, !u.lastLoginAt)}
-                              >
-                                <KeyRound className="h-4 w-4" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Reset password</TooltipContent>
-                          </Tooltip>
+                          {/* Own account: the user has "Forgot password?" on the login
+                              page for this now — an admin resetting their own password
+                              from here would be redundant. Reset stays available for
+                              other users (locked-out colleagues, resending an invite). */}
+                          {!isSelf && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={
+                                    u.mustChangePassword
+                                      ? `Resend password for ${u.name}`
+                                      : `Reset password for ${u.name}`
+                                  }
+                                  onClick={() => handleResetPassword(u.id, u.name)}
+                                >
+                                  <KeyRound className="h-4 w-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              {/* A password is already pending (they haven't set their own yet) — this
+                                  resends that exact same one. Otherwise it mints a genuine new one. */}
+                              <TooltipContent>{u.mustChangePassword ? 'Resend password' : 'Reset password'}</TooltipContent>
+                            </Tooltip>
+                          )}
 
-                          {isSelf ? (
+                          {!u.active ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  aria-label={`Activate ${u.name}`}
+                                  onClick={async () => {
+                                    await updateUser.mutateAsync({ id: u.id, input: { active: true } })
+                                    toast.success(`${u.name} activated`)
+                                  }}
+                                >
+                                  <UserCheck className="h-4 w-4 text-success" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Activate</TooltipContent>
+                            </Tooltip>
+                          ) : isSelf ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
                                 <Button variant="ghost" size="icon" disabled aria-label="Cannot deactivate yourself">
@@ -324,7 +328,7 @@ export function Users() {
                   <ShieldCheck className="h-5 w-5" />
                 </span>
                 <div>
-                  <DialogTitle>Password reset</DialogTitle>
+                  <DialogTitle>Password sent</DialogTitle>
                   <DialogDescription className="mt-0.5">
                     for {resetResult?.name}
                   </DialogDescription>
@@ -332,46 +336,29 @@ export function Users() {
               </div>
             </DialogHeader>
 
-            {resetResult?.isUnregistered ? (
-              <>
-                <p className="text-sm text-text-secondary">
-                  An email with this temporary password has already been sent to {resetResult?.name}. Since they
-                  haven&apos;t signed in yet, it&apos;s shown here too as a fallback — it won&apos;t be shown again
-                  after you close this dialog. They&apos;ll be asked to set a new one on their next sign-in.
-                </p>
+            <p className="text-sm text-text-secondary">
+              An email with this temporary password has been sent to {resetResult?.name}. It&apos;s shown here too
+              as a fallback in case delivery fails — it won&apos;t be shown again after you close this dialog.
+              They&apos;ll be asked to set their own on next sign-in. Clicking this action again will resend this
+              same password, not generate a new one.
+            </p>
 
-                <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-4 py-3 shadow-[var(--shadow-sm)]">
-                  <span className="font-mono text-base tracking-wide text-text-primary">{resetResult?.password}</span>
-                  <Button variant="secondary" size="sm" onClick={copyResetPassword} aria-label="Copy password">
-                    {copied ? (
-                      <>
-                        <Check className="h-4 w-4 text-success" /> Copied
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="h-4 w-4" /> Copy
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-text-secondary">
-                An email with a new temporary password has been sent to {resetResult?.name}. Since they&apos;ve
-                already signed in before, it isn&apos;t shown here — only they receive it, by email. They&apos;ll be
-                asked to set a new one on their next sign-in.
-              </p>
-            )}
+            <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-2 px-4 py-3 shadow-[var(--shadow-sm)]">
+              <span className="font-mono text-base tracking-wide text-text-primary">{resetResult?.password}</span>
+              <Button variant="secondary" size="sm" onClick={copyResetPassword} aria-label="Copy password">
+                {copied ? (
+                  <>
+                    <Check className="h-4 w-4 text-success" /> Copied
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4" /> Copy
+                  </>
+                )}
+              </Button>
+            </div>
 
-            <DialogFooter className={cn(resetResult?.isUnregistered && 'items-center sm:justify-between')}>
-              {/* Only useful for a not-yet-registered invite — a registered user already has a
-                  working account and got the one reset email; there's nothing left to resend. */}
-              {resetResult?.isUnregistered && (
-                <Button variant="ghost" size="sm" onClick={handleResendEmail} disabled={resending}>
-                  <Mail className="h-4 w-4" />
-                  {resending ? 'Resending…' : 'Resend email'}
-                </Button>
-              )}
+            <DialogFooter>
               <Button variant="primary" onClick={() => setResetResult(null)}>
                 Done
               </Button>

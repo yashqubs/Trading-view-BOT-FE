@@ -306,7 +306,7 @@ A simple user management system so an admin can create additional portal users w
 | GET | /users | ADMIN | List all users |
 | POST | /users | ADMIN | Create a new user (email, name, role, temp password) |
 | PATCH | /users/:id | ADMIN | Update name, role, or active status |
-| POST | /users/:id/reset-password | ADMIN | Generate a new temp password |
+| POST | /users/:id/reset-password | ADMIN | Resend the pending temp password, or generate a new one if none is pending — see below |
 | DELETE | /users/:id | ADMIN | Deactivate a user (soft delete) |
 | GET | /users/me | Any | Get own profile |
 | PATCH | /users/me/password | Any | Change own password |
@@ -320,9 +320,24 @@ A simple user management system so an admin can create additional portal users w
 5. On first login, the user is forced to set a new password, then can optionally enable two-factor authentication
 6. Done — minimal friction
 
+### Reset/Resend Password Is Idempotent While Pending
+
+`POST /users/:id/reset-password` doesn't always mint a new temp password — if one is already pending (the user hasn't set their own password yet), it resends that exact same one instead, so clicking it again (or an invite email that never arrived) doesn't keep invalidating whatever was already sent or shown. It only mints a genuinely new password when nothing is pending. The row action in the Users table reflects this: tooltip reads "Resend password" when a reset is pending, "Reset password" otherwise (`src/pages/users/Users.tsx`, keyed off `user.mustChangePassword`). The confirmation dialog always shows the current password as a fallback in case email delivery fails, with a "Copy" button — there's no separate "resend email" action anymore, since clicking the row action again does the same safe thing.
+
 ### Self-Service Forgot Password
 
-`POST /auth/forgot-password` (`{ email }`, no auth) lets a user request their own reset instead of waiting on an admin. It runs the exact same temp-password-and-email logic as the admin-triggered `POST /users/:id/reset-password` above (`UserService.resetPasswordByEmail`, called from `UserService.resetPassword`'s sibling), just looked up by email instead of an authenticated admin picking a user ID. The response is always the same generic message ("If that email is registered, we have sent password reset instructions.") regardless of whether the email matches an account or the account is active — this is deliberate, so the endpoint can't be used to enumerate registered emails. Throttled at the same rate as `/auth/login`. On the login page, the "Forgot password?" link opens an inline email-entry step that ends in this same generic confirmation message, then a "Back to login" link — see `src/pages/login/Login.tsx`.
+A two-step, OTP-based flow — the same emailed-code mechanism as login 2FA and 2FA setup, just a third purpose (`RESET`):
+
+1. `POST /auth/forgot-password` (`{ email }`) emails a 6-digit code. Always the same generic response, enumeration-safe.
+2. `POST /auth/reset-password` (`{ email, code, newPassword }`) verifies the code and sets the new password in one call.
+
+On the login page, "Forgot password?" opens three inline steps — `src/pages/login/Login.tsx`, `forgotStage: 'email' | 'code' | 'password'`:
+
+- **email** — enter the account email, submit → calls step 1 above, always advances regardless of the (generic) response.
+- **code** — the shared `OtpInput` component; typing all 6 digits calls `onComplete` and advances to the next stage immediately, client-side only — the code itself isn't actually checked against the backend until the final submit. Has a "Resend" link (re-calls step 1) and a "Back to login" link.
+- **password** — new password + confirm fields; submit calls step 2 above with the email, the code captured from the previous stage, and the new password together. A wrong/expired code sends the user back to the code stage to re-enter it rather than losing the password they just typed.
+
+On success, a toast confirms and the user is returned to the credentials step to sign in with the new password — there's no auto-login from this flow.
 
 ### User Table Behaviour
 
@@ -555,7 +570,8 @@ Both use the same `ExecutionModeToggle` component (`src/components/common/Execut
 | POST | /auth/login | Email + password → forced password change, email-OTP challenge, or a full session |
 | POST | /auth/login/2fa | Email + password + emailed code → JWT cookie |
 | POST | /auth/login/2fa/resend | Re-send the login OTP (30s cooldown) |
-| POST | /auth/forgot-password | Self-service password reset by email. Always returns the same generic message regardless of whether the email is registered (enumeration-safe); reuses the admin `resetPassword` temp-password-by-email flow, not the OTP mechanism. Throttled same as login. |
+| POST | /auth/forgot-password | Self-service password reset, step 1: email an OTP (`otpPurpose: 'RESET'`). Always returns the same generic message, enumeration-safe. Throttled same as login. |
+| POST | /auth/reset-password | Self-service password reset, step 2: `{ email, code, newPassword }` → verifies the code and sets the new password in one call. Same generic `401` for a wrong code or an unknown email. |
 | POST | /auth/2fa/setup | Email an OTP to confirm enabling 2FA |
 | POST | /auth/2fa/resend | Re-send the setup OTP (30s cooldown) |
 | POST | /auth/2fa/verify | Confirm 2FA setup with the emailed code |

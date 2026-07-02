@@ -79,7 +79,10 @@ export function CreateUserModal() {
           <>
             <DialogHeader>
               <DialogTitle>Add user</DialogTitle>
-              <DialogDescription>A temporary password will be generated and shown once.</DialogDescription>
+              <DialogDescription>
+                A temporary password will be generated and emailed to them directly — you won&apos;t need to
+                share it yourself.
+              </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="flex flex-col gap-4">
               <div className="flex flex-col gap-1.5">
@@ -118,7 +121,9 @@ export function CreateUserModal() {
             <DialogHeader>
               <DialogTitle>User created</DialogTitle>
               <DialogDescription>
-                Share this temporary password with {name}. It will not be shown again.
+                An invite email with this temporary password has already been sent to {email}. It&apos;s shown
+                here too as a fallback in case delivery fails — it won&apos;t be shown again after you close this
+                dialog. If they need it resent, use &quot;Reset password&quot; for {name} from the Users table.
               </DialogDescription>
             </DialogHeader>
             <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2.5">

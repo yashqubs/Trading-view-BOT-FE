@@ -30,8 +30,12 @@ export function useUpdateUser() {
 }
 
 export function useResetUserPassword() {
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => resetUserPassword(id),
+    // Keeps the resend-vs-reset tooltip label accurate: a genuine reset flips
+    // mustChangePassword to true, which the row's label depends on.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   })
 }
 

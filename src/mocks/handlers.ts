@@ -66,8 +66,14 @@ export const handlers = [
   http.post(url('/auth/forgot-password'), async () => {
     await delay(LATENCY)
     return HttpResponse.json({
-      message: 'If that email is registered, we have sent password reset instructions.',
+      message: 'If that email is registered, we have sent a verification code.',
     })
+  }),
+
+  // POST /auth/reset-password
+  http.post(url('/auth/reset-password'), async () => {
+    await delay(LATENCY)
+    return HttpResponse.json({ message: 'Password updated. You can now sign in with your new password.' })
   }),
 
   // POST /auth/2fa/setup

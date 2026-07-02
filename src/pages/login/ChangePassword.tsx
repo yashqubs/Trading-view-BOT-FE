@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { changeOwnPassword, getMe } from '@/api/auth'
 import { useAuth } from '@/context/AuthContext'
 import { AuthShell } from '@/components/common/AuthShell'
@@ -9,8 +9,12 @@ import { Label } from '@/components/ui/label'
 
 export function ChangePassword() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { setUser } = useAuth()
-  const [currentPassword, setCurrentPassword] = useState('')
+  // Login already collected this — only ask again if the user landed here
+  // without going through Login first (e.g. a page refresh lost the state).
+  const carriedTempPassword = (location.state as { tempPassword?: string } | null)?.tempPassword ?? ''
+  const [currentPassword, setCurrentPassword] = useState(carriedTempPassword)
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -46,16 +50,18 @@ export function ChangePassword() {
   return (
     <AuthShell title="Set a new password" subtitle="This is a temporary password. Choose a new one to continue.">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="current-password">Temporary password</Label>
-          <PasswordInput
-            id="current-password"
-            autoComplete="current-password"
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            disabled={pending}
-          />
-        </div>
+        {!carriedTempPassword && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="current-password">Temporary password</Label>
+            <PasswordInput
+              id="current-password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              disabled={pending}
+            />
+          </div>
+        )}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="new-password">New password</Label>
           <PasswordInput

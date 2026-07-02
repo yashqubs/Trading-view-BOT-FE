@@ -26,6 +26,12 @@ export function forgotPassword(email: string) {
   return api.post<{ message: string }>('/auth/forgot-password', { email }).then((r) => r.data)
 }
 
+export function resetPassword(email: string, code: string, newPassword: string) {
+  return api
+    .post<{ message: string }>('/auth/reset-password', { email, code, newPassword })
+    .then((r) => r.data)
+}
+
 export interface TwoFactorSetup {
   message: string
   maskedEmail?: string
