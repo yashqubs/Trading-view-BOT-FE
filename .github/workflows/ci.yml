@@ -1,0 +1,70 @@
+name: Frontend CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+jobs:
+  build-test-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Build
+        run: pnpm build
+        env:
+          VITE_MOCK: "false"
+
+      - name: Test
+        run: pnpm test
+
+      - name: Dependency audit (fail on high/critical)
+        run: pnpm audit --audit-level=high
+
+  # Deploys only real pushes to main (never PRs, never `develop`), and only
+  # after build-test-audit passes. Runs the repo's own deploy.sh on the
+  # server so there's exactly one place that knows how to ship this app —
+  # switch TARGET to "cloudflare" here if you move off the shared-EC2-Nginx
+  # setup (see .claude/scripts/deploy.sh for what each target does).
+  # Requires repo secrets EC2_HOST, EC2_SSH_USER, EC2_SSH_KEY and repo
+  # variable DEPLOY_PATH (where this repo is cloned on the EC2 instance,
+  # e.g. /opt/trading-view-bot-frontend) — same EC2 instance as the backend
+  # if using the Nginx target, so these can reuse the backend repo's secrets.
+  deploy:
+    needs: build-test-audit
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      TARGET: nginx
+    steps:
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_SSH_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            cd "${{ vars.DEPLOY_PATH }}"
+            git fetch origin main
+            git reset --hard origin/main
+            chmod +x .claude/scripts/deploy.sh
+            ./.claude/scripts/deploy.sh ${{ env.TARGET }}

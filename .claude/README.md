@@ -15,6 +15,11 @@ CLAUDE.md                  Root context + documentation reference
 │   └── design-review.md   /design-review — check UI consistency
 └── scripts/
     └── deploy.sh          Build + deploy to Nginx or Cloudflare Pages (no Vercel)
+
+.github/
+├── workflows/ci.yml       Live CI/CD — lint/build/test/audit on every push+PR,
+│                           then runs deploy.sh over SSH on push to main
+└── dependabot.yml         Weekly dependency update PRs
 ```
 
 ## How to use
@@ -22,7 +27,8 @@ CLAUDE.md                  Root context + documentation reference
 1. Place `CLAUDE.md` and the `.claude/` folder at the repo root.
 2. Make the deploy script executable: `chmod +x .claude/scripts/deploy.sh`.
 3. Edit placeholders in `deploy.sh` (Nginx root path, Cloudflare project name).
-4. Deploy with `./.claude/scripts/deploy.sh nginx` or `./.claude/scripts/deploy.sh cloudflare`.
+4. To deploy by hand: `./.claude/scripts/deploy.sh nginx` or `./.claude/scripts/deploy.sh cloudflare`. In normal operation this runs automatically instead — see below.
+5. For the automated deploy in `.github/workflows/ci.yml` to work, add repo secrets `EC2_HOST`, `EC2_SSH_USER`, `EC2_SSH_KEY` and repo variable `DEPLOY_PATH` under GitHub → Settings → Secrets and variables → Actions. See Section 18 Phase 2b of `PROJECT_DOCUMENTATION.md`.
 
 ## Slash commands
 

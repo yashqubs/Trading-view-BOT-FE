@@ -937,6 +937,16 @@ If the server is down when a signal fires, TradingView's webhook fails and that 
 - [ ] Set up nightly S3 backup cron
 - [ ] Verify HTTPS returns 200
 
+### Phase 2b — CI/CD (Yash)
+
+Phase 2 above is a one-time manual bootstrap. After that, both repos deploy automatically via GitHub Actions on every push to `main` (`.github/workflows/ci.yml` in each repo) — lint, build, test, and `pnpm audit --audit-level=high` must all pass before the deploy job runs; a red CI run never reaches production. The frontend deploy job runs this repo's own `.claude/scripts/deploy.sh` on the server.
+
+- [ ] Generate a dedicated deploy SSH keypair; add the **public** key to the deploy user's `~/.ssh/authorized_keys` on the EC2 instance
+- [ ] In both GitHub repos, add these **Actions secrets**: `EC2_HOST`, `EC2_SSH_USER`, `EC2_SSH_KEY` (the private key)
+- [ ] In both GitHub repos, add the **Actions variable** `DEPLOY_PATH` (where each repo is cloned on the server, e.g. `/opt/trading-view-bot-backend` and `/opt/trading-view-bot-frontend`)
+- [ ] Confirm the deploy user can run `sudo cp`/`sudo systemctl reload nginx` (the Nginx deploy target) without a password prompt — or switch the workflow's `TARGET` to `cloudflare` and add `CLOUDFLARE_API_TOKEN` instead
+- [ ] Push to `main` once and confirm both the CI job and the deploy job go green in the Actions tab
+
 ### Phase 3 — TradingView (Vipul)
 - [ ] Enable 2FA, change both alerts to JSON, set webhook URLs
 
