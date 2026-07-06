@@ -95,18 +95,13 @@ jobs:
             echo "Building frontend..."
             VITE_MOCK=false pnpm build
 
-            echo "Restarting frontend..."
-            pm2 restart trading_view_frontend
-
-            pm2 save
-
-            echo "Waiting for application..."
-            sleep 10
+            echo "Reloading Nginx..."
+            sudo nginx -t && sudo systemctl reload nginx
 
             echo "Running health check..."
 
             for i in {1..5}; do
-              if curl -fsS http://127.0.0.1:5173 > /dev/null; then
+              if curl -fsS http://127.0.0.1/ > /dev/null; then
                 echo "Deployment successful."
                 exit 0
               fi
