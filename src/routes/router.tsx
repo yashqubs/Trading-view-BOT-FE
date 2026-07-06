@@ -16,6 +16,7 @@ import { Trades } from '@/pages/trades/Trades'
 import { Conditions } from '@/pages/conditions/Conditions'
 import { Users } from '@/pages/users/Users'
 import { Settings } from '@/pages/settings/Settings'
+import { AccessGuide } from '@/pages/access/AccessGuide'
 import { RouteError } from '@/pages/error/RouteError'
 
 export const router = createBrowserRouter([
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
           { path: '/trades', element: <Trades /> },
           { path: '/conditions', element: <Conditions /> },
           { path: '/settings', element: <Settings /> },
+          { path: '/access', element: <AccessGuide /> },
           {
             element: <RoleRoute allow={['ADMIN']} />,
             children: [

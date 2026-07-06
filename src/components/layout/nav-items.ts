@@ -5,6 +5,7 @@ import {
   LineChart,
   ListChecks,
   Settings,
+  ShieldCheck,
   SlidersHorizontal,
   Users,
   type LucideIcon,
@@ -27,4 +28,5 @@ export const NAV_ITEMS: NavItem[] = [
   { to: '/conditions', label: 'Conditions', icon: SlidersHorizontal },
   { to: '/users', label: 'Users', icon: Users, adminOnly: true },
   { to: '/settings', label: 'Settings', icon: Settings },
+  { to: '/access', label: 'Roles & access', icon: ShieldCheck },
 ]

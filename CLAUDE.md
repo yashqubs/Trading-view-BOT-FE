@@ -31,6 +31,7 @@ The full project documentation lives at `.claude/PROJECT_DOCUMENTATION.md`. Read
 - The bot master switch (`bot_enabled` in `trading_rules`) must be one click from anywhere — top bar always.
 - No P&L is shown in the portal — not "no real-time P&L", literally none (Section 19 Limitation 1). A realized-P&L feature (computed from signal price, not IG's fill price) was built and then removed app-wide because the numbers weren't trustworthy. Don't re-add any form of P&L display without discussing it first — the portal shows what was invested, not a return figure.
 - Auth uses HttpOnly cookie — `withCredentials: true` on every Axios call, plus an `X-CSRF-Token` header (read from the `csrf_token` cookie) on mutating requests. Never localStorage.
+- Only one device can be logged into an account at a time (Section 5 Layer 4, backend-enforced) — logging in elsewhere invalidates the current session, surfacing here as a plain 401 that the existing Axios interceptor already redirects to `/login`. No special frontend handling needed unless a future task asks for a distinct "logged in elsewhere" message.
 - Two roles: ADMIN sees and edits everything; VIEWER sees dashboard, trades, stats, and stock configuration read-only (including per-stock trading conditions). Gate mutations, not reads.
 - The per-stock detail page `/stocks/:ticker` is a mandatory, fully featured mini-dashboard with five chart types and a stat row (Section 12) — plus its own "Trading conditions" card so a stock's settings can be managed without leaving the page.
 - Execution mode (Market price vs. Signal price) has a global default on the Conditions page and an optional per-stock override on the stock detail page — both use the shared `ExecutionModeToggle` component (Section 9 "Execution Mode"), not a plain Switch, since it's a named-mode choice.
@@ -69,12 +70,15 @@ This is a financial tool. Clarity, correctness, and a calm, trustworthy UI matte
 
 - `/login` — email + password + optional email-OTP 2FA code
 - `/` — dashboard: global stats cards + charts + alerts
-- `/stocks` — per-stock config table; click a row → stock detail
-- `/stocks/:ticker` — single-stock statistics with charts, plus a "Trading conditions" card to manage that stock's settings without leaving the page (this is required and important)
+- `/stocks` — per-stock config table; click a row → stock detail (Admin only)
+- `/stocks/:ticker` — single-stock statistics with charts, plus a "Trading conditions" card to manage that stock's settings without leaving the page (this is required and important); Viewer sees it read-only, no Edit button
+- `/markets` — search/manage the IG tradeable-market list (Admin only)
+- `/positions` — currently open positions, live from IG
 - `/trades` — full trade history, filterable, CSV export
-- `/conditions` — global trading rules form
+- `/conditions` — global trading rules form; Viewer sees every field disabled
 - `/users` — user management (Admin only)
 - `/settings` — webhook URL, IG status, last TradingView signal received, change password, manage 2FA
+- `/access` — static "Roles & access" reference page (`src/pages/access/AccessGuide.tsx`): every feature plus what Admin vs. Viewer can do with it. No API calls; visible to both roles.
 
 ## Hard rules
 

@@ -224,11 +224,13 @@ When a TradingView indicator fires a green (buy) or red (sell) signal, the bot a
 |---|---|---|
 | Password hashing | bcrypt cost 12 | Plain text never stored |
 | **2FA (email OTP)** | **Optional, user opt-in (IMPLEMENTED)** | **Stolen password alone is not enough, for accounts that enable it** |
-| JWT expiry | 1 hour access token (15 min while a password change is pending) | Limits exposure window |
+| JWT expiry | 15 min access token (also 15 min for the pending session while a password change is required) | Limits exposure window |
+| Refresh token | Opaque, hashed in DB, 1h sliding idle window — `POST /auth/refresh` rotates it (single-use) and reissues both cookies. Not issued for pending sessions. | Keeps an *active* user logged in without a long-lived access token; a genuinely idle user (no requests for 1h) is logged out |
 | Token storage | HttpOnly + Secure + SameSite=Strict cookie | Prevents XSS theft + CSRF |
 | CSRF double-submit token | `X-CSRF-Token` header must match the `csrf_token` cookie on every mutating request | Defense in depth alongside SameSite=Strict |
 | Brute force lockout | 5 attempts / 15 min then locked | Stops password guessing |
 | Token blacklist | Invalidated on logout | Stolen token cannot be reused |
+| **Single active session (IMPLEMENTED)** | **One login per account at a time** — signing in on a new device immediately ends every other device's session | A leaked/stolen session can't quietly persist alongside the real user's |
 
 #### 2FA Implementation (Implemented)
 
@@ -239,6 +241,12 @@ When a TradingView indicator fires a green (buy) or red (sell) signal, the bot a
 - Codes expire after 10 minutes, can be resent after a 30-second cooldown, and lock out after 5 wrong attempts (forcing a resend)
 - Disabling 2FA requires re-entering the account password
 - Only a salted hash of the current OTP is stored, with a short expiry — there is no long-lived secret to protect (unlike the TOTP approach this replaced), so nothing OTP-related needs encryption at rest
+
+#### Single-Session Enforcement (Implemented)
+
+- Only one device/browser can be logged into an account at a time. Logging in anywhere — password-only, or password+2FA, or the forced-password-change flow on first login — immediately ends every other active session for that account, no confirmation step, no "log out other devices" button needed.
+- From the frontend's point of view this needs no special handling: the kicked-out device just gets a 401 on its next request (even mid-session, before its token would otherwise have expired), and the existing Axios response interceptor already redirects any 401 to `/login` — see `src/api/axios.ts`. There's currently no toast distinguishing "you were logged in elsewhere" from a normal expired session; both look like a plain redirect to the login page.
+- Enforced entirely on the backend (new `currentSessionId` stamped on the user row per login, compared against the JWT on every request) — nothing to build or maintain on the frontend for this.
 
 ### Layer 5 — Secrets Management (Implemented)
 
@@ -410,6 +418,7 @@ On success, a toast confirms and the user is returned to the credentials step to
 | failed_login_attempts | INTEGER | Brute force counter |
 | locked_until | TIMESTAMP, Nullable | Set when locked |
 | last_login_at | TIMESTAMP, Nullable | For audit |
+| current_session_id | VARCHAR(36), Nullable | Refreshed on every full login — backs single-active-session enforcement (Section 5 Layer 4) |
 | created_at | TIMESTAMP | Auto |
 | updated_at | TIMESTAMP | Auto |
 
@@ -640,11 +649,14 @@ The frontend mostly uses these events to trigger a TanStack Query refetch (`quer
 | Login | /login | Email + password + optional email-OTP 2FA |
 | Dashboard | / | Global stats + charts |
 | Stocks | /stocks | Per-stock config table |
-| Stock Detail | /stocks/:ticker | Single-stock statistics + charts + per-stock trading conditions (enable/disable, investment amount, daily cap, cool-down, max positions) |
-| Trades | /trades | Full trade history with filters |
-| Conditions | /conditions | Global trading rules |
+| Stock Detail | /stocks/:ticker | Single-stock statistics + charts + per-stock trading conditions (enable/disable, investment amount, daily cap, cool-down, max positions) — Viewer: read-only, no Edit button |
+| Markets | /markets | Search/manage the IG tradeable-market list (Admin only) |
+| Open Positions | /positions | Currently open positions, live from IG |
+| Trades | /trades | Full trade history with filters + CSV export |
+| Conditions | /conditions | Global trading rules — Viewer: visible, every field disabled |
 | Users | /users | User management (Admin only) |
 | Settings | /settings | Webhook URL, IG connection status, last TradingView signal received, password, 2FA |
+| Roles & Access | /access | `src/pages/access/AccessGuide.tsx` — static reference listing every feature and what Admin vs. Viewer can do with it (an "Overview" card grid and a "Permissions matrix" table, switchable via the shared `Tabs` component). No API calls; visible to both roles. |
 
 ### Stack
 
