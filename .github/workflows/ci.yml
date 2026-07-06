@@ -54,6 +54,18 @@ jobs:
     environment: production
 
     steps:
+      - name: Validate deploy configuration
+        run: |
+          missing=()
+          [ -z "${{ secrets.EC2_HOST }}" ] && missing+=("EC2_HOST secret")
+          [ -z "${{ secrets.EC2_SSH_USER }}" ] && missing+=("EC2_SSH_USER secret")
+          [ -z "${{ secrets.EC2_SSH_KEY }}" ] && missing+=("EC2_SSH_KEY secret")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing GitHub Actions config: ${missing[*]}"
+            echo "Add secrets under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -64,7 +76,7 @@ jobs:
           script: |
             set -euo pipefail
 
-            cd "${{ vars.DEPLOY_PATH }}"
+            cd /var/www/quantum-trade/frontend
 
             echo "Fetching latest code..."
             git fetch origin main
