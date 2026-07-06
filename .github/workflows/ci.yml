@@ -76,7 +76,7 @@ jobs:
           script: |
             set -euo pipefail
 
-            DEPLOY_DIR=/var/www/quantum-trade/frontend
+            DEPLOY_DIR=/var/www/quantum-trade/Trading-view-BOT-FE
 
             # Repo may be owned by root from manual setup; deploy user needs write access.
             sudo chown -R "$(whoami):$(whoami)" "$DEPLOY_DIR"
@@ -98,16 +98,19 @@ jobs:
             echo "Reloading Nginx..."
             sudo nginx -t && sudo systemctl reload nginx
 
-            echo "Running health check..."
+            echo "Verifying deployment..."
+            if [ ! -f dist/index.html ]; then
+              echo "Health check failed: dist/index.html not found after build."
+              exit 1
+            fi
 
             for i in {1..5}; do
-              if curl -fsS http://127.0.0.1/ > /dev/null; then
+              if curl -fsS http://127.0.0.1/index.html > /dev/null; then
                 echo "Deployment successful."
                 exit 0
               fi
-
               sleep 3
             done
 
-            echo "Health check failed."
+            echo "Health check failed: Nginx did not serve index.html."
             exit 1
