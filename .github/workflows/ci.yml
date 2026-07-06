@@ -2,23 +2,31 @@ name: Frontend CI/CD
 
 on:
   push:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
   pull_request:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
 
 jobs:
   build-test-audit:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: 10
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: pnpm
 
       - name: Install dependencies
@@ -32,28 +40,19 @@ jobs:
         env:
           VITE_MOCK: "false"
 
-      - name: Test
+      - name: Run tests
         run: pnpm test
 
-      - name: Dependency audit (fail on high/critical)
+      - name: Dependency audit
         run: pnpm audit --audit-level=high
 
-  # Deploys only real pushes to main (never PRs, never `develop`), and only
-  # after build-test-audit passes. Runs the repo's own deploy.sh on the
-  # server so there's exactly one place that knows how to ship this app —
-  # switch TARGET to "cloudflare" here if you move off the shared-EC2-Nginx
-  # setup (see .claude/scripts/deploy.sh for what each target does).
-  # Requires repo secrets EC2_HOST, EC2_SSH_USER, EC2_SSH_KEY and repo
-  # variable DEPLOY_PATH (where this repo is cloned on the EC2 instance,
-  # e.g. /opt/trading-view-bot-frontend) — same EC2 instance as the backend
-  # if using the Nginx target, so these can reuse the backend repo's secrets.
   deploy:
+    name: Deploy to Production
     needs: build-test-audit
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
-    env:
-      TARGET: nginx
+
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
@@ -61,10 +60,40 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_SSH_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          script_stop: true
           script: |
             set -euo pipefail
+
             cd "${{ vars.DEPLOY_PATH }}"
+
+            echo "Fetching latest code..."
             git fetch origin main
             git reset --hard origin/main
-            chmod +x .claude/scripts/deploy.sh
-            ./.claude/scripts/deploy.sh ${{ env.TARGET }}
+
+            echo "Installing dependencies..."
+            pnpm install --frozen-lockfile
+
+            echo "Building frontend..."
+            VITE_MOCK=false pnpm build
+
+            echo "Restarting frontend..."
+            pm2 restart trading_view_frontend
+
+            pm2 save
+
+            echo "Waiting for application..."
+            sleep 10
+
+            echo "Running health check..."
+
+            for i in {1..5}; do
+              if curl -fsS http://127.0.0.1:5173 > /dev/null; then
+                echo "Deployment successful."
+                exit 0
+              fi
+
+              sleep 3
+            done
+
+            echo "Health check failed."
+            exit 1
