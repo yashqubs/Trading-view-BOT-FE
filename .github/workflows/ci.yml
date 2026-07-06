@@ -76,9 +76,14 @@ jobs:
           script: |
             set -euo pipefail
 
-            cd /var/www/quantum-trade/frontend
+            DEPLOY_DIR=/var/www/quantum-trade/frontend
 
-            git config --global --add safe.directory /var/www/quantum-trade/frontend
+            # Repo may be owned by root from manual setup; deploy user needs write access.
+            sudo chown -R "$(whoami):$(whoami)" "$DEPLOY_DIR"
+
+            cd "$DEPLOY_DIR"
+
+            git config --global --add safe.directory "$DEPLOY_DIR"
 
             echo "Fetching latest code..."
             git fetch origin main
