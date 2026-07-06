@@ -78,6 +78,8 @@ jobs:
 
             cd /var/www/quantum-trade/frontend
 
+            git config --global --add safe.directory /var/www/quantum-trade/frontend
+
             echo "Fetching latest code..."
             git fetch origin main
             git reset --hard origin/main
