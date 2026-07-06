@@ -11,6 +11,7 @@ import {
   MOCK_SYSTEM_STATUS,
   MOCK_TRADING_RULES,
   MOCK_STOCKS,
+  MOCK_MARKETS,
   MOCK_IG_SEARCH_RESULTS,
   MOCK_OVERVIEW,
   MOCK_DAILY_ACTIVITY,
@@ -222,6 +223,7 @@ export const handlers = [
       instrumentName: body.instrumentName ?? 'New Instrument',
       instrumentType: body.instrumentType ?? 'SHARES',
       enabled: true,
+      marketId: body.marketId ?? MOCK_MARKETS[0].id,
       investmentAmount: body.investmentAmount ?? 500,
       maxDailySpend: body.maxDailySpend ?? null,
       coolDownMinutes: body.coolDownMinutes ?? null,
@@ -241,6 +243,48 @@ export const handlers = [
   }),
 
   http.delete(url('/mapping/:id'), async () => {
+    await delay(LATENCY)
+    return HttpResponse.json({ ok: true })
+  }),
+
+  // ─── Markets ──────────────────────────────────────────────────────────────────
+
+  http.get(url('/markets'), async () => {
+    await delay(LATENCY)
+    return HttpResponse.json(MOCK_MARKETS)
+  }),
+
+  http.get(url('/markets/:id'), async ({ params }) => {
+    await delay(LATENCY)
+    const market = MOCK_MARKETS.find((m) => m.id === Number(params.id))
+    if (!market) return HttpResponse.json({ message: 'Not found' }, { status: 404 })
+    return HttpResponse.json(market)
+  }),
+
+  http.post(url('/markets'), async ({ request }) => {
+    await delay(LATENCY)
+    const body = await request.json() as Record<string, unknown>
+    const newMarket = {
+      id: Date.now(),
+      name: body.name ?? 'New Market',
+      timezone: body.timezone ?? 'UTC',
+      openTime: body.openTime ?? '09:00',
+      closeTime: body.closeTime ?? '17:00',
+      weekdaysOnly: body.weekdaysOnly ?? true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    return HttpResponse.json(newMarket)
+  }),
+
+  http.patch(url('/markets/:id'), async ({ params, request }) => {
+    await delay(LATENCY)
+    const body = await request.json() as Record<string, unknown>
+    const market = MOCK_MARKETS.find((m) => m.id === Number(params.id)) ?? MOCK_MARKETS[0]
+    return HttpResponse.json({ ...market, ...body, updatedAt: new Date().toISOString() })
+  }),
+
+  http.delete(url('/markets/:id'), async () => {
     await delay(LATENCY)
     return HttpResponse.json({ ok: true })
   }),

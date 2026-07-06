@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { Search, Trash2, X } from 'lucide-react'
+import { Plus, Search, Trash2, X } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,8 +14,6 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { TableSkeleton } from '@/components/common/PageSkeleton'
 import { RoleGate } from '@/components/common/RoleGate'
 import { SortableHeader, toggleSort, type SortConfig } from '@/components/common/SortableHeader'
-import { AddStockModal } from './components/AddStockModal'
-import { EditStockModal } from './components/EditStockModal'
 import { useDeleteStock, useStocks } from '@/hooks/useStocks'
 import { formatMoney } from '@/lib/format'
 
@@ -81,7 +79,10 @@ export function Stocks() {
           <p className="text-sm text-text-secondary">Per-stock investment amounts and trading conditions.</p>
         </div>
         <RoleGate allow={['ADMIN']}>
-          <AddStockModal />
+          <Button onClick={() => navigate('/stocks/new')}>
+            <Plus className="h-4 w-4" />
+            Add stock
+          </Button>
         </RoleGate>
       </div>
 
@@ -132,7 +133,10 @@ export function Stocks() {
           description="Add your first stock to start mapping TradingView signals to IG instruments."
           action={
             <RoleGate allow={['ADMIN']}>
-              <AddStockModal />
+              <Button onClick={() => navigate('/stocks/new')}>
+                <Plus className="h-4 w-4" />
+                Add stock
+              </Button>
             </RoleGate>
           }
         />
@@ -153,6 +157,7 @@ export function Stocks() {
               <TableRow>
                 <SortableHeader sortKey="tvTicker" current={sort} onSort={handleSort}>Ticker</SortableHeader>
                 <TableHead>Instrument</TableHead>
+                <TableHead>Market</TableHead>
                 <TableHead>Status</TableHead>
                 <SortableHeader sortKey="investmentAmount" current={sort} onSort={handleSort}>Investment</SortableHeader>
                 <SortableHeader sortKey="maxDailySpend" current={sort} onSort={handleSort}>Daily cap</SortableHeader>
@@ -180,6 +185,7 @@ export function Stocks() {
                 >
                   <TableCell className="font-medium">{stock.tvTicker}</TableCell>
                   <TableCell className="text-text-secondary">{stock.instrumentName}</TableCell>
+                  <TableCell className="text-text-secondary">{stock.market?.name ?? '—'}</TableCell>
                   <TableCell>
                     <Badge variant={stock.enabled ? 'success' : 'neutral'}>
                       {stock.enabled ? 'Enabled' : 'Disabled'}
@@ -201,7 +207,6 @@ export function Stocks() {
                   <TableCell>
                     <RoleGate allow={['ADMIN']}>
                       <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                        <EditStockModal stock={stock} />
                         <ConfirmDialog
                           trigger={
                             <Button variant="ghost" size="icon" aria-label={`Delete ${stock.tvTicker}`}>

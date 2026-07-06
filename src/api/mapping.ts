@@ -18,21 +18,26 @@ export interface CreateStockInput {
   igEpic: string
   instrumentName: string
   instrumentType: string
+  marketId: number
   investmentAmount: number
   maxDailySpend?: number | null
   coolDownMinutes?: number | null
   maxOpenPositions?: number
   /** Omit to inherit the global default (TradingRules.executionMode). */
   executionMode?: ExecutionMode
+  /** Omit to inherit the global default (TradingRules.maxSlippagePercent). Independent of executionMode. */
+  maxSlippagePercent?: number
 }
 
 export function createStock(input: CreateStockInput) {
   return api.post<StockMapping>('/mapping', input).then((r) => r.data)
 }
 
-export type UpdateStockInput = Partial<
-  Omit<CreateStockInput, 'tvTicker' | 'igEpic' | 'instrumentName' | 'instrumentType' | 'executionMode'>
-> & { enabled?: boolean; executionMode?: ExecutionMode | null }
+export type UpdateStockInput = Partial<Omit<CreateStockInput, 'executionMode' | 'maxSlippagePercent'>> & {
+  enabled?: boolean
+  executionMode?: ExecutionMode | null
+  maxSlippagePercent?: number | null
+}
 
 export function updateStock(id: number, input: UpdateStockInput) {
   return api.patch<StockMapping>(`/mapping/${id}`, input).then((r) => r.data)

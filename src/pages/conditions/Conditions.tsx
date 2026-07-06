@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { useBlocker } from 'react-router-dom'
+import { Link, useBlocker } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -28,9 +28,8 @@ interface RulesFormSnapshot {
   dailyMaxTradeCount: string
   maxOpenPositionsGlobal: string
   maxConsecutiveFailures: string
-  tradeStartTimeUtc: string
-  tradeEndTimeUtc: string
   executionMode: ExecutionMode
+  maxSlippagePercent: string
 }
 
 export function Conditions() {
@@ -46,9 +45,8 @@ export function Conditions() {
   const [dailyMaxTradeCount, setDailyMaxTradeCount] = useState('')
   const [maxOpenPositionsGlobal, setMaxOpenPositionsGlobal] = useState('')
   const [maxConsecutiveFailures, setMaxConsecutiveFailures] = useState('3')
-  const [tradeStartTimeUtc, setTradeStartTimeUtc] = useState('14:30')
-  const [tradeEndTimeUtc, setTradeEndTimeUtc] = useState('21:00')
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('MARKET')
+  const [maxSlippagePercent, setMaxSlippagePercent] = useState('0')
 
   // The last-saved (or last-loaded) form values — comparing against this is
   // how we know there are unsaved changes, without re-deriving from `rules`
@@ -65,9 +63,8 @@ export function Conditions() {
       dailyMaxTradeCount: rules.dailyMaxTradeCount ? String(rules.dailyMaxTradeCount) : '',
       maxOpenPositionsGlobal: rules.maxOpenPositionsGlobal ? String(rules.maxOpenPositionsGlobal) : '',
       maxConsecutiveFailures: String(rules.maxConsecutiveFailures),
-      tradeStartTimeUtc: rules.tradeStartTimeUtc,
-      tradeEndTimeUtc: rules.tradeEndTimeUtc,
       executionMode: rules.executionMode,
+      maxSlippagePercent: String(rules.maxSlippagePercent),
     }
     setBaseline(snapshot)
     setBotEnabled(snapshot.botEnabled)
@@ -77,9 +74,8 @@ export function Conditions() {
     setDailyMaxTradeCount(snapshot.dailyMaxTradeCount)
     setMaxOpenPositionsGlobal(snapshot.maxOpenPositionsGlobal)
     setMaxConsecutiveFailures(snapshot.maxConsecutiveFailures)
-    setTradeStartTimeUtc(snapshot.tradeStartTimeUtc)
-    setTradeEndTimeUtc(snapshot.tradeEndTimeUtc)
     setExecutionMode(snapshot.executionMode)
+    setMaxSlippagePercent(snapshot.maxSlippagePercent)
   }, [rules])
 
   const isDirty =
@@ -91,9 +87,8 @@ export function Conditions() {
       dailyMaxTradeCount !== baseline.dailyMaxTradeCount ||
       maxOpenPositionsGlobal !== baseline.maxOpenPositionsGlobal ||
       maxConsecutiveFailures !== baseline.maxConsecutiveFailures ||
-      tradeStartTimeUtc !== baseline.tradeStartTimeUtc ||
-      tradeEndTimeUtc !== baseline.tradeEndTimeUtc ||
-      executionMode !== baseline.executionMode)
+      executionMode !== baseline.executionMode ||
+      maxSlippagePercent !== baseline.maxSlippagePercent)
 
   // Block in-app navigation while there are unsaved changes.
   const blocker = useBlocker(({ currentLocation, nextLocation }) => isDirty && currentLocation.pathname !== nextLocation.pathname)
@@ -110,6 +105,11 @@ export function Conditions() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    const slippage = Number(maxSlippagePercent) || 0
+    if (slippage < 0 || slippage > 100) {
+      toast.error('Max slippage must be between 0 and 100.')
+      return
+    }
     try {
       const saved = await updateRules.mutateAsync({
         botEnabled,
@@ -119,9 +119,8 @@ export function Conditions() {
         dailyMaxTradeCount: dailyMaxTradeCount ? Number(dailyMaxTradeCount) : null,
         maxOpenPositionsGlobal: maxOpenPositionsGlobal ? Number(maxOpenPositionsGlobal) : null,
         maxConsecutiveFailures: Number(maxConsecutiveFailures) || 3,
-        tradeStartTimeUtc,
-        tradeEndTimeUtc,
         executionMode,
+        maxSlippagePercent: slippage,
       })
       setBaseline({
         botEnabled: saved.botEnabled,
@@ -131,9 +130,8 @@ export function Conditions() {
         dailyMaxTradeCount: saved.dailyMaxTradeCount ? String(saved.dailyMaxTradeCount) : '',
         maxOpenPositionsGlobal: saved.maxOpenPositionsGlobal ? String(saved.maxOpenPositionsGlobal) : '',
         maxConsecutiveFailures: String(saved.maxConsecutiveFailures),
-        tradeStartTimeUtc: saved.tradeStartTimeUtc,
-        tradeEndTimeUtc: saved.tradeEndTimeUtc,
         executionMode: saved.executionMode,
+        maxSlippagePercent: String(saved.maxSlippagePercent),
       })
       toast.success('Trading conditions saved')
     } catch {
@@ -156,6 +154,13 @@ export function Conditions() {
         <h1 className="text-xl font-medium text-text-primary">Trading conditions</h1>
         <p className="text-sm text-text-secondary">
           Global rules checked before every signal. {!isAdmin && 'Read-only for your role.'}
+        </p>
+        <p className="mt-1 text-xs text-text-tertiary">
+          Trading hours and timezone are configured per-stock now — see{' '}
+          <Link to="/markets" className="text-accent hover:underline">
+            Markets
+          </Link>
+          .
         </p>
       </div>
 
@@ -195,10 +200,29 @@ export function Conditions() {
           </div>
           <ExecutionModeToggle value={executionMode} onChange={setExecutionMode} disabled={!isAdmin} />
           {executionMode === 'SIGNAL_PRICE' && (
-            <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-              Signal price places a limit order — if the market has already moved past that exact price, the
-              trade won't fill and is logged as failed instead of chasing the market.
-            </p>
+            <>
+              <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+                Signal price places a limit order — if the market has already moved past that exact price, the
+                trade won't fill and is logged as failed instead of chasing the market.
+              </p>
+              <div className="flex flex-col gap-1.5 max-w-xs">
+                <Label htmlFor="max-slippage">Max slippage (%)</Label>
+                <Input
+                  id="max-slippage"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={maxSlippagePercent}
+                  onChange={(e) => setMaxSlippagePercent(e.target.value)}
+                  disabled={!isAdmin}
+                />
+                <p className="text-xs text-text-tertiary">
+                  How far the fill price can move against the signal price before the trade is rejected instead
+                  of filled. 0 = exact signal price only.
+                </p>
+              </div>
+            </>
           )}
         </div>
       </Card>
@@ -249,9 +273,9 @@ export function Conditions() {
 
       <Card className="animate-fade-slide-in">
         <CardHeader>
-          <CardTitle>Safety &amp; schedule</CardTitle>
+          <CardTitle>Safety</CardTitle>
         </CardHeader>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="max-w-xs">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="max-failures">Max consecutive failures</Label>
             <Input
@@ -265,26 +289,6 @@ export function Conditions() {
             <p className="text-xs text-text-tertiary">
               Current streak: {rules?.consecutiveFailureCount ?? 0}
             </p>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="trade-start">Trading hours start (UTC)</Label>
-            <Input
-              id="trade-start"
-              type="time"
-              value={tradeStartTimeUtc}
-              onChange={(e) => setTradeStartTimeUtc(e.target.value)}
-              disabled={!isAdmin}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="trade-end">Trading hours end (UTC)</Label>
-            <Input
-              id="trade-end"
-              type="time"
-              value={tradeEndTimeUtc}
-              onChange={(e) => setTradeEndTimeUtc(e.target.value)}
-              disabled={!isAdmin}
-            />
           </div>
         </div>
       </Card>

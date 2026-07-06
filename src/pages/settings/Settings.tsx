@@ -18,7 +18,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { useSystemStatus } from '@/hooks/useSystem'
-import { changeOwnPassword, disableTwoFactor } from '@/api/auth'
+import { disableTwoFactor } from '@/api/auth'
 import { useAuth } from '@/context/AuthContext'
 import { formatDateTime, formatRelativeTime } from '@/lib/format'
 
@@ -27,12 +27,6 @@ export function Settings() {
   const navigate = useNavigate()
   const system = useSystemStatus()
   const [copied, setCopied] = useState(false)
-
-  const [currentPassword, setCurrentPassword] = useState('')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [pending, setPending] = useState(false)
 
   const [disable2faOpen, setDisable2faOpen] = useState(false)
   const [disable2faPassword, setDisable2faPassword] = useState('')
@@ -44,33 +38,6 @@ export function Settings() {
     navigator.clipboard.writeText(system.data.webhookUrl)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }
-
-  async function handlePasswordSubmit(e: FormEvent) {
-    e.preventDefault()
-    setError(null)
-
-    if (newPassword.length < 8) {
-      setError('New password must be at least 8 characters.')
-      return
-    }
-    if (newPassword !== confirmPassword) {
-      setError('Passwords do not match.')
-      return
-    }
-
-    setPending(true)
-    try {
-      await changeOwnPassword(currentPassword, newPassword)
-      toast.success('Password updated')
-      setCurrentPassword('')
-      setNewPassword('')
-      setConfirmPassword('')
-    } catch {
-      setError('Could not update password. Check your current password.')
-    } finally {
-      setPending(false)
-    }
   }
 
   async function handleDisable2fa(e: FormEvent) {
@@ -103,13 +70,23 @@ export function Settings() {
         </CardHeader>
         {system.isLoading ? (
           <Skeleton className="h-20 w-full" />
+        ) : system.isError ? (
+          <p className="text-sm text-danger">Could not load system status. Try refreshing the page.</p>
         ) : (
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <Label>Webhook URL</Label>
               <div className="flex items-center justify-between rounded-lg border border-border bg-surface-2 px-3 py-2.5">
-                <span className="truncate text-sm text-text-primary">{system.data?.webhookUrl}</span>
-                <Button variant="ghost" size="icon" onClick={copyWebhookUrl} aria-label="Copy webhook URL">
+                <span className="truncate text-sm text-text-primary">
+                  {system.data?.webhookUrl || 'Not configured'}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={copyWebhookUrl}
+                  disabled={!system.data?.webhookUrl}
+                  aria-label="Copy webhook URL"
+                >
                   {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
                 </Button>
               </div>
@@ -136,52 +113,6 @@ export function Settings() {
             </div>
           </div>
         )}
-      </Card>
-
-      <Card className="animate-fade-slide-in">
-        <CardHeader>
-          <CardTitle>Change password</CardTitle>
-        </CardHeader>
-        <form onSubmit={handlePasswordSubmit} className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="settings-current-password">Current password</Label>
-            <PasswordInput
-              id="settings-current-password"
-              autoComplete="current-password"
-              value={currentPassword}
-              onChange={(e) => setCurrentPassword(e.target.value)}
-              disabled={pending}
-            />
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="settings-new-password">New password</Label>
-              <PasswordInput
-                id="settings-new-password"
-                autoComplete="new-password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                disabled={pending}
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="settings-confirm-password">Confirm new password</Label>
-              <PasswordInput
-                id="settings-confirm-password"
-                autoComplete="new-password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                disabled={pending}
-              />
-            </div>
-          </div>
-          {error && <p className="text-sm text-danger">{error}</p>}
-          <div className="flex justify-end">
-            <Button type="submit" disabled={pending}>
-              {pending ? 'Updating…' : 'Update password'}
-            </Button>
-          </div>
-        </form>
       </Card>
 
       <Card className="animate-fade-slide-in">

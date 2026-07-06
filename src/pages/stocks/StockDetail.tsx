@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import { toast } from 'sonner'
 import {
   ArrowLeft,
   Download,
@@ -17,9 +16,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatCard } from '@/components/common/StatCard'
@@ -27,14 +24,13 @@ import { StatusPill } from '@/components/common/StatusPill'
 import { EmptyState } from '@/components/common/EmptyState'
 import { StatGridSkeleton } from '@/components/common/PageSkeleton'
 import { DateRangePicker, type DateRangeValue } from '@/components/common/DateRangePicker'
-import { ExecutionModeToggle } from '@/components/common/ExecutionModeToggle'
 import { LineChartCard } from '@/components/charts/LineChartCard'
 import { BarChartCard } from '@/components/charts/BarChartCard'
 import { DonutChartCard } from '@/components/charts/DonutChartCard'
 import { ChartExpandModal } from '@/components/charts/ChartExpandModal'
 import { useStockStats } from '@/hooks/useStats'
 import { useTrades } from '@/hooks/useTrades'
-import { useStock, useUpdateStock } from '@/hooks/useStocks'
+import { useStock } from '@/hooks/useStocks'
 import { useTradingRules } from '@/hooks/useRules'
 import { useAuth } from '@/context/AuthContext'
 import { exportTradesCsv, type TradeFilters, type TradeSortBy } from '@/api/trades'
@@ -103,193 +99,79 @@ function SortIcon({ sortKey, current }: { sortKey: TradeSortBy; current: SortCon
     : <ArrowDown className="ml-1 h-3 w-3 text-accent" />
 }
 
-// ─── Per-stock trading conditions ──────────────────────────────────────────────
-
-interface StockConditionsSnapshot {
-  enabled: boolean
-  investmentAmount: string
-  maxDailySpend: string
-  coolDownMinutes: string
-  maxOpenPositions: string
-  executionMode: ExecutionMode | null
-}
-
-function snapshotStock(stock: StockMapping): StockConditionsSnapshot {
-  return {
-    enabled: stock.enabled,
-    investmentAmount: String(stock.investmentAmount),
-    maxDailySpend: stock.maxDailySpend != null ? String(stock.maxDailySpend) : '',
-    coolDownMinutes: stock.coolDownMinutes != null ? String(stock.coolDownMinutes) : '',
-    maxOpenPositions: String(stock.maxOpenPositions),
-    executionMode: stock.executionMode,
-  }
-}
-
 const EXECUTION_MODE_LABELS: Record<ExecutionMode, string> = {
   MARKET: 'Market price',
   SIGNAL_PRICE: 'Signal price',
 }
 
-function StockConditionsCard({ stock, isAdmin }: { stock: StockMapping; isAdmin: boolean }) {
-  const updateStock = useUpdateStock()
+// ─── Per-stock trading conditions — read only; edited on its own screen ────────
+
+function StockConditionsSummary({ stock, isAdmin }: { stock: StockMapping; isAdmin: boolean }) {
   const { data: rules } = useTradingRules()
-  const [form, setForm] = useState<StockConditionsSnapshot>(() => snapshotStock(stock))
-  const [baseline, setBaseline] = useState<StockConditionsSnapshot>(() => snapshotStock(stock))
-  const [error, setError] = useState<string | null>(null)
-
-  // Re-seed whenever the underlying record changes — a fresh navigation to a
-  // different ticker (stock.id changes) or a refetch after a successful save.
-  useEffect(() => {
-    const snapshot = snapshotStock(stock)
-    setBaseline(snapshot)
-    setForm(snapshot)
-  }, [stock])
-
-  const isDirty =
-    form.enabled !== baseline.enabled ||
-    form.investmentAmount !== baseline.investmentAmount ||
-    form.maxDailySpend !== baseline.maxDailySpend ||
-    form.coolDownMinutes !== baseline.coolDownMinutes ||
-    form.maxOpenPositions !== baseline.maxOpenPositions ||
-    form.executionMode !== baseline.executionMode
-
-  function set<K extends keyof StockConditionsSnapshot>(key: K, value: StockConditionsSnapshot[K]) {
-    setForm((f) => ({ ...f, [key]: value }))
-  }
-
-  async function handleSave() {
-    setError(null)
-    const amount = Number(form.investmentAmount)
-    if (!amount || amount <= 0) {
-      setError('Enter a valid investment amount.')
-      return
-    }
-    try {
-      await updateStock.mutateAsync({
-        id: stock.id,
-        input: {
-          enabled: form.enabled,
-          investmentAmount: amount,
-          maxDailySpend: form.maxDailySpend ? Number(form.maxDailySpend) : null,
-          coolDownMinutes: form.coolDownMinutes ? Number(form.coolDownMinutes) : null,
-          maxOpenPositions: Number(form.maxOpenPositions) || 1,
-          executionMode: form.executionMode,
-        },
-      })
-      toast.success(`${stock.tvTicker} conditions saved`)
-    } catch {
-      toast.error('Could not save changes.')
-    }
-  }
 
   return (
     <Card className="animate-fade-slide-in">
-      <CardHeader>
-        <CardTitle>Trading conditions</CardTitle>
-      </CardHeader>
-      <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
-          <div>
-            <Label htmlFor="stock-enabled">Trading enabled</Label>
-            <p className="text-xs text-text-tertiary">
-              Turn off to stop the bot trading {stock.tvTicker} — signals will be skipped.
-            </p>
-          </div>
-          <Switch
-            id="stock-enabled"
-            checked={form.enabled}
-            onCheckedChange={(v) => set('enabled', v)}
-            disabled={!isAdmin}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="stock-investment">Investment per trade (£)</Label>
-            <Input
-              id="stock-investment"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.investmentAmount}
-              onChange={(e) => set('investmentAmount', e.target.value)}
-              disabled={!isAdmin}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="stock-max-daily">Max daily spend (£)</Label>
-            <Input
-              id="stock-max-daily"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.maxDailySpend}
-              onChange={(e) => set('maxDailySpend', e.target.value)}
-              disabled={!isAdmin}
-              placeholder="No limit"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="stock-cooldown">Cool-down (minutes)</Label>
-            <Input
-              id="stock-cooldown"
-              type="number"
-              min="0"
-              value={form.coolDownMinutes}
-              onChange={(e) => set('coolDownMinutes', e.target.value)}
-              disabled={!isAdmin}
-              placeholder="None"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="stock-max-positions">Max open positions</Label>
-            <Input
-              id="stock-max-positions"
-              type="number"
-              min="1"
-              value={form.maxOpenPositions}
-              onChange={(e) => set('maxOpenPositions', e.target.value)}
-              disabled={!isAdmin}
-            />
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 rounded-lg border border-border px-3 py-2.5">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="stock-execution-override">Override fill price for {stock.tvTicker}</Label>
-              <p className="text-xs text-text-tertiary">
-                {form.executionMode === null
-                  ? `Off — using the global default (${rules ? EXECUTION_MODE_LABELS[rules.executionMode] : '…'}).`
-                  : 'On — this stock ignores the global default below.'}
-              </p>
-            </div>
-            <Switch
-              id="stock-execution-override"
-              checked={form.executionMode !== null}
-              onCheckedChange={(checked) => set('executionMode', checked ? (rules?.executionMode ?? 'MARKET') : null)}
-              disabled={!isAdmin}
-            />
-          </div>
-          {form.executionMode !== null && (
-            <ExecutionModeToggle
-              value={form.executionMode}
-              onChange={(mode) => set('executionMode', mode)}
-              disabled={!isAdmin}
-            />
-          )}
-        </div>
-
-        {error && <p className="text-sm text-danger">{error}</p>}
-
+      <div className="flex items-start justify-between gap-3">
+        <CardHeader className="p-0">
+          <CardTitle>Trading conditions</CardTitle>
+        </CardHeader>
         {isAdmin && (
-          <div className="flex items-center justify-end gap-3">
-            {isDirty && <p className="text-xs text-warning">You have unsaved changes.</p>}
-            <Button type="button" size="sm" disabled={!isDirty || updateStock.isPending} onClick={handleSave}>
-              {updateStock.isPending ? 'Saving…' : 'Save changes'}
-            </Button>
-          </div>
+          <Button variant="secondary" size="sm" asChild>
+            <Link to={`/stocks/${stock.tvTicker}/edit`}>Edit</Link>
+          </Button>
         )}
+      </div>
+      <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-text-tertiary">Enabled</span>
+          <Badge variant={stock.enabled ? 'success' : 'neutral'} className="w-fit">
+            {stock.enabled ? 'Trading' : 'Disabled'}
+          </Badge>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-text-tertiary">Market</span>
+          <span className="text-sm text-text-primary">{stock.market?.name ?? '—'}</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-text-tertiary">Investment per trade</span>
+          <span className="text-sm text-text-primary">{formatMoney(stock.investmentAmount)}</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-text-tertiary">Max daily spend</span>
+          <span className="text-sm text-text-primary">
+            {stock.maxDailySpend != null ? formatMoney(stock.maxDailySpend) : 'No limit'}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-text-tertiary">Cool-down</span>
+          <span className="text-sm text-text-primary">
+            {stock.coolDownMinutes != null ? `${stock.coolDownMinutes}m` : 'None'}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-text-tertiary">Max open positions</span>
+          <span className="text-sm text-text-primary">{stock.maxOpenPositions}</span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-text-tertiary">Fill price</span>
+          <span className="text-sm text-text-primary">
+            {stock.executionMode
+              ? EXECUTION_MODE_LABELS[stock.executionMode]
+              : `Default (${rules ? EXECUTION_MODE_LABELS[rules.executionMode] : '…'})`}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-text-tertiary">Max slippage</span>
+          <span className="text-sm text-text-primary">
+            {stock.maxSlippagePercent != null
+              ? `${stock.maxSlippagePercent}%`
+              : `Default (${rules ? rules.maxSlippagePercent : '…'}%)`}
+          </span>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-xs text-text-tertiary">IG instrument</span>
+          <span className="text-sm text-text-primary">{stock.igEpic}</span>
+        </div>
       </div>
     </Card>
   )
@@ -406,13 +288,11 @@ export function StockDetail() {
         </div>
       </div>
 
-      {/* ── Per-stock trading conditions — mirrors the global Conditions page,
-          scoped to this ticker (max invest, daily spend cap, cool-down,
-          max positions, and the enable/disable "do not trade" switch). ── */}
+      {/* ── Per-stock trading conditions — read-only summary; edited via its own /edit screen ── */}
       {stock.isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : stock.data ? (
-        <StockConditionsCard stock={stock.data} isAdmin={isAdmin} />
+        <StockConditionsSummary stock={stock.data} isAdmin={isAdmin} />
       ) : (
         <Card className="animate-fade-slide-in">
           <p className="text-sm text-text-tertiary">

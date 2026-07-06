@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom'
+import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
 import { ProtectedRoute } from './ProtectedRoute'
 import { RoleRoute } from './RoleRoute'
@@ -7,7 +7,10 @@ import { Setup2FA } from '@/pages/login/Setup2FA'
 import { ChangePassword } from '@/pages/login/ChangePassword'
 import { Dashboard } from '@/pages/dashboard/Dashboard'
 import { Stocks } from '@/pages/stocks/Stocks'
+import { AddStock } from '@/pages/stocks/AddStock'
+import { EditStock } from '@/pages/stocks/EditStock'
 import { StockDetail } from '@/pages/stocks/StockDetail'
+import { Markets } from '@/pages/markets/Markets'
 import { OpenPositions } from '@/pages/positions/OpenPositions'
 import { Trades } from '@/pages/trades/Trades'
 import { Conditions } from '@/pages/conditions/Conditions'
@@ -17,6 +20,7 @@ import { RouteError } from '@/pages/error/RouteError'
 
 export const router = createBrowserRouter([
   { path: '/login', element: <Login />, errorElement: <RouteError /> },
+  { path: '/dashboard', element: <Navigate to="/" replace /> },
   {
     element: <ProtectedRoute />,
     errorElement: <RouteError />,
@@ -35,7 +39,12 @@ export const router = createBrowserRouter([
           { path: '/settings', element: <Settings /> },
           {
             element: <RoleRoute allow={['ADMIN']} />,
-            children: [{ path: '/users', element: <Users /> }],
+            children: [
+              { path: '/users', element: <Users /> },
+              { path: '/markets', element: <Markets /> },
+              { path: '/stocks/new', element: <AddStock /> },
+              { path: '/stocks/:ticker/edit', element: <EditStock /> },
+            ],
           },
         ],
       },

@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Mail } from 'lucide-react'
 import {
@@ -23,7 +23,9 @@ type ForgotStage = 'email' | 'code' | 'password'
 
 export function Login() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { setUser } = useAuth()
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/'
   const [step, setStep] = useState<Step>('credentials')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -59,7 +61,7 @@ export function Login() {
 
       if (result.user) {
         setUser(result.user)
-        navigate('/')
+        navigate(from, { replace: true })
         return
       }
 
@@ -84,7 +86,7 @@ export function Login() {
     try {
       const { user } = await loginWithTwoFactor(email, password, submittedCode)
       setUser(user)
-      navigate('/')
+      navigate(from, { replace: true })
     } catch {
       setError('Invalid or expired code. Please try again.')
     } finally {
