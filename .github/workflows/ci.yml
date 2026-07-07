@@ -39,6 +39,7 @@ jobs:
         run: pnpm build
         env:
           VITE_MOCK: "false"
+          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
 
       - name: Run tests
         run: pnpm test
@@ -93,7 +94,7 @@ jobs:
             pnpm install --frozen-lockfile
 
             echo "Building frontend..."
-            VITE_MOCK=false pnpm build
+            VITE_MOCK=false VITE_API_BASE_URL="${{ vars.VITE_API_BASE_URL }}" pnpm build
 
             echo "Reloading Nginx..."
             sudo nginx -t && sudo systemctl reload nginx

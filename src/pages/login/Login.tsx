@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Mail } from 'lucide-react'
+import axios from 'axios'
 import {
   login,
   loginWithTwoFactor,
@@ -17,6 +18,19 @@ import { Input } from '@/components/ui/input'
 import { PasswordInput } from '@/components/common/PasswordInput'
 import { OtpInput } from '@/components/common/OtpInput'
 import { Label } from '@/components/ui/label'
+
+// axios.isAxiosError(err) && !err.response means the request never got a
+// response at all — blocked by the browser (mixed content, CORS) or the
+// server/network is unreachable. That's a materially different problem from
+// a normal 4xx, so it gets its own honest message instead of whatever
+// fallback the caller would otherwise show (e.g. "Incorrect email or password"
+// for a login call that never even reached the server).
+function describeError(err: unknown, fallback: string): string {
+  if (axios.isAxiosError(err) && !err.response) {
+    return 'Cannot reach the server. Check your connection and try again.'
+  }
+  return fallback
+}
 
 type Step = 'credentials' | 'twofactor' | 'forgot'
 type ForgotStage = 'email' | 'code' | 'password'
@@ -73,8 +87,8 @@ export function Login() {
       const user = await getMe()
       setUser(user)
       navigate('/change-password', { state: { tempPassword: password } })
-    } catch {
-      setError('Incorrect email or password.')
+    } catch (err) {
+      setError(describeError(err, 'Incorrect email or password.'))
     } finally {
       setPending(false)
     }
@@ -87,8 +101,8 @@ export function Login() {
       const { user } = await loginWithTwoFactor(email, password, submittedCode)
       setUser(user)
       navigate(from, { replace: true })
-    } catch {
-      setError('Invalid or expired code. Please try again.')
+    } catch (err) {
+      setError(describeError(err, 'Invalid or expired code. Please try again.'))
     } finally {
       setPending(false)
     }
@@ -118,8 +132,8 @@ export function Login() {
       // Always advance, regardless of whether the email is actually registered —
       // the backend response never reveals that, so neither can the UI.
       setForgotStage('code')
-    } catch {
-      setError('Something went wrong. Please try again.')
+    } catch (err) {
+      setError(describeError(err, 'Something went wrong. Please try again.'))
     } finally {
       setPending(false)
     }
@@ -131,8 +145,8 @@ export function Login() {
     try {
       await forgotPassword(forgotEmail)
       toast.success('A new code has been sent.')
-    } catch {
-      setError('Could not resend code. Try again in a moment.')
+    } catch (err) {
+      setError(describeError(err, 'Could not resend code. Try again in a moment.'))
     } finally {
       setForgotResending(false)
     }
@@ -162,12 +176,18 @@ export function Login() {
       await resetPassword(forgotEmail, forgotCode, forgotNewPassword)
       toast.success('Password updated. Sign in with your new password.')
       backToLogin()
-    } catch {
+    } catch (err) {
       // The code may have been wrong or expired — send them back to re-enter it
-      // rather than making them retype the new password too.
-      setError('That code was invalid or has expired. Please re-enter it.')
-      setForgotCode('')
-      setForgotStage('code')
+      // rather than making them retype the new password too. A network-level
+      // failure (server unreachable) is different: the code was never even
+      // checked, so don't discard it or bounce them back a step.
+      if (axios.isAxiosError(err) && !err.response) {
+        setError(describeError(err, ''))
+      } else {
+        setError('That code was invalid or has expired. Please re-enter it.')
+        setForgotCode('')
+        setForgotStage('code')
+      }
     } finally {
       setPending(false)
     }
@@ -189,8 +209,8 @@ export function Login() {
     try {
       const result = await resendLoginTwoFactorCode(email, password)
       setTwoFactorMessage(result.message)
-    } catch {
-      setError('Could not resend code. Try again in a moment.')
+    } catch (err) {
+      setError(describeError(err, 'Could not resend code. Try again in a moment.'))
     } finally {
       setResending(false)
     }

@@ -368,7 +368,7 @@ On success, a toast confirms and the user is returned to the credentials step to
 | DB_PORT | PostgreSQL port | 5432 |
 | DB_NAME | Database name | trading_view_bot |
 | FRONTEND_ORIGIN | Portal URL (CORS + emailed portal links) | https://portal.your-domain.com |
-| PUBLIC_BASE_URL | Backend's own public URL — builds the webhook URL shown on Settings (`{PUBLIC_BASE_URL}/webhook/signal`) | https://api.your-domain.com |
+| PUBLIC_BASE_URL | Backend's own public URL — builds the webhook URL shown on Settings (`{PUBLIC_BASE_URL}/api/webhook/signal`) | https://api.your-domain.com |
 | TRADINGVIEW_IPS | Comma-separated webhook source IPs the backend checks. Unset = fails closed, no signal ever gets through | 52.89.214.238,34.212.75.30,54.218.53.128,52.32.178.7 |
 | EMAIL_FROM | Verified SES sender identity | no-reply@your-domain.com |
 | SEED_ADMIN_NAME, SEED_ADMIN_EMAIL, SEED_ADMIN_PASSWORD | Optional — only read by the backend's `pnpm seed`, only on its first run. Never commit real values | (local .env only) |
@@ -794,7 +794,7 @@ SELL alert:
 ```
 
 ### Step 3 — Webhook URL
-Notifications tab → Webhook URL → `https://your-domain.com/webhook/signal` on both alerts. Don't hand-type this — copy it from the portal's **Settings** page (System status → Webhook URL → copy icon), which reads it straight from the server's own `PUBLIC_BASE_URL`, so it's guaranteed to match what the server actually expects.
+Notifications tab → Webhook URL → `https://your-domain.com/api/webhook/signal` on both alerts. Don't hand-type this — copy it from the portal's **Settings** page (System status → Webhook URL → copy icon), which reads it straight from the server's own `PUBLIC_BASE_URL`, so it's guaranteed to match what the server actually expects.
 
 ### TradingView Requirements
 
