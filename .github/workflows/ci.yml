@@ -73,7 +73,6 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_SSH_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          script_stop: true
           script: |
             set -euo pipefail
 
@@ -106,7 +105,7 @@ jobs:
             fi
 
             for i in {1..5}; do
-              if curl -fsS http://127.0.0.1/index.html > /dev/null; then
+              if curl -fsS --resolve trade.qubs.co.uk:443:127.0.0.1 https://trade.qubs.co.uk/index.html > /dev/null; then
                 echo "Deployment successful."
                 exit 0
               fi
