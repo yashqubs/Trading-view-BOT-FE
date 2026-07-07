@@ -39,7 +39,7 @@ jobs:
         run: pnpm build
         env:
           VITE_MOCK: "false"
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL }}
+          VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
 
       - name: Run tests
         run: pnpm test
@@ -61,6 +61,7 @@ jobs:
           [ -z "${{ secrets.EC2_HOST }}" ] && missing+=("EC2_HOST secret")
           [ -z "${{ secrets.EC2_SSH_USER }}" ] && missing+=("EC2_SSH_USER secret")
           [ -z "${{ secrets.EC2_SSH_KEY }}" ] && missing+=("EC2_SSH_KEY secret")
+          [ -z "${{ secrets.VITE_API_BASE_URL }}" ] && missing+=("VITE_API_BASE_URL secret")
           if [ ${#missing[@]} -gt 0 ]; then
             echo "::error::Missing GitHub Actions config: ${missing[*]}"
             echo "Add secrets under Settings → Secrets and variables → Actions."
@@ -93,7 +94,7 @@ jobs:
             pnpm install --frozen-lockfile
 
             echo "Building frontend..."
-            VITE_MOCK=false VITE_API_BASE_URL="${{ vars.VITE_API_BASE_URL }}" pnpm build
+            VITE_MOCK=false VITE_API_BASE_URL="${{ secrets.VITE_API_BASE_URL }}" pnpm build
 
             echo "Reloading Nginx..."
             sudo nginx -t && sudo systemctl reload nginx
