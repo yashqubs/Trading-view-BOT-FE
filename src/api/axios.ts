@@ -69,7 +69,14 @@ api.interceptors.response.use(
         await refreshPromise;
         return api(originalRequest);
       } catch {
-        // Refresh token missing/expired too — fall through to full logout below.
+        // Refresh failed — but that's not always session death. Refresh
+        // tokens are single-use, so when another tab wins the rotation race
+        // this tab's refresh 401s even though the winner already put fresh
+        // cookies in the shared jar. Retry the original request once with
+        // whatever cookies exist now; if it still 401s, its own pass through
+        // this interceptor skips refresh (_retriedAfterRefresh) and lands in
+        // the logout branch below.
+        return api(originalRequest);
       }
     }
 
