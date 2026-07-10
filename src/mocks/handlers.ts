@@ -6,7 +6,7 @@ import { http, HttpResponse, delay } from 'msw'
 import {
   MOCK_ME,
   MOCK_USERS,
-  MOCK_ADMIN_USER,
+  MOCK_PRIMARY_USER,
   MOCK_SYSTEM_STATUS,
   MOCK_TRADING_RULES,
   MOCK_STOCKS,
@@ -141,13 +141,12 @@ export const handlers = [
 
   http.post(url('/users'), async ({ request }) => {
     await delay(LATENCY)
-    const body = await request.json() as { name: string; email: string; role: string }
+    const body = await request.json() as { name: string; email: string }
     const newUser = {
-      ...MOCK_ADMIN_USER,
+      ...MOCK_PRIMARY_USER,
       id: `user-${Date.now()}`,
       name: body.name ?? 'New User',
       email: body.email ?? 'newuser@tradingbot.io',
-      role: body.role ?? 'VIEWER',
       active: true,
       twoFactorEnabled: false,
       mustChangePassword: true,

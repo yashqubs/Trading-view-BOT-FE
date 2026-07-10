@@ -32,7 +32,7 @@ VITE_API_BASE_URL=http://your-backend-host:port
 - `src/components/charts/` — Recharts wrappers themed to the design tokens
 - `src/components/layout/` — app shell, sidebar, top bar, bot toggle
 - `src/pages/` — one folder per route
-- `src/routes/` — router, auth/role route guards
+- `src/routes/` — router, auth route guard
 
 ## Notes
 

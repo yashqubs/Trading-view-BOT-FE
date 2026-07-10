@@ -1,5 +1,5 @@
 import { api } from './axios'
-import type { Role, User } from '@/types'
+import type { User } from '@/types'
 
 export function listUsers() {
   return api.get<User[]>('/users').then((r) => r.data)
@@ -8,7 +8,6 @@ export function listUsers() {
 export interface CreateUserInput {
   name: string
   email: string
-  role: Role
 }
 
 export interface CreateUserResponse {
@@ -22,7 +21,6 @@ export function createUser(input: CreateUserInput) {
 
 export interface UpdateUserInput {
   name?: string
-  role?: Role
   active?: boolean
 }
 

@@ -16,10 +16,8 @@ Check:
 
 5. **UX** — one primary action per screen; destructive actions confirm; loading uses skeletons; empty states have guidance; the bot ON/OFF toggle is present in the top bar.
 
-6. **Role gating** — admin-only actions hidden from VIEWER.
+6. **Accessibility** — focus rings visible, charts have aria labels, contrast is sufficient.
 
-7. **Accessibility** — focus rings visible, charts have aria labels, contrast is sufficient.
-
-8. **Motion** — subtle only; no gratuitous animation.
+7. **Motion** — subtle only; no gratuitous animation.
 
 Give a clear list of issues found with the file/line and the fix. If it's all consistent, say so.

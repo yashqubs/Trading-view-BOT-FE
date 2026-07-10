@@ -32,7 +32,7 @@ CLAUDE.md                  Root context + documentation reference
 
 ## Slash commands
 
-- `/new-page <name>` — scaffolds a page with theme tokens, skeletons, role gating, charts
+- `/new-page <name>` — scaffolds a page with theme tokens, skeletons, charts
 - `/design-review` — audits UI against the design system
 
 ## Design direction encoded here

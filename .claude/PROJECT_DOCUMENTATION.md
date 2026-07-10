@@ -296,34 +296,31 @@ No system is 100% secure. With points 1–5 implemented, this system now closes 
 
 ## 6. User Management
 
-A simple user management system so an admin can create additional portal users without touching the database.
+A simple user management system so a portal user can create additional users without touching the database.
 
-### Roles
+### Access model
 
-| Role | Permissions |
-|---|---|
-| ADMIN | Full access — manage users, all settings, all stocks, all trades |
-| VIEWER | Read-only — view dashboard, stats, trade history, and stock configuration (including per-stock trading conditions). Cannot change any settings or trade config |
-
-> v1 keeps this deliberately simple: two roles only. The first user (Vipul) is ADMIN, created during deployment via a seed script.
+There are no roles — every authenticated user has full access to everything (an earlier ADMIN/VIEWER split was removed; the backend dropped the `users.role` column). The first user is created during deployment via a seed script.
 
 ### User Management Endpoints
 
-| Method | Path | Role | Description |
-|---|---|---|---|
-| GET | /users | ADMIN | List all users |
-| POST | /users | ADMIN | Create a new user (email, name, role, temp password) |
-| PATCH | /users/:id | ADMIN | Update name, role, or active status |
-| POST | /users/:id/reset-password | ADMIN | Resend the pending temp password, or generate a new one if none is pending — see below |
-| DELETE | /users/:id | ADMIN | Deactivate a user (soft delete) |
-| GET | /users/me | Any | Get own profile |
-| PATCH | /users/me/password | Any | Change own password |
+All endpoints require an authenticated session; there is no per-endpoint role distinction.
+
+| Method | Path | Description |
+|---|---|---|
+| GET | /users | List all users |
+| POST | /users | Create a new user (email, name, temp password) |
+| PATCH | /users/:id | Update name or active status |
+| POST | /users/:id/reset-password | Resend the pending temp password, or generate a new one if none is pending — see below |
+| DELETE | /users/:id | Deactivate a user (soft delete) |
+| GET | /users/me | Get own profile |
+| PATCH | /users/me/password | Change own password |
 
 ### Create User Flow (Simple)
 
-1. Admin goes to Users page → clicks "Add User"
-2. Enters: name, email, role (Admin / Viewer)
-3. System generates a temporary password, shows it once to the admin, and emails the new user an invite (temp password + portal link)
+1. Go to Users page → click "Add User"
+2. Enter: name, email
+3. System generates a temporary password, shows it once, and emails the new user an invite (temp password + portal link)
 4. New user logs in with the temp password
 5. On first login, the user is forced to set a new password, then can optionally enable two-factor authentication
 6. Done — minimal friction
@@ -350,8 +347,8 @@ On success, a toast confirms and the user is returned to the credentials step to
 ### User Table Behaviour
 
 - Deleting a user is a soft delete (sets `active = false`) so trade history attribution is preserved
-- An admin cannot deactivate their own account or remove their own admin role (prevents lockout)
-- At least one active admin must always exist (enforced server-side)
+- A user cannot deactivate their own account (prevents lockout)
+- At least one active user must always exist (enforced server-side)
 
 ---
 
@@ -392,7 +389,7 @@ On success, a toast confirms and the user is returned to the credentials step to
 
 | Table | Purpose |
 |---|---|
-| users | Portal accounts with roles and 2FA |
+| users | Portal accounts with 2FA |
 | token_blacklist | Invalidated JWTs (logout) |
 | stock_mapping | Per-stock config — Epic, amount, conditions |
 | trading_rules | Global trading conditions (single row) |
@@ -406,7 +403,6 @@ On success, a toast confirms and the user is returned to the credentials step to
 | name | VARCHAR(255) | Display name |
 | email | VARCHAR(255), Unique | Login email |
 | password_hash | VARCHAR(255) | bcrypt cost 12 |
-| role | VARCHAR(20) | ADMIN or VIEWER |
 | active | BOOLEAN | Soft delete flag, default true |
 | two_factor_enabled | BOOLEAN | Default false; user opts in after first login or via Settings |
 | otp_code_hash | VARCHAR(64), Nullable | SHA-256 hash of the current email OTP |
@@ -558,7 +554,7 @@ Both use the same `ExecutionModeToggle` component (`src/components/common/Execut
 | Module | Responsibility |
 |---|---|
 | AuthModule | Login, JWT, 2FA, brute force protection |
-| UserModule | User CRUD, roles, password reset |
+| UserModule | User CRUD, password reset |
 | SecretsModule | Fetches secrets from AWS Secrets Manager at boot |
 | IGClientModule | IG API session + all IG calls |
 | WebhookModule | Receives signals with IP + secret validation |
@@ -617,9 +613,9 @@ Internal service. Methods: login, refreshSession, searchMarkets, getOpenPosition
 
 ### SystemModule
 
-| Method | Path | Role | Description |
-|---|---|---|---|
-| GET | /system/status | ADMIN, VIEWER | `{ webhookUrl, igConnected, igSessionExpiresAt, lastSignalReceivedAt }` |
+| Method | Path | Description |
+|---|---|---|
+| GET | /system/status | `{ webhookUrl, igConnected, igSessionExpiresAt, lastSignalReceivedAt }` |
 
 `lastSignalReceivedAt` is the timestamp of the most recent `trade_log` row (every webhook delivery writes one, whether it traded, was skipped, or was a duplicate) — it's the only reliable way to know TradingView is actually reaching the webhook, since TradingView never confirms delivery on its own. Shown on the Settings page as "Last TradingView signal".
 
@@ -647,14 +643,13 @@ The frontend mostly uses these events to trigger a TanStack Query refetch (`quer
 | Login | /login | Email + password + optional email-OTP 2FA |
 | Dashboard | / | Global stats + charts |
 | Stocks | /stocks | Per-stock config table |
-| Stock Detail | /stocks/:ticker | Single-stock statistics + charts + per-stock trading conditions (enable/disable, investment amount, daily cap, cool-down, max positions) — Viewer: read-only, no Edit button |
-| Markets | /markets | Search/manage the IG tradeable-market list (Admin only) |
+| Stock Detail | /stocks/:ticker | Single-stock statistics + charts + per-stock trading conditions (enable/disable, investment amount, daily cap, cool-down, max positions) |
+| Markets | /markets | Search/manage the IG tradeable-market list |
 | Open Positions | /positions | Currently open positions, live from IG |
 | Trades | /trades | Full trade history with filters + CSV export |
-| Conditions | /conditions | Global trading rules — Viewer: visible, every field disabled |
-| Users | /users | User management (Admin only) |
+| Conditions | /conditions | Global trading rules |
+| Users | /users | User management |
 | Settings | /settings | Webhook URL, IG connection status, last TradingView signal received, password, 2FA |
-| Roles & Access | /access | `src/pages/access/AccessGuide.tsx` — static reference listing every feature and what Admin vs. Viewer can do with it (an "Overview" card grid and a "Permissions matrix" table, switchable via the shared `Tabs` component). No API calls; visible to both roles. |
 
 ### Stack
 

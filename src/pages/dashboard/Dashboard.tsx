@@ -27,7 +27,6 @@ import { DateRangePicker, calcPreset, type DateRangeValue } from '@/components/c
 import { useOverview, useByStock, useDailyActivity, useStatusBreakdown } from '@/hooks/useStats'
 import { useSetBotEnabled } from '@/hooks/useRules'
 import { useStocks } from '@/hooks/useStocks'
-import { useAuth } from '@/context/AuthContext'
 import { formatCount, formatMoney, formatPercent } from '@/lib/format'
 import type { StatsFilters } from '@/api/stats'
 import { cn } from '@/lib/utils'
@@ -151,7 +150,6 @@ function defaultDateRange(): DateRangeValue {
 }
 
 export function Dashboard() {
-  const { user } = useAuth()
   const todayISO = todayISODate()
   const [days, setDays] = useState(DEFAULT_DAYS)
   const [ticker, setTicker] = useState('')
@@ -337,7 +335,7 @@ export function Dashboard() {
               </p>
               <Switch
                 checked={!!data?.botEnabled}
-                disabled={user?.role !== 'ADMIN' || overview.isLoading || setBotEnabled.isPending}
+                disabled={overview.isLoading || setBotEnabled.isPending}
                 onCheckedChange={(checked) =>
                   setBotEnabled.mutate(checked, {
                     onSuccess: () => toast.success(checked ? 'Bot enabled' : 'Bot disabled'),

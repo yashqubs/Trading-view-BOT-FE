@@ -18,7 +18,7 @@ The full project documentation lives at `.claude/PROJECT_DOCUMENTATION.md`. Read
 | Stock detail page `/stocks/:ticker` | Section 12 per-stock statistics — all required charts and stat cards |
 | Trades page | Section 8 trade_log schema — every column + all 17 status values + their meaning |
 | Conditions page | Section 9 (Trading Conditions) — every global rule explained |
-| Users page | Section 6 (User Management) — create flow, roles, endpoints |
+| Users page | Section 6 (User Management) — create flow, endpoints |
 | Settings page | Section 5 Layer 3 (webhook), Section 7 (secrets), Section 10 SystemModule (last signal received) |
 | API layer | Section 10 (Backend modules) — every endpoint with method, path, auth required |
 | Trade status badges | Section 8 trade_log status values — all 17 statuses and their meaning |
@@ -32,7 +32,7 @@ The full project documentation lives at `.claude/PROJECT_DOCUMENTATION.md`. Read
 - No P&L is shown in the portal — not "no real-time P&L", literally none (Section 19 Limitation 1). A realized-P&L feature (computed from signal price, not IG's fill price) was built and then removed app-wide because the numbers weren't trustworthy. Don't re-add any form of P&L display without discussing it first — the portal shows what was invested, not a return figure.
 - Auth uses HttpOnly cookie — `withCredentials: true` on every Axios call, plus an `X-CSRF-Token` header (read from the `csrf_token` cookie) on mutating requests. Never localStorage.
 - Only one device can be logged into an account at a time (Section 5 Layer 4, backend-enforced) — logging in elsewhere invalidates the current session, surfacing here as a plain 401 that the existing Axios interceptor already redirects to `/login`. No special frontend handling needed unless a future task asks for a distinct "logged in elsewhere" message.
-- Two roles: ADMIN sees and edits everything; VIEWER sees dashboard, trades, stats, and stock configuration read-only (including per-stock trading conditions). Gate mutations, not reads.
+- No roles: every authenticated user sees and edits everything. An earlier ADMIN/VIEWER split was deliberately removed — don't reintroduce role gating.
 - The per-stock detail page `/stocks/:ticker` is a mandatory, fully featured mini-dashboard with five chart types and a stat row (Section 12) — plus its own "Trading conditions" card so a stock's settings can be managed without leaving the page.
 - Execution mode (Market price vs. Signal price) has a global default on the Conditions page and an optional per-stock override on the stock detail page — both use the shared `ExecutionModeToggle` component (Section 9 "Execution Mode"), not a plain Switch, since it's a named-mode choice.
 - Realtime updates come over a Socket.IO connection (`src/lib/socket.ts`, `useSocketEvent`), not polling — see Section 10 RealtimeModule for the event list.
@@ -70,26 +70,24 @@ This is a financial tool. Clarity, correctness, and a calm, trustworthy UI matte
 
 - `/login` — email + password + optional email-OTP 2FA code
 - `/` — dashboard: global stats cards + charts + alerts
-- `/stocks` — per-stock config table; click a row → stock detail (Admin only)
-- `/stocks/:ticker` — single-stock statistics with charts, plus a "Trading conditions" card to manage that stock's settings without leaving the page (this is required and important); Viewer sees it read-only, no Edit button
-- `/markets` — search/manage the IG tradeable-market list (Admin only)
+- `/stocks` — per-stock config table; click a row → stock detail
+- `/stocks/:ticker` — single-stock statistics with charts, plus a "Trading conditions" card to manage that stock's settings without leaving the page (this is required and important)
+- `/markets` — search/manage the IG tradeable-market list
 - `/positions` — currently open positions, live from IG
 - `/trades` — full trade history, filterable, CSV export
-- `/conditions` — global trading rules form; Viewer sees every field disabled
-- `/users` — user management (Admin only)
+- `/conditions` — global trading rules form
+- `/users` — user management
 - `/settings` — webhook URL, IG status, last TradingView signal received, change password, manage 2FA
-- `/access` — static "Roles & access" reference page (`src/pages/access/AccessGuide.tsx`): every feature plus what Admin vs. Viewer can do with it. No API calls; visible to both roles.
 
 ## Hard rules
 
 1. **No secrets in the frontend.** No API keys, no IG credentials. The frontend only talks to our backend.
 2. **Auth via HttpOnly cookie.** The JWT is in an HttpOnly cookie set by the backend. Do NOT store tokens in localStorage. Axios sends the cookie automatically (`withCredentials: true`).
 3. **On 401, redirect to /login.** Axios response interceptor handles this globally.
-4. **Role-gate the UI.** Hide admin-only pages/actions (Users, settings changes) from VIEWER role. But remember the backend enforces this too — the UI gate is UX, not security.
-5. **Every destructive action confirms.** Delete user, disable stock, etc. → confirm dialog.
-6. **Round every displayed number.** Money to 2dp, percentages to 1dp, counts as integers. No floating-point artifacts on screen.
-7. **Loading = skeletons, not spinners**, for a smoother feel.
-8. **Accessible.** Use shadcn/ui primitives, keyboard navigable, sufficient contrast in both themes.
+4. **Every destructive action confirms.** Delete user, disable stock, etc. → confirm dialog.
+5. **Round every displayed number.** Money to 2dp, percentages to 1dp, counts as integers. No floating-point artifacts on screen.
+6. **Loading = skeletons, not spinners**, for a smoother feel.
+7. **Accessible.** Use shadcn/ui primitives, keyboard navigable, sufficient contrast in both themes.
 
 ## Code style
 
@@ -121,7 +119,6 @@ This is a financial tool. Clarity, correctness, and a calm, trustworthy UI matte
 1. `pnpm build` compiles
 2. `pnpm lint` passes
 3. Works in both dark and light themes
-4. Role-gating correct (VIEWER cannot see admin actions)
 5. Numbers rounded, loading states present, destructive actions confirmed
 
 ## Don't

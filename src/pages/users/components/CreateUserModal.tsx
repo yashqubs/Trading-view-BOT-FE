@@ -12,15 +12,12 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useCreateUser } from '@/hooks/useUsers'
-import type { Role } from '@/types'
 
 export function CreateUserModal() {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
-  const [role, setRole] = useState<Role>('VIEWER')
   const [error, setError] = useState<string | null>(null)
   const [tempPassword, setTempPassword] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
@@ -30,7 +27,6 @@ export function CreateUserModal() {
   function reset() {
     setName('')
     setEmail('')
-    setRole('VIEWER')
     setError(null)
     setTempPassword(null)
     setCopied(false)
@@ -46,7 +42,7 @@ export function CreateUserModal() {
     }
 
     try {
-      const { tempPassword: pwd } = await createUser.mutateAsync({ name, email, role })
+      const { tempPassword: pwd } = await createUser.mutateAsync({ name, email })
       setTempPassword(pwd)
     } catch {
       setError('Could not create this user. The email may already be in use.')
@@ -92,18 +88,6 @@ export function CreateUserModal() {
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="user-email">Email</Label>
                 <Input id="user-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="user-role">Role</Label>
-                <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-                  <SelectTrigger id="user-role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ADMIN">Admin</SelectItem>
-                    <SelectItem value="VIEWER">Viewer</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
               {error && <p className="text-sm text-danger">{error}</p>}
               <DialogFooter>

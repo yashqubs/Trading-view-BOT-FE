@@ -23,11 +23,10 @@ import type { SystemStatus } from '@/api/system'
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 
-export const MOCK_ADMIN_USER: User = {
+export const MOCK_PRIMARY_USER: User = {
   id: 'user-1',
   name: 'Alex Mercer',
   email: 'alex@tradingbot.io',
-  role: 'ADMIN',
   active: true,
   twoFactorEnabled: false,
   mustChangePassword: false,
@@ -35,11 +34,10 @@ export const MOCK_ADMIN_USER: User = {
   createdAt: '2025-01-15T10:00:00.000Z',
 }
 
-export const MOCK_VIEWER_USER: User = {
+export const MOCK_SECOND_USER: User = {
   id: 'user-2',
   name: 'Sam Rivera',
   email: 'sam@tradingbot.io',
-  role: 'VIEWER',
   active: true,
   twoFactorEnabled: true,
   mustChangePassword: false,
@@ -51,7 +49,6 @@ export const MOCK_INACTIVE_USER: User = {
   id: 'user-3',
   name: 'Jordan Park',
   email: 'jordan@tradingbot.io',
-  role: 'VIEWER',
   active: false,
   twoFactorEnabled: false,
   mustChangePassword: true,
@@ -59,8 +56,8 @@ export const MOCK_INACTIVE_USER: User = {
   createdAt: '2025-06-01T08:00:00.000Z',
 }
 
-export const MOCK_USERS: User[] = [MOCK_ADMIN_USER, MOCK_VIEWER_USER, MOCK_INACTIVE_USER]
-export const MOCK_ME: User = MOCK_ADMIN_USER
+export const MOCK_USERS: User[] = [MOCK_PRIMARY_USER, MOCK_SECOND_USER, MOCK_INACTIVE_USER]
+export const MOCK_ME: User = MOCK_PRIMARY_USER
 
 
 // ─── System Status ────────────────────────────────────────────────────────────

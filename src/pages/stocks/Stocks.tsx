@@ -12,7 +12,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EmptyState } from '@/components/common/EmptyState'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { TableSkeleton } from '@/components/common/PageSkeleton'
-import { RoleGate } from '@/components/common/RoleGate'
 import { SortableHeader, toggleSort, type SortConfig } from '@/components/common/SortableHeader'
 import { useDeleteStock, useStocks } from '@/hooks/useStocks'
 import { formatMoney } from '@/lib/format'
@@ -78,12 +77,10 @@ export function Stocks() {
           <h1 className="text-xl font-medium text-text-primary">Stocks</h1>
           <p className="text-sm text-text-secondary">Per-stock investment amounts and trading conditions.</p>
         </div>
-        <RoleGate allow={['ADMIN']}>
-          <Button onClick={() => navigate('/stocks/new')}>
-            <Plus className="h-4 w-4" />
-            Add stock
-          </Button>
-        </RoleGate>
+        <Button onClick={() => navigate('/stocks/new')}>
+          <Plus className="h-4 w-4" />
+          Add stock
+        </Button>
       </div>
 
       {!isLoading && !!stocks?.length && (
@@ -132,12 +129,10 @@ export function Stocks() {
           title="No stocks yet"
           description="Add your first stock to start mapping TradingView signals to IG instruments."
           action={
-            <RoleGate allow={['ADMIN']}>
-              <Button onClick={() => navigate('/stocks/new')}>
-                <Plus className="h-4 w-4" />
-                Add stock
-              </Button>
-            </RoleGate>
+            <Button onClick={() => navigate('/stocks/new')}>
+              <Plus className="h-4 w-4" />
+              Add stock
+            </Button>
           }
         />
       ) : !filteredStocks.length ? (
@@ -205,24 +200,22 @@ export function Stocks() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <RoleGate allow={['ADMIN']}>
-                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                        <ConfirmDialog
-                          trigger={
-                            <Button variant="ghost" size="icon" aria-label={`Delete ${stock.tvTicker}`}>
-                              <Trash2 className="h-4 w-4 text-danger" />
-                            </Button>
-                          }
-                          title={`Delete ${stock.tvTicker}?`}
-                          description="This removes the stock mapping. Trade history for this ticker is kept."
-                          confirmLabel="Delete"
-                          onConfirm={async () => {
-                            await deleteStock.mutateAsync(stock.id)
-                            toast.success(`${stock.tvTicker} removed`)
-                          }}
-                        />
-                      </div>
-                    </RoleGate>
+                    <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                      <ConfirmDialog
+                        trigger={
+                          <Button variant="ghost" size="icon" aria-label={`Delete ${stock.tvTicker}`}>
+                            <Trash2 className="h-4 w-4 text-danger" />
+                          </Button>
+                        }
+                        title={`Delete ${stock.tvTicker}?`}
+                        description="This removes the stock mapping. Trade history for this ticker is kept."
+                        confirmLabel="Delete"
+                        onConfirm={async () => {
+                          await deleteStock.mutateAsync(stock.id)
+                          toast.success(`${stock.tvTicker} removed`)
+                        }}
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

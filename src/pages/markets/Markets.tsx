@@ -7,7 +7,6 @@ import { Card } from '@/components/ui/card'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { TableSkeleton } from '@/components/common/PageSkeleton'
-import { RoleGate } from '@/components/common/RoleGate'
 import { CreateMarketModal } from './components/CreateMarketModal'
 import { EditMarketModal } from './components/EditMarketModal'
 import { useDeleteMarket, useMarkets } from '@/hooks/useMarkets'
@@ -31,9 +30,7 @@ export function Markets() {
             Trading-hours profiles (timezone + open/close) that stocks are assigned to.
           </p>
         </div>
-        <RoleGate allow={['ADMIN']}>
-          <CreateMarketModal />
-        </RoleGate>
+        <CreateMarketModal />
       </div>
 
       {isLoading ? (
@@ -42,11 +39,7 @@ export function Markets() {
         <EmptyState
           title="No markets yet"
           description="Add a market (e.g. UK, US, India) before you can add a stock."
-          action={
-            <RoleGate allow={['ADMIN']}>
-              <CreateMarketModal />
-            </RoleGate>
-          }
+          action={<CreateMarketModal />}
         />
       ) : (
         <Card className="p-0 animate-fade-slide-in">
@@ -76,32 +69,30 @@ export function Markets() {
                   </TableCell>
                   <TableCell className="text-text-secondary">{stocksUsing(market.id)}</TableCell>
                   <TableCell>
-                    <RoleGate allow={['ADMIN']}>
-                      <div className="flex items-center justify-end gap-1">
-                        <EditMarketModal market={market} />
-                        <ConfirmDialog
-                          trigger={
-                            <Button variant="ghost" size="icon" aria-label={`Delete ${market.name}`}>
-                              <Trash2 className="h-4 w-4 text-danger" />
-                            </Button>
+                    <div className="flex items-center justify-end gap-1">
+                      <EditMarketModal market={market} />
+                      <ConfirmDialog
+                        trigger={
+                          <Button variant="ghost" size="icon" aria-label={`Delete ${market.name}`}>
+                            <Trash2 className="h-4 w-4 text-danger" />
+                          </Button>
+                        }
+                        title={`Delete ${market.name}?`}
+                        description="Stocks still assigned to this market must be reassigned first."
+                        confirmLabel="Delete"
+                        onConfirm={async () => {
+                          try {
+                            await deleteMarket.mutateAsync(market.id)
+                            toast.success(`${market.name} removed`)
+                          } catch {
+                            toast.error(
+                              `Could not delete ${market.name} — ${stocksUsing(market.id)} stock(s) are still assigned to it.`,
+                            )
+                            throw new Error('delete blocked')
                           }
-                          title={`Delete ${market.name}?`}
-                          description="Stocks still assigned to this market must be reassigned first."
-                          confirmLabel="Delete"
-                          onConfirm={async () => {
-                            try {
-                              await deleteMarket.mutateAsync(market.id)
-                              toast.success(`${market.name} removed`)
-                            } catch {
-                              toast.error(
-                                `Could not delete ${market.name} — ${stocksUsing(market.id)} stock(s) are still assigned to it.`,
-                              )
-                              throw new Error('delete blocked')
-                            }
-                          }}
-                        />
-                      </div>
-                    </RoleGate>
+                        }}
+                      />
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

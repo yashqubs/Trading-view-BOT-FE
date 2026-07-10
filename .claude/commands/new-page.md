@@ -14,7 +14,6 @@ Requirements:
 - Use theme tokens (CSS variables), never hardcoded colors — works in dark and light.
 - Loading state uses skeletons, not spinners.
 - Empty state has helpful guidance text.
-- If the page has admin-only actions, gate them by role (VIEWER cannot see them).
 - Destructive actions get a confirm dialog.
 - Numbers rounded appropriately (money 2dp, % 1dp, counts integer).
 - Subtle fade/slide-in on mount.

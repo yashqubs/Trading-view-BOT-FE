@@ -17,7 +17,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useTradingRules, useUpdateTradingRules } from '@/hooks/useRules'
-import { useAuth } from '@/context/AuthContext'
 import type { ExecutionMode } from '@/types'
 
 interface RulesFormSnapshot {
@@ -33,8 +32,6 @@ interface RulesFormSnapshot {
 }
 
 export function Conditions() {
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'ADMIN'
   const { data: rules, isLoading } = useTradingRules()
   const updateRules = useUpdateTradingRules()
 
@@ -153,7 +150,7 @@ export function Conditions() {
       <div>
         <h1 className="text-xl font-medium text-text-primary">Trading conditions</h1>
         <p className="text-sm text-text-secondary">
-          Global rules checked before every signal. {!isAdmin && 'Read-only for your role.'}
+          Global rules checked before every signal.
         </p>
         <p className="mt-1 text-xs text-text-tertiary">
           Trading hours and timezone are configured per-stock now — see{' '}
@@ -174,15 +171,15 @@ export function Conditions() {
               <Label htmlFor="bot-enabled">Bot enabled</Label>
               <p className="text-xs text-text-tertiary">Master kill switch for all trading.</p>
             </div>
-            <Switch id="bot-enabled" checked={botEnabled} onCheckedChange={setBotEnabled} disabled={!isAdmin} />
+            <Switch id="bot-enabled" checked={botEnabled} onCheckedChange={setBotEnabled} />
           </div>
           <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
             <Label htmlFor="allow-buy">Allow buy signals</Label>
-            <Switch id="allow-buy" checked={allowBuy} onCheckedChange={setAllowBuy} disabled={!isAdmin} />
+            <Switch id="allow-buy" checked={allowBuy} onCheckedChange={setAllowBuy} />
           </div>
           <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
             <Label htmlFor="allow-sell">Allow sell signals</Label>
-            <Switch id="allow-sell" checked={allowSell} onCheckedChange={setAllowSell} disabled={!isAdmin} />
+            <Switch id="allow-sell" checked={allowSell} onCheckedChange={setAllowSell} />
           </div>
         </div>
       </Card>
@@ -198,7 +195,7 @@ export function Conditions() {
               How every trade fills unless a stock's own settings override it. Applies globally.
             </p>
           </div>
-          <ExecutionModeToggle value={executionMode} onChange={setExecutionMode} disabled={!isAdmin} />
+          <ExecutionModeToggle value={executionMode} onChange={setExecutionMode} />
           {executionMode === 'SIGNAL_PRICE' && (
             <>
               <p className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
@@ -215,7 +212,6 @@ export function Conditions() {
                   step="0.01"
                   value={maxSlippagePercent}
                   onChange={(e) => setMaxSlippagePercent(e.target.value)}
-                  disabled={!isAdmin}
                 />
                 <p className="text-xs text-text-tertiary">
                   How far the fill price can move against the signal price before the trade is rejected instead
@@ -240,7 +236,6 @@ export function Conditions() {
               min="0"
               value={dailyMaxTotalInvestment}
               onChange={(e) => setDailyMaxTotalInvestment(e.target.value)}
-              disabled={!isAdmin}
               placeholder="No limit"
             />
           </div>
@@ -252,7 +247,6 @@ export function Conditions() {
               min="0"
               value={dailyMaxTradeCount}
               onChange={(e) => setDailyMaxTradeCount(e.target.value)}
-              disabled={!isAdmin}
               placeholder="No limit"
             />
           </div>
@@ -264,7 +258,6 @@ export function Conditions() {
               min="0"
               value={maxOpenPositionsGlobal}
               onChange={(e) => setMaxOpenPositionsGlobal(e.target.value)}
-              disabled={!isAdmin}
               placeholder="No limit"
             />
           </div>
@@ -284,7 +277,6 @@ export function Conditions() {
               min="1"
               value={maxConsecutiveFailures}
               onChange={(e) => setMaxConsecutiveFailures(e.target.value)}
-              disabled={!isAdmin}
             />
             <p className="text-xs text-text-tertiary">
               Current streak: {rules?.consecutiveFailureCount ?? 0}
@@ -293,14 +285,12 @@ export function Conditions() {
         </div>
       </Card>
 
-      {isAdmin && (
-        <div className="flex items-center justify-end gap-3">
-          {isDirty && <p className="text-xs text-warning">You have unsaved changes.</p>}
-          <Button type="submit" disabled={updateRules.isPending}>
-            {updateRules.isPending ? 'Saving…' : 'Save changes'}
-          </Button>
-        </div>
-      )}
+      <div className="flex items-center justify-end gap-3">
+        {isDirty && <p className="text-xs text-warning">You have unsaved changes.</p>}
+        <Button type="submit" disabled={updateRules.isPending}>
+          {updateRules.isPending ? 'Saving…' : 'Save changes'}
+        </Button>
+      </div>
 
       <Dialog open={blocker.state === 'blocked'} onOpenChange={(open) => !open && blocker.reset?.()}>
         <DialogContent>

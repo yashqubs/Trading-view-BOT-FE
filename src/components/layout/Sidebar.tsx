@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { PanelLeftClose, PanelLeftOpen, TrendingUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuth } from '@/context/AuthContext'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { NAV_ITEMS } from './nav-items'
@@ -10,7 +9,6 @@ import { NAV_ITEMS } from './nav-items'
 const STORAGE_KEY = 'sidebar-collapsed'
 
 export function Sidebar() {
-  const { user } = useAuth()
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(STORAGE_KEY) === 'true')
 
   function toggleCollapsed() {
@@ -69,7 +67,7 @@ export function Sidebar() {
         </div>
 
         <nav className="flex flex-1 flex-col gap-1">
-          {NAV_ITEMS.filter((item) => !item.adminOnly || user?.role === 'ADMIN').map((item) => {
+          {NAV_ITEMS.map((item) => {
             const link = (
               <NavLink
                 key={item.to}

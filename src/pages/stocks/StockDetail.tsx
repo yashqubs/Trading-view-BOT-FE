@@ -32,7 +32,6 @@ import { useStockStats } from '@/hooks/useStats'
 import { useTrades } from '@/hooks/useTrades'
 import { useStock } from '@/hooks/useStocks'
 import { useTradingRules } from '@/hooks/useRules'
-import { useAuth } from '@/context/AuthContext'
 import { exportTradesCsv, type TradeFilters, type TradeSortBy } from '@/api/trades'
 import {
   TRADE_STATUSES,
@@ -106,7 +105,7 @@ const EXECUTION_MODE_LABELS: Record<ExecutionMode, string> = {
 
 // ─── Per-stock trading conditions — read only; edited on its own screen ────────
 
-function StockConditionsSummary({ stock, isAdmin }: { stock: StockMapping; isAdmin: boolean }) {
+function StockConditionsSummary({ stock }: { stock: StockMapping }) {
   const { data: rules } = useTradingRules()
 
   return (
@@ -115,11 +114,9 @@ function StockConditionsSummary({ stock, isAdmin }: { stock: StockMapping; isAdm
         <CardHeader className="p-0">
           <CardTitle>Trading conditions</CardTitle>
         </CardHeader>
-        {isAdmin && (
-          <Button variant="secondary" size="sm" asChild>
-            <Link to={`/stocks/${stock.tvTicker}/edit`}>Edit</Link>
-          </Button>
-        )}
+        <Button variant="secondary" size="sm" asChild>
+          <Link to={`/stocks/${stock.tvTicker}/edit`}>Edit</Link>
+        </Button>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-1">
@@ -179,8 +176,6 @@ function StockConditionsSummary({ stock, isAdmin }: { stock: StockMapping; isAdm
 
 export function StockDetail() {
   const { ticker = '' } = useParams<{ ticker: string }>()
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'ADMIN'
   const stock = useStock(ticker)
 
   // ── Shared filters (search/sort/range), scoped to this ticker ──
@@ -292,7 +287,7 @@ export function StockDetail() {
       {stock.isLoading ? (
         <Skeleton className="h-40 w-full" />
       ) : stock.data ? (
-        <StockConditionsSummary stock={stock.data} isAdmin={isAdmin} />
+        <StockConditionsSummary stock={stock.data} />
       ) : (
         <Card className="animate-fade-slide-in">
           <p className="text-sm text-text-tertiary">

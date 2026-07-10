@@ -2,19 +2,15 @@ import { toast } from 'sonner'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useSetBotEnabled, useTradingRules } from '@/hooks/useRules'
-import { useAuth } from '@/context/AuthContext'
 import { cn } from '@/lib/utils'
 
 export function BotToggle() {
-  const { user } = useAuth()
   const { data: rules, isLoading } = useTradingRules()
   const setBotEnabled = useSetBotEnabled()
 
   if (isLoading || !rules) {
     return <Skeleton className="h-8 w-32 rounded-full" />
   }
-
-  const isAdmin = user?.role === 'ADMIN'
 
   function handleToggle(checked: boolean) {
     setBotEnabled.mutate(checked, {
@@ -37,7 +33,7 @@ export function BotToggle() {
       <Switch
         checked={rules.botEnabled}
         onCheckedChange={handleToggle}
-        disabled={!isAdmin || setBotEnabled.isPending}
+        disabled={setBotEnabled.isPending}
         aria-label="Toggle bot trading"
       />
     </div>

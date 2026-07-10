@@ -23,9 +23,8 @@ import { CreateUserModal } from './components/CreateUserModal'
 import { useDeactivateUser, useResetUserPassword, useUpdateUser, useUsers } from '@/hooks/useUsers'
 import { useAuth } from '@/context/AuthContext'
 import { formatDateTime } from '@/lib/format'
-import type { Role, User } from '@/types'
 
-type SortKey = 'name' | 'email' | 'role' | 'active' | 'lastLoginAt'
+type SortKey = 'name' | 'email' | 'active' | 'lastLoginAt'
 
 export function Users() {
   const { user: currentUser } = useAuth()
@@ -37,15 +36,13 @@ export function Users() {
   const [copied, setCopied] = useState(false)
 
   const [search, setSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState<Role | 'ALL'>('ALL')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL')
   const [sort, setSort] = useState<SortConfig<SortKey>>({ by: 'name', order: 'asc' })
 
-  const hasFilters = !!search || roleFilter !== 'ALL' || statusFilter !== 'ALL'
+  const hasFilters = !!search || statusFilter !== 'ALL'
 
   function clearFilters() {
     setSearch('')
-    setRoleFilter('ALL')
     setStatusFilter('ALL')
   }
 
@@ -55,7 +52,6 @@ export function Users() {
 
     const filtered = users.filter((u) => {
       if (term && !u.name.toLowerCase().includes(term) && !u.email.toLowerCase().includes(term)) return false
-      if (roleFilter !== 'ALL' && u.role !== roleFilter) return false
       if (statusFilter === 'ACTIVE' && !u.active) return false
       if (statusFilter === 'INACTIVE' && u.active) return false
       return true
@@ -68,8 +64,6 @@ export function Users() {
           return a.name.localeCompare(b.name) * dir
         case 'email':
           return a.email.localeCompare(b.email) * dir
-        case 'role':
-          return a.role.localeCompare(b.role) * dir
         case 'active':
           return (Number(a.active) - Number(b.active)) * dir
         case 'lastLoginAt':
@@ -78,19 +72,10 @@ export function Users() {
           return 0
       }
     })
-  }, [users, search, roleFilter, statusFilter, sort])
+  }, [users, search, statusFilter, sort])
 
   function handleSort(key: SortKey) {
     setSort((s) => toggleSort(s, key))
-  }
-
-  async function handleRoleChange(id: string, role: Role) {
-    try {
-      await updateUser.mutateAsync({ id, input: { role } })
-      toast.success('Role updated')
-    } catch {
-      toast.error('Could not update role')
-    }
   }
 
   // The backend resends the same pending password if one is already
@@ -112,10 +97,6 @@ export function Users() {
     navigator.clipboard.writeText(resetResult.password)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
-  }
-
-  function isLastActiveAdmin(u: User) {
-    return u.role === 'ADMIN' && (users ?? []).filter((x) => x.role === 'ADMIN' && x.active).length <= 1
   }
 
   return (
@@ -143,17 +124,6 @@ export function Users() {
                     className="pl-9"
                   />
                 </div>
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label className="text-xs">Role</Label>
-                <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as Role | 'ALL')}>
-                  <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All roles</SelectItem>
-                    <SelectItem value="ADMIN">Admin</SelectItem>
-                    <SelectItem value="VIEWER">Viewer</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs">Status</Label>
@@ -200,7 +170,6 @@ export function Users() {
                 <TableRow>
                   <SortableHeader sortKey="name" current={sort} onSort={handleSort}>Name</SortableHeader>
                   <SortableHeader sortKey="email" current={sort} onSort={handleSort}>Email</SortableHeader>
-                  <SortableHeader sortKey="role" current={sort} onSort={handleSort}>Role</SortableHeader>
                   <SortableHeader sortKey="active" current={sort} onSort={handleSort}>Status</SortableHeader>
                   <TableHead>2FA</TableHead>
                   <SortableHeader sortKey="lastLoginAt" current={sort} onSort={handleSort}>Last login</SortableHeader>
@@ -210,27 +179,11 @@ export function Users() {
               <TableBody>
                 {filteredUsers.map((u) => {
                   const isSelf = u.id === currentUser?.id
-                  const lastAdmin = isLastActiveAdmin(u)
 
                   return (
                     <TableRow key={u.id}>
                       <TableCell className="font-medium">{u.name}</TableCell>
                       <TableCell className="text-text-secondary">{u.email}</TableCell>
-                      <TableCell>
-                        <Select
-                          value={u.role}
-                          onValueChange={(role) => handleRoleChange(u.id, role as Role)}
-                          disabled={isSelf && lastAdmin}
-                        >
-                          <SelectTrigger className="h-8 w-28">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="ADMIN">Admin</SelectItem>
-                            <SelectItem value="VIEWER">Viewer</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </TableCell>
                       <TableCell>
                         <Badge variant={u.active ? 'success' : 'neutral'}>{u.active ? 'Active' : 'Inactive'}</Badge>
                       </TableCell>
