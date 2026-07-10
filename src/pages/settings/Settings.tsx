@@ -1,37 +1,25 @@
-import { type FormEvent, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { toast } from 'sonner'
-import { Check, Copy } from 'lucide-react'
+import { Check, Copy, ShieldCheck } from 'lucide-react'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { PasswordInput } from '@/components/common/PasswordInput'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
+import { Switch } from '@/components/ui/switch'
 import { useSystemStatus } from '@/hooks/useSystem'
-import { disableTwoFactor } from '@/api/auth'
+import { disableTwoFactor, enableTwoFactor } from '@/api/auth'
 import { useAuth } from '@/context/AuthContext'
 import { formatDateTime, formatRelativeTime } from '@/lib/format'
+import { cn } from '@/lib/utils'
 
 export function Settings() {
   const { user, setUser } = useAuth()
-  const navigate = useNavigate()
   const system = useSystemStatus()
   const [copied, setCopied] = useState(false)
+  const [toggling2fa, setToggling2fa] = useState(false)
 
-  const [disable2faOpen, setDisable2faOpen] = useState(false)
-  const [disable2faPassword, setDisable2faPassword] = useState('')
-  const [disable2faError, setDisable2faError] = useState<string | null>(null)
-  const [disabling2fa, setDisabling2fa] = useState(false)
+  const twoFactorOn = user?.twoFactorEnabled ?? false
 
   function copyWebhookUrl() {
     if (!system.data) return
@@ -40,20 +28,18 @@ export function Settings() {
     setTimeout(() => setCopied(false), 2000)
   }
 
-  async function handleDisable2fa(e: FormEvent) {
-    e.preventDefault()
-    setDisable2faError(null)
-    setDisabling2fa(true)
+  async function handleToggle2fa(checked: boolean) {
+    setToggling2fa(true)
     try {
-      const { user: updatedUser } = await disableTwoFactor(disable2faPassword)
+      const { user: updatedUser } = checked ? await enableTwoFactor() : await disableTwoFactor()
       setUser(updatedUser)
-      toast.success('Two-factor authentication disabled')
-      setDisable2faOpen(false)
-      setDisable2faPassword('')
+      toast.success(
+        checked ? 'Two-factor authentication enabled' : 'Two-factor authentication disabled',
+      )
     } catch {
-      setDisable2faError('Incorrect password.')
+      toast.error('Could not update two-factor authentication')
     } finally {
-      setDisabling2fa(false)
+      setToggling2fa(false)
     }
   }
 
@@ -120,74 +106,48 @@ export function Settings() {
           <CardTitle>Two-factor authentication</CardTitle>
         </CardHeader>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm text-text-primary">
-              Status:{' '}
-              <Badge variant={user?.twoFactorEnabled ? 'success' : 'neutral'}>
-                {user?.twoFactorEnabled ? 'Enabled' : 'Off'}
-              </Badge>
-            </p>
-            <p className="mt-1 text-xs text-text-secondary">
-              Optional. When enabled, a 6-digit code is emailed to you each time you sign in.
-            </p>
+          <div className="flex items-start gap-3">
+            <span
+              className={cn(
+                'flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors',
+                twoFactorOn ? 'bg-accent-soft text-accent' : 'bg-surface-2 text-text-tertiary',
+              )}
+            >
+              <ShieldCheck className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="text-sm text-text-primary">
+                Status:{' '}
+                <Badge variant={twoFactorOn ? 'success' : 'neutral'}>
+                  {twoFactorOn ? 'Enabled' : 'Off'}
+                </Badge>
+              </p>
+              <p className="mt-1 text-xs text-text-secondary">
+                Optional. When enabled, a 6-digit code is emailed to you each time you sign in.
+              </p>
+            </div>
           </div>
-          <div className="flex shrink-0 gap-2">
-            {user?.twoFactorEnabled ? (
-              <Dialog
-                open={disable2faOpen}
-                onOpenChange={(next) => {
-                  setDisable2faOpen(next)
-                  if (!next) {
-                    setDisable2faPassword('')
-                    setDisable2faError(null)
-                  }
-                }}
-              >
-                <DialogTrigger asChild>
-                  <Button variant="secondary">Disable 2FA</Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Disable two-factor authentication?</DialogTitle>
-                    <DialogDescription>
-                      You will only need your email and password to sign in. Confirm with your password to
-                      continue.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleDisable2fa} className="flex flex-col gap-4">
-                    <div className="flex flex-col gap-1.5">
-                      <Label htmlFor="disable-2fa-password">Password</Label>
-                      <PasswordInput
-                        id="disable-2fa-password"
-                        autoComplete="current-password"
-                        autoFocus
-                        value={disable2faPassword}
-                        onChange={(e) => setDisable2faPassword(e.target.value)}
-                        disabled={disabling2fa}
-                      />
-                    </div>
-                    {disable2faError && <p className="text-sm text-danger">{disable2faError}</p>}
-                    <DialogFooter>
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => setDisable2faOpen(false)}
-                        disabled={disabling2fa}
-                      >
-                        Cancel
-                      </Button>
-                      <Button type="submit" variant="destructive" disabled={disabling2fa}>
-                        {disabling2fa ? 'Disabling…' : 'Disable'}
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
-            ) : (
-              <Button variant="secondary" onClick={() => navigate('/setup-2fa')}>
-                Enable 2FA
-              </Button>
+          <div
+            className={cn(
+              'flex shrink-0 items-center gap-2 self-start rounded-full border px-3 py-1.5 shadow-[var(--shadow-sm)] transition-colors sm:self-auto',
+              twoFactorOn ? 'border-accent/25 bg-accent-soft' : 'border-border bg-surface-2',
             )}
+          >
+            <span className={cn('status-dot', twoFactorOn ? 'text-accent' : 'text-text-tertiary')} />
+            <span
+              className={cn(
+                'text-xs font-medium',
+                twoFactorOn ? 'text-accent' : 'text-text-secondary',
+              )}
+            >
+              2FA {twoFactorOn ? 'on' : 'off'}
+            </span>
+            <Switch
+              checked={twoFactorOn}
+              onCheckedChange={handleToggle2fa}
+              disabled={toggling2fa}
+              aria-label="Toggle two-factor authentication"
+            />
           </div>
         </div>
       </Card>

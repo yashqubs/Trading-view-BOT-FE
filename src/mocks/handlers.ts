@@ -7,7 +7,6 @@ import {
   MOCK_ME,
   MOCK_USERS,
   MOCK_ADMIN_USER,
-  MOCK_2FA_SETUP,
   MOCK_SYSTEM_STATUS,
   MOCK_TRADING_RULES,
   MOCK_STOCKS,
@@ -77,20 +76,8 @@ export const handlers = [
     return HttpResponse.json({ message: 'Password updated. You can now sign in with your new password.' })
   }),
 
-  // POST /auth/2fa/setup
-  http.post(url('/auth/2fa/setup'), async () => {
-    await delay(LATENCY)
-    return HttpResponse.json(MOCK_2FA_SETUP)
-  }),
-
-  // POST /auth/2fa/resend
-  http.post(url('/auth/2fa/resend'), async () => {
-    await delay(LATENCY)
-    return HttpResponse.json({ message: 'A new verification code has been sent to your email.' })
-  }),
-
-  // POST /auth/2fa/verify
-  http.post(url('/auth/2fa/verify'), async () => {
+  // POST /auth/2fa/enable
+  http.post(url('/auth/2fa/enable'), async () => {
     await delay(LATENCY)
     return HttpResponse.json({ user: { ...MOCK_ME, twoFactorEnabled: true } })
   }),

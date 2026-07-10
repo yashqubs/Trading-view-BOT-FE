@@ -32,29 +32,16 @@ export function resetPassword(email: string, code: string, newPassword: string) 
     .then((r) => r.data)
 }
 
-export interface TwoFactorSetup {
-  message: string
-  maskedEmail?: string
-}
-
-export function setupTwoFactor() {
-  return api.post<TwoFactorSetup>('/auth/2fa/setup').then((r) => r.data)
-}
-
-export function resendTwoFactorSetupCode() {
-  return api.post<{ message: string }>('/auth/2fa/resend').then((r) => r.data)
-}
-
-export function verifyTwoFactor(code: string) {
-  return api.post<{ user: User }>('/auth/2fa/verify', { code }).then((r) => r.data)
+export function enableTwoFactor() {
+  return api.post<{ user: User }>('/auth/2fa/enable').then((r) => r.data)
 }
 
 export function skipTwoFactor() {
   return api.post<{ user: User }>('/auth/2fa/skip').then((r) => r.data)
 }
 
-export function disableTwoFactor(password: string) {
-  return api.post<{ user: User }>('/auth/2fa/disable', { password }).then((r) => r.data)
+export function disableTwoFactor() {
+  return api.post<{ user: User }>('/auth/2fa/disable').then((r) => r.data)
 }
 
 export function logout() {

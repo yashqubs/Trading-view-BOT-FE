@@ -20,7 +20,6 @@ import type {
 import { TRADE_STATUSES } from '@/types'
 import type { TradeFilters, TradeListResponse, TradeSortBy } from '@/api/trades'
 import type { SystemStatus } from '@/api/system'
-import type { TwoFactorSetup } from '@/api/auth'
 
 // ─── Users ───────────────────────────────────────────────────────────────────
 
@@ -63,12 +62,6 @@ export const MOCK_INACTIVE_USER: User = {
 export const MOCK_USERS: User[] = [MOCK_ADMIN_USER, MOCK_VIEWER_USER, MOCK_INACTIVE_USER]
 export const MOCK_ME: User = MOCK_ADMIN_USER
 
-// ─── Auth ─────────────────────────────────────────────────────────────────────
-
-export const MOCK_2FA_SETUP: TwoFactorSetup = {
-  message: 'A 6-digit verification code has been sent to your email.',
-  maskedEmail: 'a***@tradingbot.io',
-}
 
 // ─── System Status ────────────────────────────────────────────────────────────
 
