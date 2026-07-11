@@ -436,7 +436,7 @@ On success, a toast confirms and the user is returned to the credentials step to
 | instrument_name | VARCHAR(255) | e.g. Apple Inc (All Sessions) |
 | instrument_type | VARCHAR(50) | SHARES, COMMODITIES |
 | enabled | BOOLEAN | Default true |
-| investment_amount | DECIMAL(12,2) | GBP per trade |
+| investment_amount | DECIMAL(12,2), Nullable | GBP per trade. NULL = inherit trading_rules.investment_amount (the global default) |
 | max_daily_spend | DECIMAL(12,2), Nullable | Per-stock daily cap |
 | execution_mode | VARCHAR(20), Nullable | MARKET or SIGNAL_PRICE. NULL = inherit trading_rules.execution_mode |
 | created_at | TIMESTAMP | |
@@ -452,11 +452,9 @@ On success, a toast confirms and the user is returned to the credentials step to
 | allow_sell | BOOLEAN | true | Global SELL toggle |
 | daily_max_total_investment | DECIMAL(12,2) | NULL | Daily GBP cap |
 | daily_max_trade_count | INTEGER | NULL | Daily trade cap |
+| investment_amount | DECIMAL(12,2) | 500 | Global default GBP per trade. A stock's own investment_amount overrides this when set |
 | max_consecutive_failures | INTEGER | 3 | Auto-pause threshold |
 | consecutive_failure_count | INTEGER | 0 | Running counter |
-| trade_start_time_utc | TIME | 14:30 | NYSE open |
-| trade_end_time_utc | TIME | 21:00 | NYSE close |
-| trade_weekdays_only | BOOLEAN | true | No weekends |
 | execution_mode | VARCHAR(20) | MARKET | Global default fill mode — MARKET or SIGNAL_PRICE. See "Execution Mode" below |
 | updated_at | TIMESTAMP | Auto | |
 | updated_by | UUID | NULL | Audit |
@@ -523,6 +521,14 @@ Bot master switch, allow buy/sell toggles, daily max total investment, daily max
 ### Per-Stock Conditions (stock_mapping)
 
 Investment amount, max daily spend per stock, and a per-stock trading on/off switch. The switch is live directly in the Stocks list rows and on the stock's detail page (`/stocks/:ticker` → "Trading conditions" card); the other fields are edited on the stock's edit screen.
+
+### Investment Amount — Global Default vs. Per-Stock Override
+
+Quantity is always `investment_amount / signal_price`. Which amount that is follows the same override pattern as execution mode and slippage below: a stock's own `investmentAmount` (nullable) overrides `TradingRules.investmentAmount` (the global default, never null) when set.
+
+**Where to set it:**
+- **Global default** — Conditions page → "Investment" card ("Default investment per trade").
+- **Per-stock override** — Add Stock / Edit Stock form → "Override investment per trade" switch. When off, the stock inherits the global default (shown in the helper text and, on the Stocks list and stock detail page, as a "(default)" tag next to the resolved amount); when on, it uses its own value regardless of the global setting.
 
 ### Execution Mode — Market Price vs. Signal Price
 

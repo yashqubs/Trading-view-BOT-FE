@@ -147,7 +147,11 @@ function StockConditionsSummary({ stock }: { stock: StockMapping }) {
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-xs text-text-tertiary">Investment per trade</span>
-          <span className="text-sm text-text-primary">{formatMoney(stock.investmentAmount)}</span>
+          <span className="text-sm text-text-primary">
+            {stock.investmentAmount != null
+              ? formatMoney(stock.investmentAmount)
+              : `Default (${rules ? formatMoney(rules.investmentAmount) : '…'})`}
+          </span>
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-xs text-text-tertiary">Max daily spend</span>

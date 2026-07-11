@@ -15,6 +15,7 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { TableSkeleton } from '@/components/common/PageSkeleton'
 import { SortableHeader, toggleSort, type SortConfig } from '@/components/common/SortableHeader'
 import { useDeleteStock, useStocks, useUpdateStock } from '@/hooks/useStocks'
+import { useTradingRules } from '@/hooks/useRules'
 import { formatMoney } from '@/lib/format'
 
 type SortKey = 'tvTicker' | 'investmentAmount' | 'maxDailySpend'
@@ -22,8 +23,13 @@ type SortKey = 'tvTicker' | 'investmentAmount' | 'maxDailySpend'
 export function Stocks() {
   const navigate = useNavigate()
   const { data: stocks, isLoading } = useStocks()
+  const { data: rules } = useTradingRules()
   const deleteStock = useDeleteStock()
   const updateStock = useUpdateStock()
+
+  function resolvedInvestment(amount: number | null): number | undefined {
+    return amount ?? rules?.investmentAmount
+  }
 
   async function handleTradingToggle(stockId: number, ticker: string, enabled: boolean) {
     try {
@@ -64,14 +70,14 @@ export function Stocks() {
         case 'tvTicker':
           return a.tvTicker.localeCompare(b.tvTicker) * dir
         case 'investmentAmount':
-          return (a.investmentAmount - b.investmentAmount) * dir
+          return ((resolvedInvestment(a.investmentAmount) ?? 0) - (resolvedInvestment(b.investmentAmount) ?? 0)) * dir
         case 'maxDailySpend':
           return ((a.maxDailySpend ?? -1) - (b.maxDailySpend ?? -1)) * dir
         default:
           return 0
       }
     })
-  }, [stocks, search, statusFilter, sort])
+  }, [stocks, search, statusFilter, sort, rules])
 
   function handleSort(key: SortKey) {
     setSort((s) => toggleSort(s, key))
@@ -197,7 +203,12 @@ export function Stocks() {
                       </span>
                     </div>
                   </TableCell>
-                  <TableCell>{formatMoney(stock.investmentAmount)}</TableCell>
+                  <TableCell>
+                    {formatMoney(resolvedInvestment(stock.investmentAmount))}
+                    {stock.investmentAmount == null && (
+                      <span className="ml-1.5 text-xs text-text-tertiary">(default)</span>
+                    )}
+                  </TableCell>
                   <TableCell>{stock.maxDailySpend ? formatMoney(stock.maxDailySpend) : '—'}</TableCell>
                   <TableCell>
                     {stock.executionMode ? (

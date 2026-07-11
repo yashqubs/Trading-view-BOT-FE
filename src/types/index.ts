@@ -82,7 +82,8 @@ export interface StockMapping {
   instrumentName: string
   instrumentType: string
   enabled: boolean
-  investmentAmount: number
+  /** Null = inherit TradingRules.investmentAmount (the global default). */
+  investmentAmount: number | null
   maxDailySpend: number | null
   /** Null = inherit TradingRules.executionMode (the global default). */
   executionMode: ExecutionMode | null
@@ -109,6 +110,8 @@ export interface TradingRules {
   allowSell: boolean
   dailyMaxTotalInvestment: number | null
   dailyMaxTradeCount: number | null
+  /** Global default investment per trade. Always set — a stock's own investmentAmount overrides it when non-null. */
+  investmentAmount: number
   maxConsecutiveFailures: number
   consecutiveFailureCount: number
   executionMode: ExecutionMode

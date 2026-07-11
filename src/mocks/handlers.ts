@@ -208,7 +208,7 @@ export const handlers = [
       instrumentName: body.instrumentName ?? 'New Instrument',
       instrumentType: body.instrumentType ?? 'SHARES',
       enabled: true,
-      investmentAmount: body.investmentAmount ?? 500,
+      investmentAmount: body.investmentAmount ?? null,
       maxDailySpend: body.maxDailySpend ?? null,
       executionMode: body.executionMode ?? null,
       createdAt: new Date().toISOString(),

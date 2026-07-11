@@ -23,6 +23,7 @@ interface RulesFormSnapshot {
   botEnabled: boolean
   allowBuy: boolean
   allowSell: boolean
+  investmentAmount: string
   dailyMaxTotalInvestment: string
   dailyMaxTradeCount: string
   maxConsecutiveFailures: string
@@ -37,6 +38,7 @@ export function Conditions() {
   const [botEnabled, setBotEnabled] = useState(true)
   const [allowBuy, setAllowBuy] = useState(true)
   const [allowSell, setAllowSell] = useState(true)
+  const [investmentAmount, setInvestmentAmount] = useState('500')
   const [dailyMaxTotalInvestment, setDailyMaxTotalInvestment] = useState('')
   const [dailyMaxTradeCount, setDailyMaxTradeCount] = useState('')
   const [maxConsecutiveFailures, setMaxConsecutiveFailures] = useState('3')
@@ -54,6 +56,7 @@ export function Conditions() {
       botEnabled: rules.botEnabled,
       allowBuy: rules.allowBuy,
       allowSell: rules.allowSell,
+      investmentAmount: String(rules.investmentAmount),
       dailyMaxTotalInvestment: rules.dailyMaxTotalInvestment ? String(rules.dailyMaxTotalInvestment) : '',
       dailyMaxTradeCount: rules.dailyMaxTradeCount ? String(rules.dailyMaxTradeCount) : '',
       maxConsecutiveFailures: String(rules.maxConsecutiveFailures),
@@ -64,6 +67,7 @@ export function Conditions() {
     setBotEnabled(snapshot.botEnabled)
     setAllowBuy(snapshot.allowBuy)
     setAllowSell(snapshot.allowSell)
+    setInvestmentAmount(snapshot.investmentAmount)
     setDailyMaxTotalInvestment(snapshot.dailyMaxTotalInvestment)
     setDailyMaxTradeCount(snapshot.dailyMaxTradeCount)
     setMaxConsecutiveFailures(snapshot.maxConsecutiveFailures)
@@ -76,6 +80,7 @@ export function Conditions() {
     (botEnabled !== baseline.botEnabled ||
       allowBuy !== baseline.allowBuy ||
       allowSell !== baseline.allowSell ||
+      investmentAmount !== baseline.investmentAmount ||
       dailyMaxTotalInvestment !== baseline.dailyMaxTotalInvestment ||
       dailyMaxTradeCount !== baseline.dailyMaxTradeCount ||
       maxConsecutiveFailures !== baseline.maxConsecutiveFailures ||
@@ -97,6 +102,11 @@ export function Conditions() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
+    const amount = Number(investmentAmount)
+    if (!amount || amount <= 0) {
+      toast.error('Enter a valid default investment amount.')
+      return
+    }
     const slippage = Number(maxSlippagePercent) || 0
     if (slippage < 0 || slippage > 100) {
       toast.error('Max slippage must be between 0 and 100.')
@@ -107,6 +117,7 @@ export function Conditions() {
         botEnabled,
         allowBuy,
         allowSell,
+        investmentAmount: amount,
         dailyMaxTotalInvestment: dailyMaxTotalInvestment ? Number(dailyMaxTotalInvestment) : null,
         dailyMaxTradeCount: dailyMaxTradeCount ? Number(dailyMaxTradeCount) : null,
         maxConsecutiveFailures: Number(maxConsecutiveFailures) || 3,
@@ -117,6 +128,7 @@ export function Conditions() {
         botEnabled: saved.botEnabled,
         allowBuy: saved.allowBuy,
         allowSell: saved.allowSell,
+        investmentAmount: String(saved.investmentAmount),
         dailyMaxTotalInvestment: saved.dailyMaxTotalInvestment ? String(saved.dailyMaxTotalInvestment) : '',
         dailyMaxTradeCount: saved.dailyMaxTradeCount ? String(saved.dailyMaxTradeCount) : '',
         maxConsecutiveFailures: String(saved.maxConsecutiveFailures),
@@ -167,6 +179,26 @@ export function Conditions() {
             <Label htmlFor="allow-sell">Allow sell signals</Label>
             <Switch id="allow-sell" checked={allowSell} onCheckedChange={setAllowSell} />
           </div>
+        </div>
+      </Card>
+
+      <Card className="animate-fade-slide-in">
+        <CardHeader>
+          <CardTitle>Investment</CardTitle>
+        </CardHeader>
+        <div className="flex flex-col gap-1.5 max-w-xs">
+          <Label htmlFor="investment-amount">Default investment per trade (£)</Label>
+          <Input
+            id="investment-amount"
+            type="number"
+            min="0"
+            step="0.01"
+            value={investmentAmount}
+            onChange={(e) => setInvestmentAmount(e.target.value)}
+          />
+          <p className="text-xs text-text-tertiary">
+            Used for every stock unless it sets its own override on the Stocks page.
+          </p>
         </div>
       </Card>
 

@@ -12,6 +12,7 @@ import { EmptyState } from '@/components/common/EmptyState'
 import { ExecutionModeToggle } from '@/components/common/ExecutionModeToggle'
 import { useStock, useUpdateStock } from '@/hooks/useStocks'
 import { useTradingRules } from '@/hooks/useRules'
+import { formatMoney } from '@/lib/format'
 import type { ExecutionMode, StockMapping } from '@/types'
 
 const EXECUTION_MODE_LABELS: Record<ExecutionMode, string> = {
@@ -23,7 +24,7 @@ interface FormSnapshot {
   tvTicker: string
   instrumentName: string
   enabled: boolean
-  investmentAmount: string
+  investmentAmount: string | null
   maxDailySpend: string
   executionMode: ExecutionMode | null
   maxSlippagePercent: string | null
@@ -34,7 +35,7 @@ function snapshotStock(stock: StockMapping): FormSnapshot {
     tvTicker: stock.tvTicker,
     instrumentName: stock.instrumentName,
     enabled: stock.enabled,
-    investmentAmount: String(stock.investmentAmount),
+    investmentAmount: stock.investmentAmount != null ? String(stock.investmentAmount) : null,
     maxDailySpend: stock.maxDailySpend != null ? String(stock.maxDailySpend) : '',
     executionMode: stock.executionMode,
     maxSlippagePercent: stock.maxSlippagePercent != null ? String(stock.maxSlippagePercent) : null,
@@ -67,13 +68,16 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
       setError('Instrument name cannot be empty.')
       return
     }
-    const amount = Number(form.investmentAmount)
-    if (!amount || amount <= 0) {
-      setError('Enter a valid investment amount.')
-      return
+    if (form.investmentAmount !== null) {
+      const amount = Number(form.investmentAmount)
+      if (!amount || amount <= 0) {
+        setError('Enter a valid investment amount.')
+        return
+      }
     }
     const dailySpend = form.maxDailySpend ? Number(form.maxDailySpend) : null
-    if (dailySpend != null && dailySpend <= amount) {
+    const effectiveAmount = form.investmentAmount !== null ? Number(form.investmentAmount) : rules?.investmentAmount
+    if (dailySpend != null && effectiveAmount != null && dailySpend <= effectiveAmount) {
       setError('Max daily spend must be higher than the investment per trade.')
       return
     }
@@ -91,7 +95,7 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
           tvTicker: ticker,
           instrumentName: form.instrumentName.trim(),
           enabled: form.enabled,
-          investmentAmount: amount,
+          investmentAmount: form.investmentAmount !== null ? Number(form.investmentAmount) : null,
           maxDailySpend: dailySpend,
           executionMode: form.executionMode,
           maxSlippagePercent: form.maxSlippagePercent !== null ? Number(form.maxSlippagePercent) : null,
@@ -145,31 +149,51 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
           <Switch id="stock-enabled" checked={form.enabled} onCheckedChange={(v) => set('enabled', v)} />
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="stock-investment">Investment per trade (£)</Label>
-            <Input
-              id="stock-investment"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.investmentAmount}
-              onChange={(e) => set('investmentAmount', e.target.value)}
+        <div className="flex flex-col gap-3 rounded-lg border border-border px-3 py-2.5">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="stock-investment-override">Override investment per trade for {stock.tvTicker}</Label>
+              <p className="text-xs text-text-tertiary">
+                {form.investmentAmount === null
+                  ? `Off — using the global default (${rules ? formatMoney(rules.investmentAmount) : '…'}).`
+                  : 'On — this stock ignores the global default.'}
+              </p>
+            </div>
+            <Switch
+              id="stock-investment-override"
+              checked={form.investmentAmount !== null}
+              onCheckedChange={(checked) =>
+                set('investmentAmount', checked ? String(rules?.investmentAmount ?? 500) : null)
+              }
             />
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="stock-max-daily">Max daily spend (£)</Label>
-            <Input
-              id="stock-max-daily"
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.maxDailySpend}
-              onChange={(e) => set('maxDailySpend', e.target.value)}
-              placeholder="No limit"
-            />
-            <p className="text-xs text-text-tertiary">Must be higher than the investment per trade.</p>
-          </div>
+          {form.investmentAmount !== null && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="stock-investment">Investment per trade (£)</Label>
+              <Input
+                id="stock-investment"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.investmentAmount}
+                onChange={(e) => set('investmentAmount', e.target.value)}
+              />
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="stock-max-daily">Max daily spend (£)</Label>
+          <Input
+            id="stock-max-daily"
+            type="number"
+            min="0"
+            step="0.01"
+            value={form.maxDailySpend}
+            onChange={(e) => set('maxDailySpend', e.target.value)}
+            placeholder="No limit"
+          />
+          <p className="text-xs text-text-tertiary">Must be higher than the investment per trade.</p>
         </div>
 
         <div className="flex flex-col gap-3 rounded-lg border border-border px-3 py-2.5">

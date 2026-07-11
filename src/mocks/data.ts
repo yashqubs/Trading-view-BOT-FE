@@ -78,6 +78,7 @@ export const MOCK_TRADING_RULES: TradingRules = {
   allowSell: true,
   dailyMaxTotalInvestment: 5000,
   dailyMaxTradeCount: 20,
+  investmentAmount: 500,
   maxConsecutiveFailures: 5,
   consecutiveFailureCount: 1,
   executionMode: 'MARKET',
@@ -139,7 +140,8 @@ export const MOCK_STOCKS: StockMapping[] = [
     instrumentName: 'Microsoft Corp',
     instrumentType: 'SHARES',
     enabled: false,
-    investmentAmount: 600,
+    // Null = inherits the global default, to demonstrate the per-stock toggle.
+    investmentAmount: null,
     maxDailySpend: null,
     executionMode: null,
     maxSlippagePercent: null,

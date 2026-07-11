@@ -12,7 +12,7 @@ import { EmptyState } from '@/components/common/EmptyState'
 import { ExecutionModeToggle } from '@/components/common/ExecutionModeToggle'
 import { useCreateStock, useIgMarketSearch } from '@/hooks/useStocks'
 import { useTradingRules } from '@/hooks/useRules'
-import { formatPrice } from '@/lib/format'
+import { formatMoney, formatPrice } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { ExecutionMode, IgMarketResult } from '@/types'
 
@@ -27,7 +27,7 @@ export function AddStock() {
   const [debouncedTerm, setDebouncedTerm] = useState('')
   const [selected, setSelected] = useState<IgMarketResult | null>(null)
   const [tvTicker, setTvTicker] = useState('')
-  const [investmentAmount, setInvestmentAmount] = useState('')
+  const [investmentAmount, setInvestmentAmount] = useState<string | null>(null)
   const [maxDailySpend, setMaxDailySpend] = useState('')
   const [executionMode, setExecutionMode] = useState<ExecutionMode | null>(null)
   const [maxSlippagePercent, setMaxSlippagePercent] = useState<string | null>(null)
@@ -59,13 +59,16 @@ export function AddStock() {
       setError('Ticker must be 20 characters or fewer.')
       return
     }
-    const amount = Number(investmentAmount)
-    if (!amount || amount <= 0) {
-      setError('Enter a valid investment amount.')
-      return
+    if (investmentAmount !== null) {
+      const amount = Number(investmentAmount)
+      if (!amount || amount <= 0) {
+        setError('Enter a valid investment amount.')
+        return
+      }
     }
     const dailySpend = maxDailySpend ? Number(maxDailySpend) : null
-    if (dailySpend != null && dailySpend <= amount) {
+    const effectiveAmount = investmentAmount !== null ? Number(investmentAmount) : rules?.investmentAmount
+    if (dailySpend != null && effectiveAmount != null && dailySpend <= effectiveAmount) {
       setError('Max daily spend must be higher than the investment per trade.')
       return
     }
@@ -83,7 +86,7 @@ export function AddStock() {
         igEpic: selected.epic,
         instrumentName: selected.instrumentName,
         instrumentType: selected.instrumentType,
-        investmentAmount: amount,
+        ...(investmentAmount !== null ? { investmentAmount: Number(investmentAmount) } : {}),
         maxDailySpend: dailySpend,
         ...(executionMode ? { executionMode } : {}),
         ...(maxSlippagePercent !== null ? { maxSlippagePercent: Number(maxSlippagePercent) } : {}),
@@ -195,16 +198,37 @@ export function AddStock() {
               </p>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="investment-amount">Investment per trade (£)</Label>
-              <Input
-                id="investment-amount"
-                type="number"
-                min="0"
-                step="0.01"
-                value={investmentAmount}
-                onChange={(e) => setInvestmentAmount(e.target.value)}
-              />
+            <div className="flex flex-col gap-2 rounded-lg border border-border px-3 py-2.5">
+              <div className="flex items-center justify-between">
+                <div>
+                  <Label htmlFor="add-investment-override">Override investment per trade</Label>
+                  <p className="text-xs text-text-tertiary">
+                    {investmentAmount === null
+                      ? `Off — will use the global default (${rules ? formatMoney(rules.investmentAmount) : '…'}).`
+                      : 'On — this stock will ignore the global default.'}
+                  </p>
+                </div>
+                <Switch
+                  id="add-investment-override"
+                  checked={investmentAmount !== null}
+                  onCheckedChange={(checked) =>
+                    setInvestmentAmount(checked ? String(rules?.investmentAmount ?? 500) : null)
+                  }
+                />
+              </div>
+              {investmentAmount !== null && (
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="investment-amount">Investment per trade (£)</Label>
+                  <Input
+                    id="investment-amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={investmentAmount}
+                    onChange={(e) => setInvestmentAmount(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">

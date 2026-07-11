@@ -18,7 +18,8 @@ export interface CreateStockInput {
   igEpic: string
   instrumentName: string
   instrumentType: string
-  investmentAmount: number
+  /** Omit to inherit the global default (TradingRules.investmentAmount). */
+  investmentAmount?: number
   maxDailySpend?: number | null
   /** Omit to inherit the global default (TradingRules.executionMode). */
   executionMode?: ExecutionMode
@@ -30,8 +31,12 @@ export function createStock(input: CreateStockInput) {
   return api.post<StockMapping>('/mapping', input).then((r) => r.data)
 }
 
-export type UpdateStockInput = Partial<Omit<CreateStockInput, 'executionMode' | 'maxSlippagePercent'>> & {
+export type UpdateStockInput = Partial<
+  Omit<CreateStockInput, 'investmentAmount' | 'executionMode' | 'maxSlippagePercent'>
+> & {
   enabled?: boolean
+  /** Send null explicitly to revert back to inheriting the global default. */
+  investmentAmount?: number | null
   executionMode?: ExecutionMode | null
   maxSlippagePercent?: number | null
 }
