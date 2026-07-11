@@ -8,12 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ExecutionModeToggle } from '@/components/common/ExecutionModeToggle'
 import { useStock, useUpdateStock } from '@/hooks/useStocks'
 import { useTradingRules } from '@/hooks/useRules'
-import { useMarkets } from '@/hooks/useMarkets'
 import type { ExecutionMode, StockMapping } from '@/types'
 
 const EXECUTION_MODE_LABELS: Record<ExecutionMode, string> = {
@@ -24,12 +22,9 @@ const EXECUTION_MODE_LABELS: Record<ExecutionMode, string> = {
 interface FormSnapshot {
   tvTicker: string
   instrumentName: string
-  marketId: string
   enabled: boolean
   investmentAmount: string
   maxDailySpend: string
-  coolDownMinutes: string
-  maxOpenPositions: string
   executionMode: ExecutionMode | null
   maxSlippagePercent: string | null
 }
@@ -38,12 +33,9 @@ function snapshotStock(stock: StockMapping): FormSnapshot {
   return {
     tvTicker: stock.tvTicker,
     instrumentName: stock.instrumentName,
-    marketId: String(stock.marketId),
     enabled: stock.enabled,
     investmentAmount: String(stock.investmentAmount),
     maxDailySpend: stock.maxDailySpend != null ? String(stock.maxDailySpend) : '',
-    coolDownMinutes: stock.coolDownMinutes != null ? String(stock.coolDownMinutes) : '',
-    maxOpenPositions: String(stock.maxOpenPositions),
     executionMode: stock.executionMode,
     maxSlippagePercent: stock.maxSlippagePercent != null ? String(stock.maxSlippagePercent) : null,
   }
@@ -53,7 +45,6 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
   const navigate = useNavigate()
   const updateStock = useUpdateStock()
   const { data: rules } = useTradingRules()
-  const { data: markets } = useMarkets()
   const [form, setForm] = useState<FormSnapshot>(() => snapshotStock(stock))
   const [error, setError] = useState<string | null>(null)
 
@@ -74,10 +65,6 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
     }
     if (!form.instrumentName.trim()) {
       setError('Instrument name cannot be empty.')
-      return
-    }
-    if (!form.marketId) {
-      setError('Select a market.')
       return
     }
     const amount = Number(form.investmentAmount)
@@ -103,12 +90,9 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
         input: {
           tvTicker: ticker,
           instrumentName: form.instrumentName.trim(),
-          marketId: Number(form.marketId),
           enabled: form.enabled,
           investmentAmount: amount,
           maxDailySpend: dailySpend,
-          coolDownMinutes: form.coolDownMinutes ? Number(form.coolDownMinutes) : null,
-          maxOpenPositions: Number(form.maxOpenPositions) || 1,
           executionMode: form.executionMode,
           maxSlippagePercent: form.maxSlippagePercent !== null ? Number(form.maxSlippagePercent) : null,
         },
@@ -149,22 +133,6 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
               add it again via search.
             </p>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="stock-market">Market</Label>
-            <Select value={form.marketId} onValueChange={(v) => set('marketId', v)}>
-              <SelectTrigger id="stock-market">
-                <SelectValue placeholder="Select a market" />
-              </SelectTrigger>
-              <SelectContent>
-                {markets?.map((market) => (
-                  <SelectItem key={market.id} value={String(market.id)}>
-                    {market.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-text-tertiary">Which exchange's trading hours/timezone this stock follows.</p>
-          </div>
         </div>
 
         <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
@@ -201,27 +169,6 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
               placeholder="No limit"
             />
             <p className="text-xs text-text-tertiary">Must be higher than the investment per trade.</p>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="stock-cooldown">Cool-down (minutes)</Label>
-            <Input
-              id="stock-cooldown"
-              type="number"
-              min="0"
-              value={form.coolDownMinutes}
-              onChange={(e) => set('coolDownMinutes', e.target.value)}
-              placeholder="None"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="stock-max-positions">Max open positions</Label>
-            <Input
-              id="stock-max-positions"
-              type="number"
-              min="1"
-              value={form.maxOpenPositions}
-              onChange={(e) => set('maxOpenPositions', e.target.value)}
-            />
           </div>
         </div>
 

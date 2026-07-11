@@ -8,12 +8,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ExecutionModeToggle } from '@/components/common/ExecutionModeToggle'
 import { useCreateStock, useIgMarketSearch } from '@/hooks/useStocks'
 import { useTradingRules } from '@/hooks/useRules'
-import { useMarkets } from '@/hooks/useMarkets'
 import { formatPrice } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import type { ExecutionMode, IgMarketResult } from '@/types'
@@ -29,11 +27,8 @@ export function AddStock() {
   const [debouncedTerm, setDebouncedTerm] = useState('')
   const [selected, setSelected] = useState<IgMarketResult | null>(null)
   const [tvTicker, setTvTicker] = useState('')
-  const [marketId, setMarketId] = useState<string>('')
   const [investmentAmount, setInvestmentAmount] = useState('')
   const [maxDailySpend, setMaxDailySpend] = useState('')
-  const [coolDownMinutes, setCoolDownMinutes] = useState('')
-  const [maxOpenPositions, setMaxOpenPositions] = useState('1')
   const [executionMode, setExecutionMode] = useState<ExecutionMode | null>(null)
   const [maxSlippagePercent, setMaxSlippagePercent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -41,7 +36,6 @@ export function AddStock() {
   const search = useIgMarketSearch(debouncedTerm)
   const createStock = useCreateStock()
   const { data: rules } = useTradingRules()
-  const { data: markets } = useMarkets()
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedTerm(term), 300)
@@ -63,10 +57,6 @@ export function AddStock() {
     }
     if (ticker.length > 20) {
       setError('Ticker must be 20 characters or fewer.')
-      return
-    }
-    if (!marketId) {
-      setError('Select a market.')
       return
     }
     const amount = Number(investmentAmount)
@@ -93,11 +83,8 @@ export function AddStock() {
         igEpic: selected.epic,
         instrumentName: selected.instrumentName,
         instrumentType: selected.instrumentType,
-        marketId: Number(marketId),
         investmentAmount: amount,
         maxDailySpend: dailySpend,
-        coolDownMinutes: coolDownMinutes ? Number(coolDownMinutes) : null,
-        maxOpenPositions: Number(maxOpenPositions) || 1,
         ...(executionMode ? { executionMode } : {}),
         ...(maxSlippagePercent !== null ? { maxSlippagePercent: Number(maxSlippagePercent) } : {}),
       })
@@ -209,25 +196,6 @@ export function AddStock() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="market">Market</Label>
-              <Select value={marketId} onValueChange={setMarketId}>
-                <SelectTrigger id="market">
-                  <SelectValue placeholder="Select a market" />
-                </SelectTrigger>
-                <SelectContent>
-                  {markets?.map((market) => (
-                    <SelectItem key={market.id} value={String(market.id)}>
-                      {market.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-text-tertiary">
-                Which exchange's trading hours/timezone this stock follows.
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
               <Label htmlFor="investment-amount">Investment per trade (£)</Label>
               <Input
                 id="investment-amount"
@@ -252,27 +220,6 @@ export function AddStock() {
                 />
                 <p className="text-xs text-text-tertiary">Must be higher than the investment per trade.</p>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="cool-down">Cool-down (minutes)</Label>
-                <Input
-                  id="cool-down"
-                  type="number"
-                  min="0"
-                  value={coolDownMinutes}
-                  onChange={(e) => setCoolDownMinutes(e.target.value)}
-                  placeholder="Optional"
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="max-positions">Max open positions</Label>
-              <Input
-                id="max-positions"
-                type="number"
-                min="1"
-                value={maxOpenPositions}
-                onChange={(e) => setMaxOpenPositions(e.target.value)}
-              />
             </div>
 
             <div className="flex flex-col gap-2 rounded-lg border border-border px-3 py-2.5">

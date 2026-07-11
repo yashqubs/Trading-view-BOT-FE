@@ -18,11 +18,8 @@ export interface CreateStockInput {
   igEpic: string
   instrumentName: string
   instrumentType: string
-  marketId: number
   investmentAmount: number
   maxDailySpend?: number | null
-  coolDownMinutes?: number | null
-  maxOpenPositions?: number
   /** Omit to inherit the global default (TradingRules.executionMode). */
   executionMode?: ExecutionMode
   /** Omit to inherit the global default (TradingRules.maxSlippagePercent). Independent of executionMode. */

@@ -1,5 +1,5 @@
 import { type FormEvent, useEffect, useState } from 'react'
-import { Link, useBlocker } from 'react-router-dom'
+import { useBlocker } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -25,7 +25,6 @@ interface RulesFormSnapshot {
   allowSell: boolean
   dailyMaxTotalInvestment: string
   dailyMaxTradeCount: string
-  maxOpenPositionsGlobal: string
   maxConsecutiveFailures: string
   executionMode: ExecutionMode
   maxSlippagePercent: string
@@ -40,7 +39,6 @@ export function Conditions() {
   const [allowSell, setAllowSell] = useState(true)
   const [dailyMaxTotalInvestment, setDailyMaxTotalInvestment] = useState('')
   const [dailyMaxTradeCount, setDailyMaxTradeCount] = useState('')
-  const [maxOpenPositionsGlobal, setMaxOpenPositionsGlobal] = useState('')
   const [maxConsecutiveFailures, setMaxConsecutiveFailures] = useState('3')
   const [executionMode, setExecutionMode] = useState<ExecutionMode>('MARKET')
   const [maxSlippagePercent, setMaxSlippagePercent] = useState('0')
@@ -58,7 +56,6 @@ export function Conditions() {
       allowSell: rules.allowSell,
       dailyMaxTotalInvestment: rules.dailyMaxTotalInvestment ? String(rules.dailyMaxTotalInvestment) : '',
       dailyMaxTradeCount: rules.dailyMaxTradeCount ? String(rules.dailyMaxTradeCount) : '',
-      maxOpenPositionsGlobal: rules.maxOpenPositionsGlobal ? String(rules.maxOpenPositionsGlobal) : '',
       maxConsecutiveFailures: String(rules.maxConsecutiveFailures),
       executionMode: rules.executionMode,
       maxSlippagePercent: String(rules.maxSlippagePercent),
@@ -69,7 +66,6 @@ export function Conditions() {
     setAllowSell(snapshot.allowSell)
     setDailyMaxTotalInvestment(snapshot.dailyMaxTotalInvestment)
     setDailyMaxTradeCount(snapshot.dailyMaxTradeCount)
-    setMaxOpenPositionsGlobal(snapshot.maxOpenPositionsGlobal)
     setMaxConsecutiveFailures(snapshot.maxConsecutiveFailures)
     setExecutionMode(snapshot.executionMode)
     setMaxSlippagePercent(snapshot.maxSlippagePercent)
@@ -82,7 +78,6 @@ export function Conditions() {
       allowSell !== baseline.allowSell ||
       dailyMaxTotalInvestment !== baseline.dailyMaxTotalInvestment ||
       dailyMaxTradeCount !== baseline.dailyMaxTradeCount ||
-      maxOpenPositionsGlobal !== baseline.maxOpenPositionsGlobal ||
       maxConsecutiveFailures !== baseline.maxConsecutiveFailures ||
       executionMode !== baseline.executionMode ||
       maxSlippagePercent !== baseline.maxSlippagePercent)
@@ -114,7 +109,6 @@ export function Conditions() {
         allowSell,
         dailyMaxTotalInvestment: dailyMaxTotalInvestment ? Number(dailyMaxTotalInvestment) : null,
         dailyMaxTradeCount: dailyMaxTradeCount ? Number(dailyMaxTradeCount) : null,
-        maxOpenPositionsGlobal: maxOpenPositionsGlobal ? Number(maxOpenPositionsGlobal) : null,
         maxConsecutiveFailures: Number(maxConsecutiveFailures) || 3,
         executionMode,
         maxSlippagePercent: slippage,
@@ -125,7 +119,6 @@ export function Conditions() {
         allowSell: saved.allowSell,
         dailyMaxTotalInvestment: saved.dailyMaxTotalInvestment ? String(saved.dailyMaxTotalInvestment) : '',
         dailyMaxTradeCount: saved.dailyMaxTradeCount ? String(saved.dailyMaxTradeCount) : '',
-        maxOpenPositionsGlobal: saved.maxOpenPositionsGlobal ? String(saved.maxOpenPositionsGlobal) : '',
         maxConsecutiveFailures: String(saved.maxConsecutiveFailures),
         executionMode: saved.executionMode,
         maxSlippagePercent: String(saved.maxSlippagePercent),
@@ -151,13 +144,6 @@ export function Conditions() {
         <h1 className="text-xl font-medium text-text-primary">Trading conditions</h1>
         <p className="text-sm text-text-secondary">
           Global rules checked before every signal.
-        </p>
-        <p className="mt-1 text-xs text-text-tertiary">
-          Trading hours and timezone are configured per-stock now — see{' '}
-          <Link to="/markets" className="text-accent hover:underline">
-            Markets
-          </Link>
-          .
         </p>
       </div>
 
@@ -227,7 +213,7 @@ export function Conditions() {
         <CardHeader>
           <CardTitle>Daily limits</CardTitle>
         </CardHeader>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="daily-max-investment">Daily max investment (£)</Label>
             <Input
@@ -247,17 +233,6 @@ export function Conditions() {
               min="0"
               value={dailyMaxTradeCount}
               onChange={(e) => setDailyMaxTradeCount(e.target.value)}
-              placeholder="No limit"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="max-positions-global">Global max open positions</Label>
-            <Input
-              id="max-positions-global"
-              type="number"
-              min="0"
-              value={maxOpenPositionsGlobal}
-              onChange={(e) => setMaxOpenPositionsGlobal(e.target.value)}
               placeholder="No limit"
             />
           </div>

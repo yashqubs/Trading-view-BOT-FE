@@ -9,7 +9,6 @@ import { Stocks } from '@/pages/stocks/Stocks'
 import { AddStock } from '@/pages/stocks/AddStock'
 import { EditStock } from '@/pages/stocks/EditStock'
 import { StockDetail } from '@/pages/stocks/StockDetail'
-import { Markets } from '@/pages/markets/Markets'
 import { OpenPositions } from '@/pages/positions/OpenPositions'
 import { Trades } from '@/pages/trades/Trades'
 import { Conditions } from '@/pages/conditions/Conditions'
@@ -37,7 +36,6 @@ export const router = createBrowserRouter([
           { path: '/conditions', element: <Conditions /> },
           { path: '/settings', element: <Settings /> },
           { path: '/users', element: <Users /> },
-          { path: '/markets', element: <Markets /> },
           { path: '/stocks/new', element: <AddStock /> },
           { path: '/stocks/:ticker/edit', element: <EditStock /> },
         ],

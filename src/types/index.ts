@@ -75,20 +75,6 @@ export interface TradeSummary {
   avgInvestment: number | null
 }
 
-// A trading-hours profile (timezone + open/close + weekdays-only) a stock is
-// assigned to — e.g. "UK", "US", "India". Unrelated to IgMarketResult below,
-// which is an IG instrument search result.
-export interface Market {
-  id: number
-  name: string
-  timezone: string
-  openTime: string
-  closeTime: string
-  weekdaysOnly: boolean
-  createdAt: string
-  updatedAt: string
-}
-
 export interface StockMapping {
   id: number
   tvTicker: string
@@ -96,12 +82,8 @@ export interface StockMapping {
   instrumentName: string
   instrumentType: string
   enabled: boolean
-  marketId: number
-  market?: Market
   investmentAmount: number
   maxDailySpend: number | null
-  coolDownMinutes: number | null
-  maxOpenPositions: number
   /** Null = inherit TradingRules.executionMode (the global default). */
   executionMode: ExecutionMode | null
   /** Null = inherit TradingRules.maxSlippagePercent. Independent of executionMode. */
@@ -127,7 +109,6 @@ export interface TradingRules {
   allowSell: boolean
   dailyMaxTotalInvestment: number | null
   dailyMaxTradeCount: number | null
-  maxOpenPositionsGlobal: number | null
   maxConsecutiveFailures: number
   consecutiveFailureCount: number
   executionMode: ExecutionMode

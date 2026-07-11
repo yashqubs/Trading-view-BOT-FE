@@ -12,11 +12,13 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatCard } from '@/components/common/StatCard'
@@ -30,7 +32,7 @@ import { DonutChartCard } from '@/components/charts/DonutChartCard'
 import { ChartExpandModal } from '@/components/charts/ChartExpandModal'
 import { useStockStats } from '@/hooks/useStats'
 import { useTrades } from '@/hooks/useTrades'
-import { useStock } from '@/hooks/useStocks'
+import { useStock, useUpdateStock } from '@/hooks/useStocks'
 import { useTradingRules } from '@/hooks/useRules'
 import { exportTradesCsv, type TradeFilters, type TradeSortBy } from '@/api/trades'
 import {
@@ -103,10 +105,20 @@ const EXECUTION_MODE_LABELS: Record<ExecutionMode, string> = {
   SIGNAL_PRICE: 'Signal price',
 }
 
-// ─── Per-stock trading conditions — read only; edited on its own screen ────────
+// ─── Per-stock trading conditions — trading toggle is live; the rest is edited on its own screen ────────
 
 function StockConditionsSummary({ stock }: { stock: StockMapping }) {
   const { data: rules } = useTradingRules()
+  const updateStock = useUpdateStock()
+
+  async function handleTradingToggle(enabled: boolean) {
+    try {
+      await updateStock.mutateAsync({ id: stock.id, input: { enabled } })
+      toast.success(enabled ? `${stock.tvTicker} trading on` : `${stock.tvTicker} trading stopped`)
+    } catch {
+      toast.error(`Could not update ${stock.tvTicker}`)
+    }
+  }
 
   return (
     <Card className="animate-fade-slide-in">
@@ -120,14 +132,18 @@ function StockConditionsSummary({ stock }: { stock: StockMapping }) {
       </div>
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-1">
-          <span className="text-xs text-text-tertiary">Enabled</span>
-          <Badge variant={stock.enabled ? 'success' : 'neutral'} className="w-fit">
-            {stock.enabled ? 'Trading' : 'Disabled'}
-          </Badge>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-text-tertiary">Market</span>
-          <span className="text-sm text-text-primary">{stock.market?.name ?? '—'}</span>
+          <span className="text-xs text-text-tertiary">Trading</span>
+          <div className="flex items-center gap-2">
+            <Switch
+              checked={stock.enabled}
+              onCheckedChange={handleTradingToggle}
+              disabled={updateStock.isPending}
+              aria-label={stock.enabled ? `Stop trading ${stock.tvTicker}` : `Start trading ${stock.tvTicker}`}
+            />
+            <span className={stock.enabled ? 'text-sm text-success' : 'text-sm text-text-tertiary'}>
+              {stock.enabled ? 'On' : 'Stopped'}
+            </span>
+          </div>
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-xs text-text-tertiary">Investment per trade</span>
@@ -138,16 +154,6 @@ function StockConditionsSummary({ stock }: { stock: StockMapping }) {
           <span className="text-sm text-text-primary">
             {stock.maxDailySpend != null ? formatMoney(stock.maxDailySpend) : 'No limit'}
           </span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-text-tertiary">Cool-down</span>
-          <span className="text-sm text-text-primary">
-            {stock.coolDownMinutes != null ? `${stock.coolDownMinutes}m` : 'None'}
-          </span>
-        </div>
-        <div className="flex flex-col gap-1">
-          <span className="text-xs text-text-tertiary">Max open positions</span>
-          <span className="text-sm text-text-primary">{stock.maxOpenPositions}</span>
         </div>
         <div className="flex flex-col gap-1">
           <span className="text-xs text-text-tertiary">Fill price</span>

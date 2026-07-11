@@ -27,7 +27,7 @@ The full project documentation lives at `.claude/PROJECT_DOCUMENTATION.md`. Read
 
 ### Most important things to know from the documentation
 
-- There are 17 possible trade statuses (Section 8 trade_log), including `DUPLICATE_SIGNAL`. Every status needs its own badge colour — do not invent statuses or collapse them.
+- There are 17 possible trade statuses (Section 8 trade_log), including `DUPLICATE_SIGNAL`. Every status needs its own badge colour — do not invent statuses or collapse them. `MARKET_CLOSED` is legacy-only (the markets/trading-hours feature was removed; historical rows still carry it, so keep its badge).
 - The bot master switch (`bot_enabled` in `trading_rules`) must be one click from anywhere — top bar always.
 - No P&L is shown in the portal — not "no real-time P&L", literally none (Section 19 Limitation 1). A realized-P&L feature (computed from signal price, not IG's fill price) was built and then removed app-wide because the numbers weren't trustworthy. Don't re-add any form of P&L display without discussing it first — the portal shows what was invested, not a return figure.
 - Auth uses HttpOnly cookie — `withCredentials: true` on every Axios call, plus an `X-CSRF-Token` header (read from the `csrf_token` cookie) on mutating requests. Never localStorage.
@@ -72,7 +72,6 @@ This is a financial tool. Clarity, correctness, and a calm, trustworthy UI matte
 - `/` — dashboard: global stats cards + charts + alerts
 - `/stocks` — per-stock config table; click a row → stock detail
 - `/stocks/:ticker` — single-stock statistics with charts, plus a "Trading conditions" card to manage that stock's settings without leaving the page (this is required and important)
-- `/markets` — search/manage the IG tradeable-market list
 - `/positions` — currently open positions, live from IG
 - `/trades` — full trade history, filterable, CSV export
 - `/conditions` — global trading rules form

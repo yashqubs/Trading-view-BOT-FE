@@ -8,20 +8,31 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { TableSkeleton } from '@/components/common/PageSkeleton'
 import { SortableHeader, toggleSort, type SortConfig } from '@/components/common/SortableHeader'
-import { useDeleteStock, useStocks } from '@/hooks/useStocks'
+import { useDeleteStock, useStocks, useUpdateStock } from '@/hooks/useStocks'
 import { formatMoney } from '@/lib/format'
 
-type SortKey = 'tvTicker' | 'investmentAmount' | 'maxDailySpend' | 'coolDownMinutes' | 'maxOpenPositions'
+type SortKey = 'tvTicker' | 'investmentAmount' | 'maxDailySpend'
 
 export function Stocks() {
   const navigate = useNavigate()
   const { data: stocks, isLoading } = useStocks()
   const deleteStock = useDeleteStock()
+  const updateStock = useUpdateStock()
+
+  async function handleTradingToggle(stockId: number, ticker: string, enabled: boolean) {
+    try {
+      await updateStock.mutateAsync({ id: stockId, input: { enabled } })
+      toast.success(enabled ? `${ticker} trading on` : `${ticker} trading stopped`)
+    } catch {
+      toast.error(`Could not update ${ticker}`)
+    }
+  }
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ENABLED' | 'DISABLED'>('ALL')
@@ -56,10 +67,6 @@ export function Stocks() {
           return (a.investmentAmount - b.investmentAmount) * dir
         case 'maxDailySpend':
           return ((a.maxDailySpend ?? -1) - (b.maxDailySpend ?? -1)) * dir
-        case 'coolDownMinutes':
-          return ((a.coolDownMinutes ?? -1) - (b.coolDownMinutes ?? -1)) * dir
-        case 'maxOpenPositions':
-          return (a.maxOpenPositions - b.maxOpenPositions) * dir
         default:
           return 0
       }
@@ -152,12 +159,9 @@ export function Stocks() {
               <TableRow>
                 <SortableHeader sortKey="tvTicker" current={sort} onSort={handleSort}>Ticker</SortableHeader>
                 <TableHead>Instrument</TableHead>
-                <TableHead>Market</TableHead>
-                <TableHead>Status</TableHead>
+                <TableHead>Trading</TableHead>
                 <SortableHeader sortKey="investmentAmount" current={sort} onSort={handleSort}>Investment</SortableHeader>
                 <SortableHeader sortKey="maxDailySpend" current={sort} onSort={handleSort}>Daily cap</SortableHeader>
-                <SortableHeader sortKey="coolDownMinutes" current={sort} onSort={handleSort}>Cool-down</SortableHeader>
-                <SortableHeader sortKey="maxOpenPositions" current={sort} onSort={handleSort}>Max positions</SortableHeader>
                 <TableHead>Fill price</TableHead>
                 <TableHead />
               </TableRow>
@@ -180,16 +184,21 @@ export function Stocks() {
                 >
                   <TableCell className="font-medium">{stock.tvTicker}</TableCell>
                   <TableCell className="text-text-secondary">{stock.instrumentName}</TableCell>
-                  <TableCell className="text-text-secondary">{stock.market?.name ?? '—'}</TableCell>
-                  <TableCell>
-                    <Badge variant={stock.enabled ? 'success' : 'neutral'}>
-                      {stock.enabled ? 'Enabled' : 'Disabled'}
-                    </Badge>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={stock.enabled}
+                        onCheckedChange={(checked) => handleTradingToggle(stock.id, stock.tvTicker, checked)}
+                        disabled={updateStock.isPending}
+                        aria-label={stock.enabled ? `Stop trading ${stock.tvTicker}` : `Start trading ${stock.tvTicker}`}
+                      />
+                      <span className={stock.enabled ? 'text-xs text-success' : 'text-xs text-text-tertiary'}>
+                        {stock.enabled ? 'On' : 'Stopped'}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell>{formatMoney(stock.investmentAmount)}</TableCell>
                   <TableCell>{stock.maxDailySpend ? formatMoney(stock.maxDailySpend) : '—'}</TableCell>
-                  <TableCell>{stock.coolDownMinutes ? `${stock.coolDownMinutes}m` : '—'}</TableCell>
-                  <TableCell>{stock.maxOpenPositions}</TableCell>
                   <TableCell>
                     {stock.executionMode ? (
                       <Badge variant={stock.executionMode === 'SIGNAL_PRICE' ? 'accent' : 'neutral'}>

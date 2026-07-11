@@ -92,7 +92,7 @@ Define these in `src/index.css` and reference them everywhere — never hardcode
 ## The per-stock detail page (important)
 
 `/stocks/:ticker` must feel like a mini dashboard for that one stock:
-- A "Trading conditions" card near the top — enable/disable trading, investment per trade, max daily spend, cool-down, max open positions for this ticker specifically. This is the same data as the Stocks list's edit modal, just scoped and always-visible here so you don't have to leave the stock you're looking at to change how it trades.
+- A "Trading conditions" card near the top — a live trading on/off switch, investment per trade, and max daily spend for this ticker specifically. This is the same data as the Stocks list's edit screen, just scoped and always-visible here so you don't have to leave the stock you're looking at to change how it trades.
 - Row of stat cards (total trades, invested, buy/sell counts, success rate, last traded).
 - Charts: trade timeline (line), entry prices (line), buy/sell split (donut), status breakdown (bar), invested over time (bar).
 - Full trade history table for that stock below the charts.
