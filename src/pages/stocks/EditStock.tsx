@@ -109,7 +109,7 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
   }
 
   return (
-    <Card className="max-w-2xl animate-fade-slide-in">
+    <Card className="max-w-3xl animate-fade-slide-in">
       <CardHeader>
         <CardTitle>Trading conditions</CardTitle>
       </CardHeader>
@@ -149,106 +149,110 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
           <Switch id="stock-enabled" checked={form.enabled} onCheckedChange={(v) => set('enabled', v)} />
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-border px-3 py-2.5">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="stock-investment-override">Override investment per trade for {stock.tvTicker}</Label>
-              <p className="text-xs text-text-tertiary">
-                {form.investmentAmount === null
-                  ? `Off — using the global default (${rules ? formatMoney(rules.investmentAmount) : '…'}).`
-                  : 'On — this stock ignores the global default.'}
-              </p>
-            </div>
-            <Switch
-              id="stock-investment-override"
-              checked={form.investmentAmount !== null}
-              onCheckedChange={(checked) =>
-                set('investmentAmount', checked ? String(rules?.investmentAmount ?? 500) : null)
-              }
-            />
-          </div>
-          {form.investmentAmount !== null && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="stock-investment">Investment per trade (£)</Label>
-              <Input
-                id="stock-investment"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.investmentAmount}
-                onChange={(e) => set('investmentAmount', e.target.value)}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-3 rounded-lg border border-border px-3 py-2.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="stock-investment-override">Override investment per trade for {stock.tvTicker}</Label>
+                <p className="text-xs text-text-tertiary">
+                  {form.investmentAmount === null
+                    ? `Off — using the global default (${rules ? formatMoney(rules.investmentAmount) : '…'}).`
+                    : 'On — this stock ignores the global default.'}
+                </p>
+              </div>
+              <Switch
+                id="stock-investment-override"
+                checked={form.investmentAmount !== null}
+                onCheckedChange={(checked) =>
+                  set('investmentAmount', checked ? String(rules?.investmentAmount ?? 500) : null)
+                }
               />
             </div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="stock-max-daily">Max daily spend (£)</Label>
-          <Input
-            id="stock-max-daily"
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.maxDailySpend}
-            onChange={(e) => set('maxDailySpend', e.target.value)}
-            placeholder="No limit"
-          />
-          <p className="text-xs text-text-tertiary">Must be higher than the investment per trade.</p>
-        </div>
-
-        <div className="flex flex-col gap-3 rounded-lg border border-border px-3 py-2.5">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="stock-execution-override">Override fill price for {stock.tvTicker}</Label>
-              <p className="text-xs text-text-tertiary">
-                {form.executionMode === null
-                  ? `Off — using the global default (${rules ? EXECUTION_MODE_LABELS[rules.executionMode] : '…'}).`
-                  : 'On — this stock ignores the global default below.'}
-              </p>
-            </div>
-            <Switch
-              id="stock-execution-override"
-              checked={form.executionMode !== null}
-              onCheckedChange={(checked) => set('executionMode', checked ? (rules?.executionMode ?? 'MARKET') : null)}
-            />
+            {form.investmentAmount !== null && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="stock-investment">Investment per trade (£)</Label>
+                <Input
+                  id="stock-investment"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.investmentAmount}
+                  onChange={(e) => set('investmentAmount', e.target.value)}
+                />
+              </div>
+            )}
           </div>
-          {form.executionMode !== null && (
-            <ExecutionModeToggle value={form.executionMode} onChange={(mode) => set('executionMode', mode)} />
-          )}
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="stock-max-daily">Max daily spend (£)</Label>
+            <Input
+              id="stock-max-daily"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.maxDailySpend}
+              onChange={(e) => set('maxDailySpend', e.target.value)}
+              placeholder="No limit"
+            />
+            <p className="text-xs text-text-tertiary">Must be higher than the investment per trade.</p>
+          </div>
         </div>
 
-        <div className="flex flex-col gap-3 rounded-lg border border-border px-3 py-2.5">
-          <div className="flex items-center justify-between">
-            <div>
-              <Label htmlFor="stock-slippage-override">Override max slippage for {stock.tvTicker}</Label>
-              <p className="text-xs text-text-tertiary">
-                {form.maxSlippagePercent === null
-                  ? `Off — using the global default (${rules ? rules.maxSlippagePercent : '…'}%). Only applies in Signal price mode.`
-                  : 'On — this stock ignores the global default below.'}
-              </p>
-            </div>
-            <Switch
-              id="stock-slippage-override"
-              checked={form.maxSlippagePercent !== null}
-              onCheckedChange={(checked) =>
-                set('maxSlippagePercent', checked ? String(rules?.maxSlippagePercent ?? 0) : null)
-              }
-            />
-          </div>
-          {form.maxSlippagePercent !== null && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="stock-max-slippage">Max slippage (%)</Label>
-              <Input
-                id="stock-max-slippage"
-                type="number"
-                min="0"
-                max="100"
-                step="0.01"
-                value={form.maxSlippagePercent}
-                onChange={(e) => set('maxSlippagePercent', e.target.value)}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-3 rounded-lg border border-border px-3 py-2.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="stock-execution-override">Override fill price for {stock.tvTicker}</Label>
+                <p className="text-xs text-text-tertiary">
+                  {form.executionMode === null
+                    ? `Off — using the global default (${rules ? EXECUTION_MODE_LABELS[rules.executionMode] : '…'}).`
+                    : 'On — this stock ignores the global default below.'}
+                </p>
+              </div>
+              <Switch
+                id="stock-execution-override"
+                checked={form.executionMode !== null}
+                onCheckedChange={(checked) => set('executionMode', checked ? (rules?.executionMode ?? 'MARKET') : null)}
               />
             </div>
-          )}
+            {form.executionMode !== null && (
+              <ExecutionModeToggle value={form.executionMode} onChange={(mode) => set('executionMode', mode)} />
+            )}
+          </div>
+
+          <div className="flex flex-col gap-3 rounded-lg border border-border px-3 py-2.5">
+            <div className="flex items-center justify-between">
+              <div>
+                <Label htmlFor="stock-slippage-override">Override max slippage for {stock.tvTicker}</Label>
+                <p className="text-xs text-text-tertiary">
+                  {form.maxSlippagePercent === null
+                    ? `Off — using the global default (${rules ? rules.maxSlippagePercent : '…'}%). Only applies in Signal price mode.`
+                    : 'On — this stock ignores the global default below.'}
+                </p>
+              </div>
+              <Switch
+                id="stock-slippage-override"
+                checked={form.maxSlippagePercent !== null}
+                onCheckedChange={(checked) =>
+                  set('maxSlippagePercent', checked ? String(rules?.maxSlippagePercent ?? 0) : null)
+                }
+              />
+            </div>
+            {form.maxSlippagePercent !== null && (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="stock-max-slippage">Max slippage (%)</Label>
+                <Input
+                  id="stock-max-slippage"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={form.maxSlippagePercent}
+                  onChange={(e) => set('maxSlippagePercent', e.target.value)}
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         {error && <p className="text-sm text-danger">{error}</p>}
@@ -284,7 +288,7 @@ export function EditStock() {
       </div>
 
       {stock.isLoading ? (
-        <Skeleton className="h-96 max-w-2xl w-full" />
+        <Skeleton className="h-96 max-w-3xl w-full" />
       ) : stock.data ? (
         <EditStockForm stock={stock.data} />
       ) : (

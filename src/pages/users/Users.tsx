@@ -24,7 +24,7 @@ import { useDeactivateUser, useResetUserPassword, useUpdateUser, useUsers } from
 import { useAuth } from '@/context/AuthContext'
 import { formatDateTime } from '@/lib/format'
 
-type SortKey = 'name' | 'email' | 'active' | 'lastLoginAt'
+type SortKey = 'name' | 'email' | 'active' | 'lastLoginAt' | 'createdAt'
 
 export function Users() {
   const { user: currentUser } = useAuth()
@@ -37,7 +37,8 @@ export function Users() {
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL')
-  const [sort, setSort] = useState<SortConfig<SortKey>>({ by: 'name', order: 'asc' })
+  // Newest-added first by default so a user you just created is easy to find.
+  const [sort, setSort] = useState<SortConfig<SortKey>>({ by: 'createdAt', order: 'desc' })
 
   const hasFilters = !!search || statusFilter !== 'ALL'
 
@@ -68,6 +69,8 @@ export function Users() {
           return (Number(a.active) - Number(b.active)) * dir
         case 'lastLoginAt':
           return ((a.lastLoginAt ? Date.parse(a.lastLoginAt) : 0) - (b.lastLoginAt ? Date.parse(b.lastLoginAt) : 0)) * dir
+        case 'createdAt':
+          return (Date.parse(a.createdAt) - Date.parse(b.createdAt)) * dir
         default:
           return 0
       }

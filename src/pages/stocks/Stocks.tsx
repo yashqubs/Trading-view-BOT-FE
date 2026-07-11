@@ -18,7 +18,7 @@ import { useDeleteStock, useStocks, useUpdateStock } from '@/hooks/useStocks'
 import { useTradingRules } from '@/hooks/useRules'
 import { formatMoney } from '@/lib/format'
 
-type SortKey = 'tvTicker' | 'investmentAmount' | 'maxDailySpend'
+type SortKey = 'tvTicker' | 'investmentAmount' | 'maxDailySpend' | 'createdAt'
 
 export function Stocks() {
   const navigate = useNavigate()
@@ -42,7 +42,8 @@ export function Stocks() {
 
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ENABLED' | 'DISABLED'>('ALL')
-  const [sort, setSort] = useState<SortConfig<SortKey>>({ by: 'tvTicker', order: 'asc' })
+  // Newest-added first by default so a stock you just added is easy to find.
+  const [sort, setSort] = useState<SortConfig<SortKey>>({ by: 'createdAt', order: 'desc' })
 
   const hasFilters = !!search || statusFilter !== 'ALL'
 
@@ -73,6 +74,8 @@ export function Stocks() {
           return ((resolvedInvestment(a.investmentAmount) ?? 0) - (resolvedInvestment(b.investmentAmount) ?? 0)) * dir
         case 'maxDailySpend':
           return ((a.maxDailySpend ?? -1) - (b.maxDailySpend ?? -1)) * dir
+        case 'createdAt':
+          return (Date.parse(a.createdAt) - Date.parse(b.createdAt)) * dir
         default:
           return 0
       }

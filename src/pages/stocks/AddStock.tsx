@@ -114,7 +114,7 @@ export function AddStock() {
         </p>
       </div>
 
-      <Card className="max-w-xl animate-fade-slide-in">
+      <Card className="max-w-3xl animate-fade-slide-in">
         {!selected ? (
           <div className="flex flex-col gap-3">
             <div className="relative">
@@ -192,45 +192,47 @@ export function AddStock() {
                 onChange={(e) => setTvTicker(e.target.value.toUpperCase())}
                 maxLength={20}
                 autoFocus
+                className="max-w-sm"
               />
               <p className="text-xs text-text-tertiary">
                 Must exactly match the ticker your TradingView alert sends — not the search term above.
               </p>
             </div>
 
-            <div className="flex flex-col gap-2 rounded-lg border border-border px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="add-investment-override">Override investment per trade</Label>
-                  <p className="text-xs text-text-tertiary">
-                    {investmentAmount === null
-                      ? `Off — will use the global default (${rules ? formatMoney(rules.investmentAmount) : '…'}).`
-                      : 'On — this stock will ignore the global default.'}
-                  </p>
-                </div>
-                <Switch
-                  id="add-investment-override"
-                  checked={investmentAmount !== null}
-                  onCheckedChange={(checked) =>
-                    setInvestmentAmount(checked ? String(rules?.investmentAmount ?? 500) : null)
-                  }
-                />
-              </div>
-              {investmentAmount !== null && (
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="investment-amount">Investment per trade (£)</Label>
-                  <Input
-                    id="investment-amount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={investmentAmount}
-                    onChange={(e) => setInvestmentAmount(e.target.value)}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2 rounded-lg border border-border px-3 py-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="add-investment-override">Override investment per trade</Label>
+                    <p className="text-xs text-text-tertiary">
+                      {investmentAmount === null
+                        ? `Off — will use the global default (${rules ? formatMoney(rules.investmentAmount) : '…'}).`
+                        : 'On — this stock will ignore the global default.'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="add-investment-override"
+                    checked={investmentAmount !== null}
+                    onCheckedChange={(checked) =>
+                      setInvestmentAmount(checked ? String(rules?.investmentAmount ?? 500) : null)
+                    }
                   />
                 </div>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
+                {investmentAmount !== null && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="investment-amount">Investment per trade (£)</Label>
+                    <Input
+                      id="investment-amount"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={investmentAmount}
+                      onChange={(e) => setInvestmentAmount(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="max-daily-spend">Max daily spend (£)</Label>
                 <Input
@@ -246,59 +248,61 @@ export function AddStock() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 rounded-lg border border-border px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="add-execution-override">Override fill price</Label>
-                  <p className="text-xs text-text-tertiary">
-                    {executionMode === null
-                      ? `Off — will use the global default (${rules ? EXECUTION_MODE_LABELS[rules.executionMode] : '…'}).`
-                      : 'On — this stock will ignore the global default.'}
-                  </p>
-                </div>
-                <Switch
-                  id="add-execution-override"
-                  checked={executionMode !== null}
-                  onCheckedChange={(checked) => setExecutionMode(checked ? (rules?.executionMode ?? 'MARKET') : null)}
-                />
-              </div>
-              {executionMode !== null && (
-                <ExecutionModeToggle value={executionMode} onChange={setExecutionMode} stacked />
-              )}
-            </div>
-
-            <div className="flex flex-col gap-2 rounded-lg border border-border px-3 py-2.5">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label htmlFor="add-slippage-override">Override max slippage</Label>
-                  <p className="text-xs text-text-tertiary">
-                    {maxSlippagePercent === null
-                      ? `Off — will use the global default (${rules ? rules.maxSlippagePercent : '…'}%). Only applies in Signal price mode.`
-                      : 'On — this stock will ignore the global default.'}
-                  </p>
-                </div>
-                <Switch
-                  id="add-slippage-override"
-                  checked={maxSlippagePercent !== null}
-                  onCheckedChange={(checked) =>
-                    setMaxSlippagePercent(checked ? String(rules?.maxSlippagePercent ?? 0) : null)
-                  }
-                />
-              </div>
-              {maxSlippagePercent !== null && (
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="add-max-slippage">Max slippage (%)</Label>
-                  <Input
-                    id="add-max-slippage"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={maxSlippagePercent}
-                    onChange={(e) => setMaxSlippagePercent(e.target.value)}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2 rounded-lg border border-border px-3 py-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="add-execution-override">Override fill price</Label>
+                    <p className="text-xs text-text-tertiary">
+                      {executionMode === null
+                        ? `Off — will use the global default (${rules ? EXECUTION_MODE_LABELS[rules.executionMode] : '…'}).`
+                        : 'On — this stock will ignore the global default.'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="add-execution-override"
+                    checked={executionMode !== null}
+                    onCheckedChange={(checked) => setExecutionMode(checked ? (rules?.executionMode ?? 'MARKET') : null)}
                   />
                 </div>
-              )}
+                {executionMode !== null && (
+                  <ExecutionModeToggle value={executionMode} onChange={setExecutionMode} stacked />
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2 rounded-lg border border-border px-3 py-2.5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="add-slippage-override">Override max slippage</Label>
+                    <p className="text-xs text-text-tertiary">
+                      {maxSlippagePercent === null
+                        ? `Off — will use the global default (${rules ? rules.maxSlippagePercent : '…'}%). Only applies in Signal price mode.`
+                        : 'On — this stock will ignore the global default.'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="add-slippage-override"
+                    checked={maxSlippagePercent !== null}
+                    onCheckedChange={(checked) =>
+                      setMaxSlippagePercent(checked ? String(rules?.maxSlippagePercent ?? 0) : null)
+                    }
+                  />
+                </div>
+                {maxSlippagePercent !== null && (
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="add-max-slippage">Max slippage (%)</Label>
+                    <Input
+                      id="add-max-slippage"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={maxSlippagePercent}
+                      onChange={(e) => setMaxSlippagePercent(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
 
             {error && <p className="text-sm text-danger">{error}</p>}
