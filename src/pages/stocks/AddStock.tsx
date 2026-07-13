@@ -114,7 +114,7 @@ export function AddStock() {
         </p>
       </div>
 
-      <Card className="max-w-3xl animate-fade-slide-in">
+      <Card className="animate-fade-slide-in">
         {!selected ? (
           <div className="flex flex-col gap-3">
             <div className="relative">
@@ -184,19 +184,20 @@ export function AddStock() {
               </button>
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="tv-ticker">TradingView ticker</Label>
-              <Input
-                id="tv-ticker"
-                value={tvTicker}
-                onChange={(e) => setTvTicker(e.target.value.toUpperCase())}
-                maxLength={20}
-                autoFocus
-                className="max-w-sm"
-              />
-              <p className="text-xs text-text-tertiary">
-                Must exactly match the ticker your TradingView alert sends — not the search term above.
-              </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="tv-ticker">TradingView ticker</Label>
+                <Input
+                  id="tv-ticker"
+                  value={tvTicker}
+                  onChange={(e) => setTvTicker(e.target.value.toUpperCase())}
+                  maxLength={20}
+                  autoFocus
+                />
+                <p className="text-xs text-text-tertiary">
+                  Must exactly match the ticker your TradingView alert sends — not the search term above.
+                </p>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -176,8 +176,8 @@ function StockConditionsSummary({ stock }: { stock: StockMapping }) {
           </span>
         </div>
         <div className="flex flex-col gap-1">
-          <span className="text-xs text-text-tertiary">IG instrument</span>
-          <span className="text-sm text-text-primary">{stock.igEpic}</span>
+          <span className="text-xs text-text-tertiary">IG epic</span>
+          <span className="font-mono text-sm text-text-primary">{stock.igEpic}</span>
         </div>
       </div>
     </Card>

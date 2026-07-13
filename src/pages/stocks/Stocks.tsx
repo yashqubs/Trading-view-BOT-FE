@@ -168,6 +168,7 @@ export function Stocks() {
               <TableRow>
                 <SortableHeader sortKey="tvTicker" current={sort} onSort={handleSort}>Ticker</SortableHeader>
                 <TableHead>Instrument</TableHead>
+                <TableHead>IG epic</TableHead>
                 <TableHead>Trading</TableHead>
                 <SortableHeader sortKey="investmentAmount" current={sort} onSort={handleSort}>Investment</SortableHeader>
                 <SortableHeader sortKey="maxDailySpend" current={sort} onSort={handleSort}>Daily cap</SortableHeader>
@@ -193,6 +194,7 @@ export function Stocks() {
                 >
                   <TableCell className="font-medium">{stock.tvTicker}</TableCell>
                   <TableCell className="text-text-secondary">{stock.instrumentName}</TableCell>
+                  <TableCell className="font-mono text-xs text-text-tertiary">{stock.igEpic}</TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">
                       <Switch

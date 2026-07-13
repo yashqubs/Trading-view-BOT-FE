@@ -109,7 +109,7 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
   }
 
   return (
-    <Card className="max-w-3xl animate-fade-slide-in">
+    <Card className="animate-fade-slide-in">
       <CardHeader>
         <CardTitle>Trading conditions</CardTitle>
       </CardHeader>
@@ -288,7 +288,7 @@ export function EditStock() {
       </div>
 
       {stock.isLoading ? (
-        <Skeleton className="h-96 max-w-3xl w-full" />
+        <Skeleton className="h-96 w-full" />
       ) : stock.data ? (
         <EditStockForm stock={stock.data} />
       ) : (
