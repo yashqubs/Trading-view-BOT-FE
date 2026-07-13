@@ -34,6 +34,7 @@ import {
   type TradeSummary,
 } from '@/types'
 import { formatDateTime, formatMoney, formatPrice, formatQuantity } from '@/lib/format'
+import { explainTradeError } from '@/lib/tradeError'
 import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 25
@@ -468,7 +469,18 @@ export function Trades() {
                       {formatMoney(trade.investmentAmount)}
                     </TableCell>
                     <TableCell>
-                      <StatusPill status={trade.status} />
+                      {trade.errorMessage ? (
+                        <span
+                          title={
+                            explainTradeError(trade.errorMessage, trade.direction) ??
+                            trade.errorMessage
+                          }
+                        >
+                          <StatusPill status={trade.status} />
+                        </span>
+                      ) : (
+                        <StatusPill status={trade.status} />
+                      )}
                     </TableCell>
                     <TableCell className="font-mono text-xs text-text-tertiary">
                       {trade.dealId ?? '—'}

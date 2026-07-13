@@ -116,7 +116,14 @@ export const handlers = [
 
   http.post(url('/signal/test'), async ({ request }) => {
     await delay(LATENCY)
-    const body = await request.json() as { tvTicker: string; direction: 'BUY' | 'SELL'; price: number }
+    const body = await request.json() as {
+      tvTicker: string
+      direction: 'BUY' | 'SELL'
+      price: number
+      investmentAmount?: number
+      executionMode?: 'MARKET' | 'SIGNAL_PRICE'
+      maxSlippagePercent?: number
+    }
     const stock = MOCK_STOCKS.find((s) => s.tvTicker === body.tvTicker)
 
     const base = {
@@ -172,13 +179,29 @@ export const handlers = [
       } satisfies TradeLog)
     }
 
-    const investmentAmount = stock.investmentAmount ?? mockRules.investmentAmount
+    const investmentAmount = body.investmentAmount ?? stock.investmentAmount ?? mockRules.investmentAmount
+    const quantity = Math.floor(investmentAmount / body.price)
+    if (quantity <= 0) {
+      return HttpResponse.json({
+        ...base,
+        status: 'FAILED',
+        skipReason: null,
+        investmentAmount,
+        quantity: null,
+        executedPrice: null,
+        dealReference: null,
+        dealId: null,
+        errorMessage: 'Investment amount is too small to buy a whole share at this price',
+        executedAt: null,
+      } satisfies TradeLog)
+    }
+
     return HttpResponse.json({
       ...base,
       status: 'SUCCESS',
       skipReason: null,
       investmentAmount,
-      quantity: Number((investmentAmount / body.price).toFixed(4)),
+      quantity,
       executedPrice: body.price,
       dealReference: `MOCK-${base.id}`,
       dealId: `MOCK-DEAL-${base.id}`,
