@@ -36,6 +36,7 @@ The full project documentation lives at `.claude/PROJECT_DOCUMENTATION.md`. Read
 - The per-stock detail page `/stocks/:ticker` is a mandatory, fully featured mini-dashboard with five chart types and a stat row (Section 12) — plus its own "Trading conditions" card so a stock's settings can be managed without leaving the page.
 - Execution mode (Market price vs. Signal price) has a global default on the Conditions page and an optional per-stock override on the stock detail page — both use the shared `ExecutionModeToggle` component (Section 9 "Execution Mode"), not a plain Switch, since it's a named-mode choice.
 - Realtime updates come over a Socket.IO connection (`src/lib/socket.ts`, `useSocketEvent`), not polling — see Section 10 RealtimeModule for the event list.
+- The "Send test signal" flask icon (Stocks list + stock detail page) only renders when `systemStatus.testSignalsEnabled` is true — it calls `POST /signal/test`, which runs the real pipeline and can place a real IG order. Never remove that gate or show it unconditionally.
 
 ---
 

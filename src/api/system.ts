@@ -5,6 +5,8 @@ export interface SystemStatus {
   igConnected: boolean
   igSessionExpiresAt: string | null
   lastSignalReceivedAt: string | null
+  /** Whether POST /signal/test is usable — dev-only manual signal tool. */
+  testSignalsEnabled: boolean
 }
 
 export function getSystemStatus() {

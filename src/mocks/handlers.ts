@@ -20,7 +20,7 @@ import {
   getMockTradesPage,
 } from './data'
 import type { TradeFilters } from '@/api/trades'
-import type { TradingRules } from '@/types'
+import type { TradeLog, TradingRules } from '@/types'
 
 // Shared latency to make loading states visible
 const LATENCY = 400
@@ -110,6 +110,81 @@ export const handlers = [
   http.get(url('/system/status'), async () => {
     await delay(LATENCY)
     return HttpResponse.json(MOCK_SYSTEM_STATUS)
+  }),
+
+  // ─── Dev test signal ──────────────────────────────────────────────────────────
+
+  http.post(url('/signal/test'), async ({ request }) => {
+    await delay(LATENCY)
+    const body = await request.json() as { tvTicker: string; direction: 'BUY' | 'SELL'; price: number }
+    const stock = MOCK_STOCKS.find((s) => s.tvTicker === body.tvTicker)
+
+    const base = {
+      id: Date.now(),
+      tvTicker: body.tvTicker,
+      igEpic: stock?.igEpic ?? null,
+      direction: body.direction,
+      signalPrice: body.price,
+      signalReceivedAt: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
+    }
+
+    if (!stock) {
+      return HttpResponse.json({
+        ...base,
+        status: 'NOT_MAPPED',
+        skipReason: 'NOT_MAPPED',
+        investmentAmount: null,
+        quantity: null,
+        executedPrice: null,
+        dealReference: null,
+        dealId: null,
+        errorMessage: null,
+        executedAt: null,
+      } satisfies TradeLog)
+    }
+    if (!stock.enabled) {
+      return HttpResponse.json({
+        ...base,
+        status: 'DISABLED',
+        skipReason: 'DISABLED',
+        investmentAmount: null,
+        quantity: null,
+        executedPrice: null,
+        dealReference: null,
+        dealId: null,
+        errorMessage: null,
+        executedAt: null,
+      } satisfies TradeLog)
+    }
+    if (body.direction === 'SELL' && !MOCK_OPEN_POSITIONS.some((p) => p.tvTicker === body.tvTicker)) {
+      return HttpResponse.json({
+        ...base,
+        status: 'NO_POSITION',
+        skipReason: 'NO_POSITION',
+        investmentAmount: null,
+        quantity: null,
+        executedPrice: null,
+        dealReference: null,
+        dealId: null,
+        errorMessage: null,
+        executedAt: null,
+      } satisfies TradeLog)
+    }
+
+    const investmentAmount = stock.investmentAmount ?? mockRules.investmentAmount
+    return HttpResponse.json({
+      ...base,
+      status: 'SUCCESS',
+      skipReason: null,
+      investmentAmount,
+      quantity: Number((investmentAmount / body.price).toFixed(4)),
+      executedPrice: body.price,
+      dealReference: `MOCK-${base.id}`,
+      dealId: `MOCK-DEAL-${base.id}`,
+      errorMessage: null,
+      executedAt: new Date().toISOString(),
+    } satisfies TradeLog)
   }),
 
   // ─── Rules ───────────────────────────────────────────────────────────────────

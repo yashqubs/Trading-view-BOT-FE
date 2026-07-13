@@ -34,7 +34,9 @@ import { useStockStats } from '@/hooks/useStats'
 import { useTrades } from '@/hooks/useTrades'
 import { useStock, useUpdateStock } from '@/hooks/useStocks'
 import { useTradingRules } from '@/hooks/useRules'
+import { useSystemStatus } from '@/hooks/useSystem'
 import { exportTradesCsv, type TradeFilters, type TradeSortBy } from '@/api/trades'
+import { SendTestSignalModal } from './components/SendTestSignalModal'
 import {
   TRADE_STATUSES,
   type ExecutionMode,
@@ -109,6 +111,7 @@ const EXECUTION_MODE_LABELS: Record<ExecutionMode, string> = {
 
 function StockConditionsSummary({ stock }: { stock: StockMapping }) {
   const { data: rules } = useTradingRules()
+  const { data: systemStatus } = useSystemStatus()
   const updateStock = useUpdateStock()
 
   async function handleTradingToggle(enabled: boolean) {
@@ -126,9 +129,12 @@ function StockConditionsSummary({ stock }: { stock: StockMapping }) {
         <CardHeader className="p-0">
           <CardTitle>Trading conditions</CardTitle>
         </CardHeader>
-        <Button variant="secondary" size="sm" asChild>
-          <Link to={`/stocks/${stock.tvTicker}/edit`}>Edit</Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {systemStatus?.testSignalsEnabled && <SendTestSignalModal stock={stock} />}
+          <Button variant="secondary" size="sm" asChild>
+            <Link to={`/stocks/${stock.tvTicker}/edit`}>Edit</Link>
+          </Button>
+        </div>
       </div>
       <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="flex flex-col gap-1">

@@ -16,7 +16,9 @@ import { TableSkeleton } from '@/components/common/PageSkeleton'
 import { SortableHeader, toggleSort, type SortConfig } from '@/components/common/SortableHeader'
 import { useDeleteStock, useStocks, useUpdateStock } from '@/hooks/useStocks'
 import { useTradingRules } from '@/hooks/useRules'
+import { useSystemStatus } from '@/hooks/useSystem'
 import { formatMoney } from '@/lib/format'
+import { SendTestSignalModal } from './components/SendTestSignalModal'
 
 type SortKey = 'tvTicker' | 'investmentAmount' | 'maxDailySpend' | 'createdAt'
 
@@ -24,6 +26,7 @@ export function Stocks() {
   const navigate = useNavigate()
   const { data: stocks, isLoading } = useStocks()
   const { data: rules } = useTradingRules()
+  const { data: systemStatus } = useSystemStatus()
   const deleteStock = useDeleteStock()
   const updateStock = useUpdateStock()
 
@@ -226,6 +229,7 @@ export function Stocks() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                      {systemStatus?.testSignalsEnabled && <SendTestSignalModal stock={stock} />}
                       <ConfirmDialog
                         trigger={
                           <Button variant="ghost" size="icon" aria-label={`Delete ${stock.tvTicker}`}>

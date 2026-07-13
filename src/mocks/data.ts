@@ -66,6 +66,7 @@ export const MOCK_SYSTEM_STATUS: SystemStatus = {
   igConnected: true,
   igSessionExpiresAt: new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString(),
   lastSignalReceivedAt: new Date(Date.now() - 4 * 60 * 1000).toISOString(),
+  testSignalsEnabled: true,
 }
 
 // ─── Trading Rules ────────────────────────────────────────────────────────────
