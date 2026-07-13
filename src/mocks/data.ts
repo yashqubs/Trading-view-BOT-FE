@@ -354,6 +354,8 @@ const ALL_STATUS_TRADES: TradeLog[] = TRADE_STATUSES.map((status, i) => {
     executedPrice,
     investmentAmount,
     quantity,
+    // Some trades ran in SIGNAL_PRICE mode with a tolerance; MARKET rows are null.
+    maxSlippagePercent: isSuccess && i % 3 === 0 ? 1 : null,
     dealReference: isSuccess ? randomId(i * 11, 'DRF') : null,
     dealId: isSuccess ? randomId(i * 13, 'DID') : null,
     status,
@@ -390,6 +392,7 @@ const BULK_TRADES: TradeLog[] = Array.from({ length: 100 }, (_, i) => {
     executedPrice,
     investmentAmount,
     quantity,
+    maxSlippagePercent: isSuccess && i % 4 === 0 ? 0.5 : null,
     dealReference: isSuccess ? randomId((i + 100) * 11, 'DRF') : null,
     dealId: isSuccess ? randomId((i + 100) * 13, 'DID') : null,
     status,

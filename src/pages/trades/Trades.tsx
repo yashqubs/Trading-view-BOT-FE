@@ -33,7 +33,7 @@ import {
   type TradeStatus,
   type TradeSummary,
 } from '@/types'
-import { formatDateTime, formatMoney, formatPrice, formatQuantity } from '@/lib/format'
+import { formatDateTime, formatMoney, formatPercent, formatPrice, formatQuantity } from '@/lib/format'
 import { explainTradeError } from '@/lib/tradeError'
 import { cn } from '@/lib/utils'
 
@@ -437,6 +437,7 @@ export function Trades() {
                   <TableHead className="text-right">Executed price</TableHead>
                   <TableHead className="text-right">Qty</TableHead>
                   <SortHead col="investmentAmount" className="text-right">Invested</SortHead>
+                  <TableHead className="text-right">Max slippage</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Deal ID</TableHead>
                 </TableRow>
@@ -467,6 +468,16 @@ export function Trades() {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatMoney(trade.investmentAmount)}
+                    </TableCell>
+                    <TableCell
+                      className="text-right tabular-nums text-text-secondary"
+                      title={
+                        trade.maxSlippagePercent == null
+                          ? 'No price tolerance — market-price execution'
+                          : undefined
+                      }
+                    >
+                      {formatPercent(trade.maxSlippagePercent)}
                     </TableCell>
                     <TableCell>
                       {trade.errorMessage ? (

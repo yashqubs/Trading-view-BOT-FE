@@ -126,12 +126,18 @@ export const handlers = [
     }
     const stock = MOCK_STOCKS.find((s) => s.tvTicker === body.tvTicker)
 
+    const resolvedMode = body.executionMode ?? stock?.executionMode ?? mockRules.executionMode
     const base = {
       id: Date.now(),
       tvTicker: body.tvTicker,
       igEpic: stock?.igEpic ?? null,
       direction: body.direction,
       signalPrice: body.price,
+      // Recorded only when a LIMIT level enforces it, mirroring the backend.
+      maxSlippagePercent:
+        resolvedMode === 'SIGNAL_PRICE'
+          ? (body.maxSlippagePercent ?? stock?.maxSlippagePercent ?? mockRules.maxSlippagePercent)
+          : null,
       signalReceivedAt: new Date().toISOString(),
       createdAt: new Date().toISOString(),
     }

@@ -52,6 +52,10 @@ export interface TradeLog {
   executedPrice: number | null
   investmentAmount: number | null
   quantity: number | null
+  /** Slippage tolerance applied to this trade's LIMIT level, recorded at
+   * execution time. Null for MARKET-mode trades (no tolerance applies) and
+   * rows that never reached execution. */
+  maxSlippagePercent: number | null
   dealReference: string | null
   dealId: string | null
   status: TradeStatus
