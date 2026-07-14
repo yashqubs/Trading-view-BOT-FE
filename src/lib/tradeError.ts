@@ -19,8 +19,8 @@ export function explainTradeError(error: string, direction?: TradeDirection): st
     case 'MARKET_OFFLINE':
     case 'MARKET_CLOSED_WITH_EDITS':
       return 'This market is currently closed on IG.'
-    case 'NO_LIVE_QUOTE_FOR_LIMIT_LEVEL':
-      return 'IG has no live price for this market right now, so a signal-price order could not be placed safely.'
+    case 'NO_LIVE_QUOTE':
+      return 'IG has no live price for this market right now, so the order could not be placed safely.'
     case 'NO_POSITION_AT_EXECUTION':
       return 'There was no open position left to close by the time the order was placed.'
     case 'ATTACHED_ORDER_LEVEL_ERROR':

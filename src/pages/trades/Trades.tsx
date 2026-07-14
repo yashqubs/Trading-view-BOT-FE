@@ -88,6 +88,33 @@ function SortIcon({ sortKey, current }: { sortKey: TradeSortBy; current: SortCon
     : <ArrowDown className="ml-1 h-3 w-3 text-accent" />
 }
 
+// ─── Failure / skip reason cell ───────────────────────────────────────────────
+
+// Failed trades must show WHY directly in the table, not just on hover.
+// Prefers the plain-English explanation; the raw IG/backend code stays
+// visible via tooltip so nothing is hidden for debugging.
+function TradeReason({ trade }: { trade: TradeLog }) {
+  if (trade.errorMessage) {
+    const explanation = explainTradeError(trade.errorMessage, trade.direction)
+    return (
+      <span
+        className="block truncate text-xs text-danger"
+        title={explanation ? `${explanation} (${trade.errorMessage})` : trade.errorMessage}
+      >
+        {explanation ?? trade.errorMessage}
+      </span>
+    )
+  }
+  if (trade.skipReason) {
+    return (
+      <span className="block truncate text-xs text-text-tertiary" title={trade.skipReason}>
+        {trade.skipReason}
+      </span>
+    )
+  }
+  return <span className="text-text-tertiary">—</span>
+}
+
 // ─── Summary stat cards ───────────────────────────────────────────────────────
 
 function SummaryCard({
@@ -439,6 +466,7 @@ export function Trades() {
                   <SortHead col="investmentAmount" className="text-right">Invested</SortHead>
                   <TableHead className="text-right">Max slippage</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Reason</TableHead>
                   <TableHead>Deal ID</TableHead>
                 </TableRow>
               </TableHeader>
@@ -480,18 +508,10 @@ export function Trades() {
                       {formatPercent(trade.maxSlippagePercent)}
                     </TableCell>
                     <TableCell>
-                      {trade.errorMessage ? (
-                        <span
-                          title={
-                            explainTradeError(trade.errorMessage, trade.direction) ??
-                            trade.errorMessage
-                          }
-                        >
-                          <StatusPill status={trade.status} />
-                        </span>
-                      ) : (
-                        <StatusPill status={trade.status} />
-                      )}
+                      <StatusPill status={trade.status} />
+                    </TableCell>
+                    <TableCell className="max-w-[260px]">
+                      <TradeReason trade={trade} />
                     </TableCell>
                     <TableCell className="font-mono text-xs text-text-tertiary">
                       {trade.dealId ?? '—'}
