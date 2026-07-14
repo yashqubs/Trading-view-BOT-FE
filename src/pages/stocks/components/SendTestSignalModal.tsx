@@ -135,7 +135,7 @@ export function SendTestSignalModal({ stock }: { stock: StockMapping }) {
                   id="test-signal-price"
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="any"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   autoFocus
@@ -147,7 +147,7 @@ export function SendTestSignalModal({ stock }: { stock: StockMapping }) {
                   id="test-signal-investment"
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="any"
                   value={investmentAmount}
                   onChange={(e) => setInvestmentAmount(e.target.value)}
                   placeholder={resolvedDefault != null ? `Default: ${formatMoney(resolvedDefault)}` : 'Optional'}
@@ -205,7 +205,7 @@ export function SendTestSignalModal({ stock }: { stock: StockMapping }) {
                       type="number"
                       min="0"
                       max="100"
-                      step="0.01"
+                      step="any"
                       value={maxSlippagePercent}
                       onChange={(e) => setMaxSlippagePercent(e.target.value)}
                     />

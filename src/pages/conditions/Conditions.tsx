@@ -192,7 +192,7 @@ export function Conditions() {
             id="investment-amount"
             type="number"
             min="0"
-            step="0.01"
+            step="any"
             value={investmentAmount}
             onChange={(e) => setInvestmentAmount(e.target.value)}
           />
@@ -227,7 +227,7 @@ export function Conditions() {
                   type="number"
                   min="0"
                   max="100"
-                  step="0.01"
+                  step="any"
                   value={maxSlippagePercent}
                   onChange={(e) => setMaxSlippagePercent(e.target.value)}
                 />

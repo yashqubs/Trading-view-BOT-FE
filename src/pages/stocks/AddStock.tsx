@@ -226,7 +226,7 @@ export function AddStock() {
                       id="investment-amount"
                       type="number"
                       min="0"
-                      step="0.01"
+                      step="any"
                       value={investmentAmount}
                       onChange={(e) => setInvestmentAmount(e.target.value)}
                     />
@@ -240,7 +240,7 @@ export function AddStock() {
                   id="max-daily-spend"
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="any"
                   value={maxDailySpend}
                   onChange={(e) => setMaxDailySpend(e.target.value)}
                   placeholder="Optional"
@@ -297,7 +297,7 @@ export function AddStock() {
                       type="number"
                       min="0"
                       max="100"
-                      step="0.01"
+                      step="any"
                       value={maxSlippagePercent}
                       onChange={(e) => setMaxSlippagePercent(e.target.value)}
                     />

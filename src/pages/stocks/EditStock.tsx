@@ -175,7 +175,7 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
                   id="stock-investment"
                   type="number"
                   min="0"
-                  step="0.01"
+                  step="any"
                   value={form.investmentAmount}
                   onChange={(e) => set('investmentAmount', e.target.value)}
                 />
@@ -189,7 +189,7 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
               id="stock-max-daily"
               type="number"
               min="0"
-              step="0.01"
+              step="any"
               value={form.maxDailySpend}
               onChange={(e) => set('maxDailySpend', e.target.value)}
               placeholder="No limit"
@@ -246,7 +246,7 @@ function EditStockForm({ stock }: { stock: StockMapping }) {
                   type="number"
                   min="0"
                   max="100"
-                  step="0.01"
+                  step="any"
                   value={form.maxSlippagePercent}
                   onChange={(e) => set('maxSlippagePercent', e.target.value)}
                 />
