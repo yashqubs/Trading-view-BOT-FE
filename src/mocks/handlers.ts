@@ -20,7 +20,8 @@ import {
   getMockTradesPage,
 } from './data'
 import type { TradeFilters } from '@/api/trades'
-import type { TradeLog, TradingRules } from '@/types'
+import type { TestSignalResult } from '@/api/testSignal'
+import type { TradingRules } from '@/types'
 
 // Shared latency to make loading states visible
 const LATENCY = 400
@@ -147,73 +148,127 @@ export const handlers = [
         ...base,
         status: 'NOT_MAPPED',
         skipReason: 'NOT_MAPPED',
-        investmentAmount: null,
-        quantity: null,
+        tradeValue: null,
+        size: null,
         executedPrice: null,
         dealReference: null,
         dealId: null,
         errorMessage: null,
         executedAt: null,
-      } satisfies TradeLog)
+        igDebug: [],
+      } satisfies TestSignalResult)
     }
     if (!stock.enabled) {
       return HttpResponse.json({
         ...base,
         status: 'DISABLED',
         skipReason: 'DISABLED',
-        investmentAmount: null,
-        quantity: null,
+        tradeValue: null,
+        size: null,
         executedPrice: null,
         dealReference: null,
         dealId: null,
         errorMessage: null,
         executedAt: null,
-      } satisfies TradeLog)
+        igDebug: [],
+      } satisfies TestSignalResult)
     }
-    if (body.direction === 'SELL' && !MOCK_OPEN_POSITIONS.some((p) => p.tvTicker === body.tvTicker)) {
+    const existingPosition = MOCK_OPEN_POSITIONS.find((p) => p.tvTicker === body.tvTicker)
+    if (body.direction === 'SELL' && !existingPosition) {
       return HttpResponse.json({
         ...base,
         status: 'NO_POSITION',
         skipReason: 'NO_POSITION',
-        investmentAmount: null,
-        quantity: null,
+        tradeValue: null,
+        size: null,
         executedPrice: null,
         dealReference: null,
         dealId: null,
         errorMessage: null,
         executedAt: null,
-      } satisfies TradeLog)
+        igDebug: [],
+      } satisfies TestSignalResult)
     }
 
-    const investmentAmount = body.investmentAmount ?? stock.investmentAmount ?? mockRules.investmentAmount
-    const quantity = Math.floor(investmentAmount / body.price)
-    if (quantity <= 0) {
-      return HttpResponse.json({
-        ...base,
-        status: 'FAILED',
-        skipReason: null,
-        investmentAmount,
-        quantity: null,
-        executedPrice: null,
-        dealReference: null,
-        dealId: null,
-        errorMessage: 'Investment amount is too small to buy a whole share at this price',
-        executedAt: null,
-      } satisfies TradeLog)
+    // SELL closes the existing position's own size — never a new investment.
+    // BUY sizes from the resolved investment amount, mirroring the real
+    // backend's calculateSize (£/point stake ÷ price, not a share count).
+    let size: number;
+    let tradeValue: number | null;
+    if (body.direction === 'SELL') {
+      size = existingPosition!.size
+      tradeValue = null
+    } else {
+      const investmentAmount = body.investmentAmount ?? stock.investmentAmount ?? mockRules.investmentAmount
+      size = Math.floor((investmentAmount / body.price / 100) * 100) / 100
+      tradeValue = size > 0 ? Number((size * body.price * 100).toFixed(2)) : null
+      if (size <= 0) {
+        return HttpResponse.json({
+          ...base,
+          status: 'FAILED',
+          skipReason: null,
+          tradeValue: null,
+          size: null,
+          executedPrice: null,
+          dealReference: null,
+          dealId: null,
+          errorMessage: 'Investment amount is too small to open any position at this price',
+          executedAt: null,
+          // Never reached IG — the check fails before any order is built.
+          igDebug: [],
+        } satisfies TestSignalResult)
+      }
     }
 
+    const orderType = resolvedMode === 'SIGNAL_PRICE' ? 'LIMIT' : 'MARKET'
     return HttpResponse.json({
       ...base,
       status: 'SUCCESS',
       skipReason: null,
-      investmentAmount,
-      quantity,
+      tradeValue,
+      size,
       executedPrice: body.price,
       dealReference: `MOCK-${base.id}`,
       dealId: `MOCK-DEAL-${base.id}`,
       errorMessage: null,
       executedAt: new Date().toISOString(),
-    } satisfies TradeLog)
+      igDebug: [
+        {
+          method: 'POST',
+          url: '/positions/otc',
+          version: 2,
+          requestBody: {
+            epic: stock.igEpic,
+            direction: body.direction,
+            size,
+            orderType,
+            ...(orderType === 'LIMIT' ? { level: body.price } : {}),
+            currencyCode: 'GBP',
+            forceOpen: true,
+            guaranteedStop: false,
+            expiry: 'DFB',
+          },
+          responseBody: { dealReference: `MOCK-${base.id}` },
+          durationMs: 180,
+          timestamp: new Date().toISOString(),
+        },
+        {
+          method: 'GET',
+          url: `/confirms/MOCK-${base.id}`,
+          version: 1,
+          requestBody: null,
+          responseBody: {
+            dealId: `MOCK-DEAL-${base.id}`,
+            dealStatus: 'ACCEPTED',
+            status: 'OPEN',
+            reason: 'SUCCESS',
+            level: body.price,
+          },
+          durationMs: 90,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    } satisfies TestSignalResult)
   }),
 
   // ─── Rules ───────────────────────────────────────────────────────────────────
@@ -449,7 +504,7 @@ export const handlers = [
       sortOrder: (sp.get('sortOrder') as TradeFilters['sortOrder']) ?? undefined,
       pageSize: 10000,
     }
-    const header = 'id,ticker,direction,status,signalPrice,executedPrice,quantity,investmentAmount,dealId,signalReceivedAt,executedAt\n'
+    const header = 'id,ticker,direction,status,signalPrice,executedPrice,size,tradeValue,dealId,signalReceivedAt,executedAt\n'
     const rows = getMockTradesPage(filters)
       .items.map((t) =>
         [
@@ -459,8 +514,8 @@ export const handlers = [
           t.status,
           t.signalPrice.toFixed(2),
           t.executedPrice?.toFixed(2) ?? '',
-          t.quantity ?? '',
-          t.investmentAmount ?? '',
+          t.size ?? '',
+          t.tradeValue ?? '',
           t.dealId ?? '',
           t.signalReceivedAt,
           t.executedAt ?? '',

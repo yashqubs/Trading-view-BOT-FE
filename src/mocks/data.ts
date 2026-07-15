@@ -340,8 +340,11 @@ const ALL_STATUS_TRADES: TradeLog[] = TRADE_STATUSES.map((status, i) => {
   const direction: 'BUY' | 'SELL' = i % 2 === 0 ? 'BUY' : 'SELL'
   const signalPrice = 150 + i * 10
   const signalAt = hoursAgo(i * 2 + 1)
-  const investmentAmount = isSuccess ? 500 + i * 50 : null
-  const quantity = isSuccess && investmentAmount ? Math.floor(investmentAmount / signalPrice) : null
+  // Closing a position (SELL) is never a new investment — tradeValue is only
+  // ever set for a successful BUY, mirroring the real backend. size is set
+  // for any successful trade (the stake, or the size of the closed position).
+  const tradeValue = isSuccess && direction === 'BUY' ? 500 + i * 50 : null
+  const size = isSuccess ? parseFloat(((tradeValue ?? 500 + i * 50) / signalPrice / 100).toFixed(4)) : null
   // Market orders fill at whatever price IG has right now, not the signal
   // price — a small drift here mirrors that instead of implying an exact match.
   const executedPrice = isSuccess ? parseFloat((signalPrice * (1 + (seeded(i * 9) - 0.5) * 0.01)).toFixed(2)) : null
@@ -352,8 +355,8 @@ const ALL_STATUS_TRADES: TradeLog[] = TRADE_STATUSES.map((status, i) => {
     direction,
     signalPrice,
     executedPrice,
-    investmentAmount,
-    quantity,
+    tradeValue,
+    size,
     // Some trades ran in SIGNAL_PRICE mode with a tolerance; MARKET rows are null.
     maxSlippagePercent: isSuccess && i % 3 === 0 ? 1 : null,
     dealReference: isSuccess ? randomId(i * 11, 'DRF') : null,
@@ -376,8 +379,13 @@ const BULK_TRADES: TradeLog[] = Array.from({ length: 100 }, (_, i) => {
   const direction: 'BUY' | 'SELL' = i % 2 === 0 ? 'BUY' : 'SELL'
   const signalPrice = parseFloat((150 + (i % 30) * 5 + seeded(i * 5) * 3).toFixed(2))
   const signalAt = hoursAgo(i * 0.5 + 1)
-  const investmentAmount = isSuccess ? 500 + (i % 5) * 100 : null
-  const quantity = isSuccess && investmentAmount ? parseFloat((investmentAmount / signalPrice).toFixed(4)) : null
+  // Closing a position (SELL) is never a new investment — tradeValue is only
+  // ever set for a successful BUY, mirroring the real backend. size is set
+  // for any successful trade (the stake, or the size of the closed position).
+  const tradeValue = isSuccess && direction === 'BUY' ? 500 + (i % 5) * 100 : null
+  const size = isSuccess
+    ? parseFloat(((tradeValue ?? 500 + (i % 5) * 100) / signalPrice / 100).toFixed(4))
+    : null
   // Market orders fill at whatever price IG has right now, not the signal
   // price — a small drift here mirrors that instead of implying an exact match.
   const executedPrice = isSuccess
@@ -390,8 +398,8 @@ const BULK_TRADES: TradeLog[] = Array.from({ length: 100 }, (_, i) => {
     direction,
     signalPrice,
     executedPrice,
-    investmentAmount,
-    quantity,
+    tradeValue,
+    size,
     maxSlippagePercent: isSuccess && i % 4 === 0 ? 0.5 : null,
     dealReference: isSuccess ? randomId((i + 100) * 11, 'DRF') : null,
     dealId: isSuccess ? randomId((i + 100) * 13, 'DID') : null,
@@ -416,11 +424,11 @@ function computeSummary(trades: TradeLog[]): TradeSummary {
   ).length
   const buyCount = trades.filter((t) => t.direction === 'BUY').length
   const sellCount = trades.filter((t) => t.direction === 'SELL').length
-  const totalInvested = trades.reduce((s, t) => s + (t.investmentAmount ?? 0), 0)
-  const executedTrades = trades.filter((t) => t.investmentAmount !== null)
+  const totalInvested = trades.reduce((s, t) => s + (t.tradeValue ?? 0), 0)
+  const executedTrades = trades.filter((t) => t.tradeValue !== null)
   const avgInvestment =
     executedTrades.length > 0
-      ? executedTrades.reduce((s, t) => s + (t.investmentAmount ?? 0), 0) / executedTrades.length
+      ? executedTrades.reduce((s, t) => s + (t.tradeValue ?? 0), 0) / executedTrades.length
       : null
 
   return {
@@ -471,7 +479,7 @@ export function getMockTradesPage(filters: TradeFilters = {}): TradeListResponse
       case 'signalReceivedAt': av = a.signalReceivedAt; bv = b.signalReceivedAt; break
       case 'executedAt': av = a.executedAt ?? ''; bv = b.executedAt ?? ''; break
       case 'signalPrice': av = a.signalPrice; bv = b.signalPrice; break
-      case 'investmentAmount': av = a.investmentAmount ?? -1; bv = b.investmentAmount ?? -1; break
+      case 'tradeValue': av = a.tradeValue ?? -1; bv = b.tradeValue ?? -1; break
       case 'tvTicker': av = a.tvTicker; bv = b.tvTicker; break
       default: av = a.signalReceivedAt; bv = b.signalReceivedAt
     }

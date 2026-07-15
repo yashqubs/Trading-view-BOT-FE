@@ -13,7 +13,26 @@ export interface SendTestSignalInput {
   maxSlippagePercent?: number
 }
 
-/** Dev-only — runs the real condition pipeline immediately and returns the resulting trade_log row. */
+/** One raw HTTP exchange with IG, captured only for this one test signal.
+ * Never includes headers (no CST/X-SECURITY-TOKEN/API key). */
+export interface IgDebugEntry {
+  method: string
+  url: string
+  version: number
+  requestBody: unknown
+  responseBody?: unknown
+  errorCode?: string
+  durationMs: number
+  timestamp: string
+}
+
+export interface TestSignalResult extends TradeLog {
+  /** Empty if the signal never reached IG (e.g. skipped by an earlier condition). */
+  igDebug: IgDebugEntry[]
+}
+
+/** Dev-only — runs the real condition pipeline immediately and returns the resulting trade_log row,
+ * plus the raw IG request/response for this one signal. */
 export function sendTestSignal(input: SendTestSignalInput) {
-  return api.post<TradeLog>('/signal/test', input).then((r) => r.data)
+  return api.post<TestSignalResult>('/signal/test', input).then((r) => r.data)
 }

@@ -69,7 +69,7 @@ const SORT_COLUMNS: { key: TradeSortBy; label: string }[] = [
   { key: 'signalReceivedAt', label: 'Date' },
   { key: 'tvTicker', label: 'Ticker' },
   { key: 'signalPrice', label: 'Signal price' },
-  { key: 'investmentAmount', label: 'Invested' },
+  { key: 'tradeValue', label: 'Trade value' },
 ]
 
 // "Newest/Oldest" only makes sense for the date column — ticker is
@@ -462,8 +462,8 @@ export function Trades() {
                   <TableHead>Direction</TableHead>
                   <SortHead col="signalPrice" className="text-right">Signal price</SortHead>
                   <TableHead className="text-right">Executed price</TableHead>
-                  <TableHead className="text-right">Qty</TableHead>
-                  <SortHead col="investmentAmount" className="text-right">Invested</SortHead>
+                  <TableHead className="text-right">Size</TableHead>
+                  <SortHead col="tradeValue" className="text-right">Trade value</SortHead>
                   <TableHead className="text-right">Max slippage</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Reason</TableHead>
@@ -492,10 +492,13 @@ export function Trades() {
                       {trade.executedPrice != null ? formatPrice(trade.executedPrice) : '—'}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {formatQuantity(trade.quantity)}
+                      {formatQuantity(trade.size)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatMoney(trade.investmentAmount)}
+                    <TableCell
+                      className="text-right tabular-nums"
+                      title={trade.direction === 'SELL' ? 'Closing a position is not a new investment' : undefined}
+                    >
+                      {formatMoney(trade.tradeValue)}
                     </TableCell>
                     <TableCell
                       className="text-right tabular-nums text-text-secondary"

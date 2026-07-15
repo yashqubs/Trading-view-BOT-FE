@@ -5,7 +5,7 @@ export type TradeSortBy =
   | 'signalReceivedAt'
   | 'executedAt'
   | 'signalPrice'
-  | 'investmentAmount'
+  | 'tradeValue'
   | 'tvTicker'
 
 export interface TradeFilters {

@@ -61,7 +61,7 @@ When a TradingView indicator fires a green (buy) or red (sell) signal, the bot a
 7.  Bot looks up ticker in mapping table → IG Epic code
 8.  Bot checks per-stock conditions (enabled? daily spend cap?)
 9.  Bot checks if US market is open
-10. Bot calculates quantity = floor(investment amount ÷ signal price) — whole shares only
+10. Bot calculates size = floor((investment amount ÷ price-in-points) × 100) / 100 — a £/point stake, not a share count
 11. Bot calls IG REST API to place the trade
 12. IG executes and returns deal reference
 13. Bot confirms deal and logs result to database
@@ -469,8 +469,8 @@ On success, a toast confirms and the user is returned to the credentials step to
 | direction | VARCHAR(4) | BUY or SELL |
 | signal_price | DECIMAL(12,4) | From TradingView — used only to size the trade, not an execution price |
 | executed_price | DECIMAL(12,4), Nullable | Actual IG fill price (`confirmDeal`'s `level`). Orders are MARKET not LIMIT, so this can differ from signal_price. Null unless status = SUCCESS |
-| investment_amount | DECIMAL(12,2), Nullable | |
-| quantity | DECIMAL(12,4), Nullable | floor(amount ÷ price) — whole shares only since 2026-07-13; older rows may still show decimals |
+| trade_value | DECIMAL(12,2), Nullable | Renamed from `investment_amount` 2026-07-15. The REAL £ notional actually committed (size × price-in-points) for a BUY that reached a computed size. Always NULL for SELL and for any BUY that never got that far |
+| size | DECIMAL(12,4), Nullable | Renamed from `quantity` 2026-07-15. IG's `size` — a £-per-point stake for BUY, or the exact size of the position being closed for SELL. NOT a share count |
 | deal_reference | VARCHAR(100), Nullable | IG temp ref |
 | deal_id | VARCHAR(100), Nullable | IG permanent ID |
 | status | VARCHAR(30) | See status list |
@@ -509,7 +509,7 @@ When a signal arrives, conditions are checked in sequence. The first failure sto
 6.  daily total investment OK?     → NO → DAILY_TOTAL_LIMIT
 7.  stock daily spend OK?          → NO → STOCK_DAILY_LIMIT
 8.  SELL has open position?        → NO → NO_POSITION
-9.  calculate quantity, execute
+9.  calculate size, execute
 10. log SUCCESS or FAILED
 11. if FAILED: increment failure counter; auto-pause if threshold hit
 ```
@@ -524,7 +524,9 @@ Investment amount, max daily spend per stock, and a per-stock trading on/off swi
 
 ### Investment Amount — Global Default vs. Per-Stock Override
 
-Quantity is always `Math.floor(investment_amount / signal_price)` — whole shares only, rounded down so spend never exceeds `investment_amount`. If that floors to zero, the trade logs `FAILED` rather than placing a zero-size order. Which amount that is follows the same override pattern as execution mode and slippage below: a stock's own `investmentAmount` (nullable) overrides `TradingRules.investmentAmount` (the global default, never null) when set.
+**Sizing model corrected 2026-07-15 — IG's `size` is a £-per-point stake, NOT a share count** (proven live: a size-1 GOOG position moving 2 points paid exactly £2; a size-0.24 PayPal position moving 12.2 points cost £2.93). The old shares-based formula sent orders ~100x too large at realistic prices. Correct formula: `size = floor((investment_amount / price_in_points) × 100) / 100`, where `price_in_points` is the signal price scaled onto IG's own quote — never the raw signal price. If that floors to zero, or is positive but below IG's live minimum deal size for that instrument, the trade logs `FAILED` rather than placing an invalid or oversized order. Which investment amount is used follows the same override pattern as execution mode and slippage below: a stock's own `investmentAmount` (nullable) overrides `TradingRules.investmentAmount` (the global default, never null) when set.
+
+**`trade_log.tradeValue` is the real computed £ notional (size × price_in_points), not the raw configured input** — it's null until a BUY successfully sizes past the minimum-deal-size check, and always null for SELL (closing a position is never a new investment). Don't confuse it with the "investment amount" config fields above, which only express intent.
 
 **Where to set it:**
 - **Global default** — Conditions page → "Investment" card ("Default investment per trade").
@@ -532,7 +534,7 @@ Quantity is always `Math.floor(investment_amount / signal_price)` — whole shar
 
 ### Execution Mode — Market Price vs. Signal Price
 
-Controls the price a trade actually fills at (separate from quantity sizing, which is always `Math.floor(investment_amount / signal_price)` no matter what this is set to).
+Controls the price a trade actually fills at (separate from sizing, which follows the formula above no matter what this is set to).
 
 - **Market price** (default) — fills immediately at IG's current price. This was the only behaviour before this setting existed.
 - **Signal price** — places a LIMIT order at the exact TradingView signal price. Only fills at that price or better; if the market has already moved past it, the trade doesn't fill.
@@ -547,7 +549,7 @@ Both use the same `ExecutionModeToggle` component (`src/components/common/Execut
 
 ### Dev Test Signal (Manual Bypass)
 
-A flask icon next to each stock (Stocks list row actions, and the stock's own detail page next to "Edit") opens `SendTestSignalModal` (`src/pages/stocks/components/SendTestSignalModal.tsx`): pick Buy/Sell, enter a signal price, optionally enter an investment amount (blank = use the stock's configured amount), submit. It calls `POST /signal/test` and shows the resulting trade status (`StatusPill`), quantity, and fill price right in the dialog — no need to go check the Trades page separately. The investment-amount field only affects that one test call; it never writes to the stock's real config.
+A flask icon next to each stock (Stocks list row actions, and the stock's own detail page next to "Edit") opens `SendTestSignalModal` (`src/pages/stocks/components/SendTestSignalModal.tsx`): pick Buy/Sell, enter a signal price, optionally enter an investment amount (blank = use the stock's configured amount), optionally override execution mode/slippage, submit. It calls `POST /signal/test` and shows the resulting trade status (`StatusPill`), size, trade value, and fill price right in the dialog — no need to go check the Trades page separately. A collapsible "Raw IG API exchange" panel shows the exact request/response bodies exchanged with IG for that signal (`igDebug` in the response — added 2026-07-15 after documentation and even IG's own support chatbot gave confidently wrong answers about size/points semantics; this lets any future question be settled directly rather than via a one-off diagnostic script). The investment-amount field only affects that one test call; it never writes to the stock's real config.
 
 **Only rendered when `GET /system/status` returns `testSignalsEnabled: true`** (mirrors the backend's `ENABLE_TEST_SIGNALS` env var, off by default). This is not a sandbox — it runs the exact same condition pipeline as a real TradingView webhook and can place a real IG order if the conditions pass. Never assume it's safe just because it's hidden from the UI; the backend guard is what actually enforces this, the UI hide is just so nobody clicks it by accident.
 
@@ -838,7 +840,7 @@ Body: identifier (username), password. Returns CST and X-SECURITY-TOKEN in respo
 Returns array of markets, each with: epic, instrumentName, instrumentType, marketStatus, bid, offer. Can return multiple results — user selects correct one in the portal.
 
 **4. Place Position (POST /positions/otc, v2)**
-Body: epic, direction (BUY/SELL), size (quantity), orderType (MARKET by default, or LIMIT — see "Execution Mode" above), `level` (signal price, only when orderType is LIMIT), currencyCode (GBP — required on this endpoint regardless of account type), forceOpen (true), guaranteedStop (false), expiry (`'DFB'` — this is a spread-bet account, Section 1; `'-'` is CFD-only and gets rejected). Returns dealReference.
+Body: epic, direction (BUY/SELL), size (a £-per-point stake, NOT a share count), orderType (MARKET by default, or LIMIT — see "Execution Mode" above), `level` (signal price scaled onto IG's points, only when orderType is LIMIT), currencyCode (GBP — required on this endpoint regardless of account type), forceOpen (true), guaranteedStop (false), expiry (`'DFB'` — this is a spread-bet account, Section 1; `'-'` is CFD-only and gets rejected). Returns dealReference.
 
 **5. Confirm Deal (GET /confirms/{dealReference}, v1)**
 Returns dealId, dealStatus (ACCEPTED/REJECTED), status (OPEN/CLOSED), and `level` — the actual fill price, stored as `trade_log.executed_price` and shown in the Trades table. Always call after placing.

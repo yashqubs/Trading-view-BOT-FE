@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { FlaskConical } from 'lucide-react'
+import { ChevronDown, FlaskConical } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -20,7 +20,8 @@ import { useSendTestSignal } from '@/hooks/useTestSignal'
 import { useTradingRules } from '@/hooks/useRules'
 import { formatMoney, formatPrice, formatQuantity } from '@/lib/format'
 import { explainTradeError } from '@/lib/tradeError'
-import type { ExecutionMode, StockMapping, TradeDirection, TradeLog } from '@/types'
+import type { TestSignalResult } from '@/api/testSignal'
+import type { ExecutionMode, StockMapping, TradeDirection } from '@/types'
 
 const EXECUTION_MODE_LABELS: Record<ExecutionMode, string> = {
   MARKET: 'Market price',
@@ -34,7 +35,7 @@ export function SendTestSignalModal({ stock }: { stock: StockMapping }) {
   const [investmentAmount, setInvestmentAmount] = useState('')
   const [executionMode, setExecutionMode] = useState<ExecutionMode | null>(null)
   const [maxSlippagePercent, setMaxSlippagePercent] = useState<string | null>(null)
-  const [result, setResult] = useState<TradeLog | null>(null)
+  const [result, setResult] = useState<TestSignalResult | null>(null)
   const [error, setError] = useState<string | null>(null)
   const sendTestSignal = useSendTestSignal()
   const { data: rules } = useTradingRules()
@@ -42,6 +43,11 @@ export function SendTestSignalModal({ stock }: { stock: StockMapping }) {
   const resolvedDefault = stock.investmentAmount ?? rules?.investmentAmount
   const resolvedExecutionMode = stock.executionMode ?? rules?.executionMode
   const resolvedMaxSlippagePercent = stock.maxSlippagePercent ?? rules?.maxSlippagePercent
+
+  // Defensive: an older/not-yet-redeployed backend won't send igDebug at
+  // all — never crash on that, just tell the user why it's empty.
+  const backendSupportsIgDebug = Array.isArray(result?.igDebug)
+  const igDebug = backendSupportsIgDebug ? result!.igDebug : []
 
   function reset() {
     setDirection('BUY')
@@ -106,7 +112,7 @@ export function SendTestSignalModal({ stock }: { stock: StockMapping }) {
           <FlaskConical className="h-4 w-4" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-sm">
+      <DialogContent className={result ? 'max-w-lg' : 'max-w-sm'}>
         {!result ? (
           <>
             <DialogHeader>
@@ -233,8 +239,13 @@ export function SendTestSignalModal({ stock }: { stock: StockMapping }) {
             </DialogHeader>
             <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-2 px-4 py-3">
               <StatusPill status={result.status} />
-              {result.quantity != null && (
-                <p className="text-sm text-text-secondary">Quantity: {formatQuantity(result.quantity)}</p>
+              {result.size != null && (
+                <p className="text-sm text-text-secondary">Size: {formatQuantity(result.size)}</p>
+              )}
+              {result.tradeValue != null && (
+                <p className="text-sm text-text-secondary">
+                  Trade value: <span className="font-medium text-text-primary">{formatMoney(result.tradeValue)}</span>
+                </p>
               )}
               {result.executedPrice != null && (
                 <p className="text-sm text-text-secondary">
@@ -255,6 +266,57 @@ export function SendTestSignalModal({ stock }: { stock: StockMapping }) {
                 </div>
               )}
             </div>
+
+            <details className="group rounded-lg border border-border">
+              <summary className="flex cursor-pointer list-none items-center justify-between px-4 py-2.5 text-sm text-text-secondary">
+                <span>
+                  Raw IG API exchange
+                  {igDebug.length > 0 && (
+                    <span className="ml-1.5 text-text-tertiary">
+                      ({igDebug.length} call{igDebug.length !== 1 ? 's' : ''})
+                    </span>
+                  )}
+                </span>
+                <ChevronDown className="h-4 w-4 text-text-tertiary transition-transform group-open:rotate-180" />
+              </summary>
+              <div className="flex flex-col gap-3 border-t border-border px-4 py-3">
+                {igDebug.length === 0 ? (
+                  <p className="text-xs text-text-tertiary">
+                    {backendSupportsIgDebug
+                      ? 'No IG call was made — this signal was skipped before execution.'
+                      : "This server's backend doesn't support raw IG exchange capture yet — redeploy the latest backend to see it."}
+                  </p>
+                ) : (
+                  igDebug.map((entry, i) => (
+                    <div key={i} className="flex flex-col gap-1.5 rounded-md bg-surface-2 p-3">
+                      <div className="flex items-center justify-between text-xs text-text-tertiary">
+                        <span className="font-mono">
+                          {entry.method} {entry.url} <span className="text-text-tertiary">(v{entry.version})</span>
+                        </span>
+                        <span>{entry.durationMs}ms</span>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-text-tertiary">Request</p>
+                        <pre className="max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-surface p-2 font-mono text-xs text-text-secondary">
+                          {JSON.stringify(entry.requestBody, null, 2)}
+                        </pre>
+                      </div>
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-text-tertiary">
+                          {entry.errorCode ? 'Error' : 'Response'}
+                        </p>
+                        <pre
+                          className={`max-h-40 overflow-auto whitespace-pre-wrap break-all rounded bg-surface p-2 font-mono text-xs ${entry.errorCode ? 'text-danger' : 'text-text-secondary'}`}
+                        >
+                          {entry.errorCode ?? JSON.stringify(entry.responseBody, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </details>
+
             <DialogFooter>
               <Button type="button" variant="secondary" onClick={reset}>
                 Send another
