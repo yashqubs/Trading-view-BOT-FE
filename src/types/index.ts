@@ -25,10 +25,16 @@ export const TRADE_STATUSES = [
   'MARKET_CLOSED',
   'NOT_MAPPED',
   'DISABLED',
+  // Legacy since 2026-07-16 — a SELL with no open position now opens a
+  // short instead of skipping. Historical rows still carry it.
   'NO_POSITION',
   'BOT_PAUSED',
   'BUY_DISABLED',
   'SELL_DISABLED',
+  // A BUY while already long, or a SELL while already short — added
+  // 2026-07-16 with short selling (one position per ticker, at most).
+  'ALREADY_LONG',
+  'ALREADY_SHORT',
   'DAILY_TOTAL_LIMIT',
   'DAILY_TRADE_LIMIT',
   'GLOBAL_POSITION_LIMIT',

@@ -48,6 +48,8 @@ const STATUS_LABELS: Record<TradeStatus, string> = {
   NOT_MAPPED: 'Not mapped',
   DISABLED: 'Disabled',
   NO_POSITION: 'No position',
+  ALREADY_LONG: 'Already long',
+  ALREADY_SHORT: 'Already short',
   BOT_PAUSED: 'Bot paused',
   BUY_DISABLED: 'Buy disabled',
   SELL_DISABLED: 'Sell disabled',

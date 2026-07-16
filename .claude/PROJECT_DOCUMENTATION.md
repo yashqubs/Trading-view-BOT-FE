@@ -169,7 +169,7 @@ When a TradingView indicator fires a green (buy) or red (sell) signal, the bot a
 
 | # | Question | Recommended |
 |---|---|---|
-| 10 | SELL signal with no open position? | Skip, log NO_POSITION |
+| 10 | SELL signal with no open position? | ~~Skip, log NO_POSITION~~ — **superseded 2026-07-16**: now opens a short instead (see "Short Selling" in Section 9) |
 | 11 | Signal when market closed? | No check — the markets/trading-hours feature was removed. The order goes to IG; if IG rejects it, it's logged FAILED |
 | 12 | Stop-loss orders? | No for v1 — manual on IG |
 
@@ -482,9 +482,9 @@ On success, a toast confirms and the user is returned to the credentials step to
 
 ### Trade Log Status Values
 
-SUCCESS, FAILED, MARKET_CLOSED, NOT_MAPPED, DISABLED, NO_POSITION, BOT_PAUSED, BUY_DISABLED, SELL_DISABLED, DAILY_TOTAL_LIMIT, DAILY_TRADE_LIMIT, GLOBAL_POSITION_LIMIT, STOCK_DAILY_LIMIT, COOL_DOWN, MAX_POSITIONS_STOCK, AUTO_PAUSED, DUPLICATE_SIGNAL
+SUCCESS, FAILED, MARKET_CLOSED, NOT_MAPPED, DISABLED, NO_POSITION, BOT_PAUSED, BUY_DISABLED, SELL_DISABLED, ALREADY_LONG, ALREADY_SHORT, DAILY_TOTAL_LIMIT, DAILY_TRADE_LIMIT, GLOBAL_POSITION_LIMIT, STOCK_DAILY_LIMIT, COOL_DOWN, MAX_POSITIONS_STOCK, AUTO_PAUSED, DUPLICATE_SIGNAL
 
-> 17 statuses total. `DUPLICATE_SIGNAL` is logged by the technical resend-guard described in Section 9 — it isn't one of the 11 numbered business-rule steps, but every signal that reaches the pipeline still gets a `trade_log` row, so it's a real status value the frontend must render a badge for. `MARKET_CLOSED`, `GLOBAL_POSITION_LIMIT`, `COOL_DOWN`, and `MAX_POSITIONS_STOCK` are legacy-only: nothing writes them since the markets/trading-hours feature and the position-cap/cool-down throttles were removed, but historical rows keep them, so their badges stay.
+> 19 statuses total. `DUPLICATE_SIGNAL` is logged by the technical resend-guard described in Section 9 — it isn't one of the numbered business-rule steps, but every signal that reaches the pipeline still gets a `trade_log` row, so it's a real status value the frontend must render a badge for. `ALREADY_LONG`/`ALREADY_SHORT` were added 2026-07-16 with short selling — a BUY while already long, or a SELL while already short. `MARKET_CLOSED`, `GLOBAL_POSITION_LIMIT`, `COOL_DOWN`, and `MAX_POSITIONS_STOCK` are legacy-only: nothing writes them since the markets/trading-hours feature and the position-cap/cool-down throttles were removed. `NO_POSITION` is also legacy-only as of 2026-07-16 — a SELL with no position now opens a short instead of skipping. All legacy statuses' historical rows keep their badges.
 
 > No `closing_price` / `profit_loss` / `profit_loss_pct` columns — P&L display was tried (computed from the TradingView signal price on the closing trade) and removed app-wide. See Section 19 Limitation 1.
 
@@ -496,23 +496,30 @@ SUCCESS, FAILED, MARKET_CLOSED, NOT_MAPPED, DISABLED, NO_POSITION, BOT_PAUSED, B
 
 When a signal arrives, conditions are checked in sequence. The first failure stops processing.
 
-> Ahead of step 1, a technical (non-business) duplicate-delivery guard runs: if the same ticker + direction + price arrived within the last 20 seconds, the signal is logged `DUPLICATE_SIGNAL` and skipped. This exists because TradingView can resend the same webhook on delivery retry — it's not one of the 11 numbered steps below.
+> Ahead of step 1, a technical (non-business) duplicate-delivery guard runs: if the same ticker + direction + price arrived within the last 20 seconds, the signal is logged `DUPLICATE_SIGNAL` and skipped. This exists because TradingView can resend the same webhook on delivery retry — it's not one of the numbered steps below.
 
 > There is no market-hours check — the markets/trading-hours feature was deliberately removed. Signals are processed whenever they arrive; an out-of-hours order goes to IG and is logged FAILED if IG rejects it. The global position cap, per-stock cool-down, and per-stock max-positions throttles were also deliberately removed — don't reintroduce them without discussing first.
 
 ```
-1.  bot_enabled = true?            → NO → BOT_PAUSED
-2.  direction allowed?             → NO → BUY_DISABLED / SELL_DISABLED
-3.  ticker in mapping?             → NO → NOT_MAPPED
-4.  stock enabled?                 → NO → DISABLED
-5.  daily trade count OK?          → NO → DAILY_TRADE_LIMIT
-6.  daily total investment OK?     → NO → DAILY_TOTAL_LIMIT
-7.  stock daily spend OK?          → NO → STOCK_DAILY_LIMIT
-8.  SELL has open position?        → NO → NO_POSITION
-9.  calculate size, execute
+1. bot_enabled = true?             → NO → BOT_PAUSED
+2. direction allowed?              → NO → BUY_DISABLED / SELL_DISABLED
+3. ticker in mapping? (case-insensitive since 2026-07-16) → NO → NOT_MAPPED
+4. stock enabled?                  → NO → DISABLED
+5. resolve existing position for this ticker (either direction — short selling, see below)
+     same direction already open?  → NO → ALREADY_LONG / ALREADY_SHORT
+     opposite direction open?      → this signal CLOSES it — skip straight to step 9, never throttled
+     no position?                  → this signal OPENS one (BUY=long, SELL=short) — subject to steps 6-8
+6. daily trade count OK? (opening only)      → NO → DAILY_TRADE_LIMIT
+7. daily total investment OK? (opening only) → NO → DAILY_TOTAL_LIMIT
+8. stock daily spend OK? (opening only)      → NO → STOCK_DAILY_LIMIT
+9. calculate size, execute
 10. log SUCCESS or FAILED
 11. if FAILED: increment failure counter; auto-pause if threshold hit
 ```
+
+### Short Selling (added 2026-07-16)
+
+One position per ticker, at most — never hedged. A SELL with no open position now opens a short (previously skipped with `NO_POSITION`), symmetric with how a BUY opens a long. A same-direction signal while already in that direction is skipped (`ALREADY_LONG`/`ALREADY_SHORT`) instead of doubling exposure. An opposite-direction signal closes what's open, same as before, never throttled. Portal implication: the Trades page shows `ALREADY_LONG`/`ALREADY_SHORT` badges, and a SELL row with a `trade_value` now means "opened a short," not just "closed a long."
 
 ### Global Conditions (trading_rules)
 
