@@ -25,6 +25,8 @@ export function explainTradeError(error: string, direction?: TradeDirection): st
       return 'There was no open position left to close by the time the order was placed.'
     case 'ATTACHED_ORDER_LEVEL_ERROR':
       return 'IG rejected the order price level as invalid for this market.'
+    case 'MARKET_NOT_BORROWABLE':
+      return 'This market cannot be shorted on IG right now — opening a short position (a SELL with no existing position to close) is not available for this instrument.'
     default:
       return null
   }

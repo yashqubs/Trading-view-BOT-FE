@@ -117,13 +117,15 @@ function TradeReason({ trade, onOpen }: { trade: TradeLog; onOpen: (trade: Trade
     )
   }
   if (trade.skipReason) {
+    // skipReason is always the raw status code (e.g. ALREADY_LONG) — show
+    // the same friendly label the status pill uses, not the bare enum value.
     return (
       <button
         type="button"
         onClick={() => onOpen(trade)}
         className="block max-w-full truncate text-left text-xs text-text-tertiary underline decoration-dotted underline-offset-2 hover:text-text-secondary"
       >
-        {trade.skipReason}
+        {STATUS_LABELS[trade.status] ?? trade.skipReason}
       </button>
     )
   }
@@ -155,8 +157,11 @@ function TradeReasonModal({ trade, onClose }: { trade: TradeLog | null; onClose:
                 </div>
               )}
               {trade.skipReason && (
-                <div className="rounded-lg border border-border bg-surface-2 px-4 py-3">
-                  <p className="text-sm text-text-secondary">{trade.skipReason}</p>
+                <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-2 px-4 py-3">
+                  <p className="text-sm text-text-secondary">
+                    {STATUS_LABELS[trade.status] ?? trade.skipReason}
+                  </p>
+                  <p className="font-mono text-xs text-text-tertiary">{trade.skipReason}</p>
                 </div>
               )}
             </div>
