@@ -15,6 +15,13 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -92,29 +99,72 @@ function SortIcon({ sortKey, current }: { sortKey: TradeSortBy; current: SortCon
 
 // ─── Failure / skip reason cell ───────────────────────────────────────────────
 
-// Failed trades must show WHY directly in the table, not just on hover.
-// Prefers the plain-English explanation; the raw IG/backend code stays
-// visible via tooltip so nothing is hidden for debugging.
-function TradeReason({ trade }: { trade: TradeLog }) {
+// Failed trades must show WHY, with the full message reachable in one
+// click — the cell itself stays compact (a single truncated line) so the
+// table doesn't grow ragged row heights, and clicking it opens a modal with
+// the complete explanation + raw code. Nothing is hover-only.
+function TradeReason({ trade, onOpen }: { trade: TradeLog; onOpen: (trade: TradeLog) => void }) {
   if (trade.errorMessage) {
     const explanation = explainTradeError(trade.errorMessage, trade.direction)
     return (
-      <span
-        className="block truncate text-xs text-danger"
-        title={explanation ? `${explanation} (${trade.errorMessage})` : trade.errorMessage}
+      <button
+        type="button"
+        onClick={() => onOpen(trade)}
+        className="block max-w-full truncate text-left text-xs text-danger underline decoration-dotted underline-offset-2 hover:text-danger/80"
       >
         {explanation ?? trade.errorMessage}
-      </span>
+      </button>
     )
   }
   if (trade.skipReason) {
     return (
-      <span className="block truncate text-xs text-text-tertiary" title={trade.skipReason}>
+      <button
+        type="button"
+        onClick={() => onOpen(trade)}
+        className="block max-w-full truncate text-left text-xs text-text-tertiary underline decoration-dotted underline-offset-2 hover:text-text-secondary"
+      >
         {trade.skipReason}
-      </span>
+      </button>
     )
   }
   return <span className="text-text-tertiary">—</span>
+}
+
+function TradeReasonModal({ trade, onClose }: { trade: TradeLog | null; onClose: () => void }) {
+  const explanation = trade?.errorMessage
+    ? explainTradeError(trade.errorMessage, trade.direction)
+    : null
+
+  return (
+    <Dialog open={trade !== null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="max-w-md">
+        {trade && (
+          <>
+            <DialogHeader>
+              <DialogTitle>{trade.tvTicker} · {trade.direction}</DialogTitle>
+              <DialogDescription>{formatDateTime(trade.signalReceivedAt)}</DialogDescription>
+            </DialogHeader>
+            <div className="flex flex-col gap-3">
+              <StatusPill status={trade.status} />
+              {trade.errorMessage && (
+                <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-2 px-4 py-3">
+                  <p className="text-sm text-danger">{explanation ?? trade.errorMessage}</p>
+                  {explanation && (
+                    <p className="font-mono text-xs text-text-tertiary">{trade.errorMessage}</p>
+                  )}
+                </div>
+              )}
+              {trade.skipReason && (
+                <div className="rounded-lg border border-border bg-surface-2 px-4 py-3">
+                  <p className="text-sm text-text-secondary">{trade.skipReason}</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  )
 }
 
 // ─── Summary stat cards ───────────────────────────────────────────────────────
@@ -206,6 +256,7 @@ export function Trades() {
   const VALID_PRESETS: readonly string[] = ['all', 'today', '7d', '30d', '90d', '1y', 'custom']
   const isValidPreset = (p: string | null): p is PresetKey => !!p && VALID_PRESETS.includes(p)
 
+  const [reasonModalTrade, setReasonModalTrade] = useState<TradeLog | null>(null)
   const [ticker, setTicker] = useState(initialTicker)
   const [debouncedTicker, setDebouncedTicker] = useState(initialTicker)
   const [direction, setDirection] = useState<TradeDirection | 'ALL'>('ALL')
@@ -516,7 +567,7 @@ export function Trades() {
                       <StatusPill status={trade.status} />
                     </TableCell>
                     <TableCell className="max-w-[260px]">
-                      <TradeReason trade={trade} />
+                      <TradeReason trade={trade} onOpen={setReasonModalTrade} />
                     </TableCell>
                     <TableCell className="font-mono text-xs text-text-tertiary">
                       {trade.dealId ?? '—'}
@@ -602,6 +653,7 @@ export function Trades() {
           </div>
         </>
       )}
+      <TradeReasonModal trade={reasonModalTrade} onClose={() => setReasonModalTrade(null)} />
     </div>
   )
 }
