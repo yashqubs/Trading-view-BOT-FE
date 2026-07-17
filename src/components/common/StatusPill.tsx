@@ -35,7 +35,7 @@ const STATUS_LABEL: Record<TradeStatus, string> = {
   BOT_PAUSED: 'Bot paused',
   BUY_DISABLED: 'Buy disabled',
   SELL_DISABLED: 'Sell disabled',
-  DAILY_TOTAL_LIMIT: 'Daily total limit',
+  DAILY_TOTAL_LIMIT: 'Daily open cap reached',
   DAILY_TRADE_LIMIT: 'Daily trade limit',
   GLOBAL_POSITION_LIMIT: 'Global position limit',
   STOCK_DAILY_LIMIT: 'Stock daily limit',

@@ -8,7 +8,6 @@ import {
   SlidersHorizontal,
   Target,
   TrendingUp,
-  Wallet,
   X,
   Zap,
 } from 'lucide-react'
@@ -219,13 +218,6 @@ export function Dashboard() {
     return tradesLink({ from: todayISO, to: todayISO, preset: 'today' })
   }
 
-  // Invested amount only ever accrues from SUCCESS trades on the backend, so
-  // scope the link to those specifically — otherwise the table includes
-  // failed/skipped rows that contributed nothing to the figure shown.
-  function todaysInvestedLink() {
-    return tradesLink({ from: todayISO, to: todayISO, preset: 'today', status: 'SUCCESS' })
-  }
-
   function positionsLink() {
     return ticker ? `/positions?ticker=${encodeURIComponent(ticker)}` : '/positions'
   }
@@ -367,16 +359,6 @@ export function Dashboard() {
           icon={Zap}
           accent="sky"
         />
-        <StatCard
-          label="Today's invested"
-          value={data?.todaysInvested ?? 0}
-          format={formatMoney}
-          loading={overview.isLoading}
-          to={todaysInvestedLink()}
-          icon={Wallet}
-          accent="teal"
-        />
-
         {/* Daily limit remaining */}
         <Link
           to="/conditions"

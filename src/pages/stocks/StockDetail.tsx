@@ -49,14 +49,13 @@ import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 25
 
-type ExpandedChart = 'timeline' | 'entry-prices' | 'buy-sell' | 'status-breakdown' | 'invested-over-time'
+type ExpandedChart = 'timeline' | 'entry-prices' | 'buy-sell' | 'status-breakdown'
 
 const EXPANDED_CHART_TITLES: Record<ExpandedChart, string> = {
   timeline: 'Trade history timeline',
   'entry-prices': 'Signal entry prices',
   'buy-sell': 'Buy vs sell',
   'status-breakdown': 'Status breakdown',
-  'invested-over-time': 'Invested amount over time',
 }
 
 const STATUS_LABELS: Record<TradeStatus, string> = {
@@ -71,7 +70,7 @@ const STATUS_LABELS: Record<TradeStatus, string> = {
   BOT_PAUSED: 'Bot paused',
   BUY_DISABLED: 'Buy disabled',
   SELL_DISABLED: 'Sell disabled',
-  DAILY_TOTAL_LIMIT: 'Daily total limit',
+  DAILY_TOTAL_LIMIT: 'Daily open cap reached',
   DAILY_TRADE_LIMIT: 'Daily trade limit',
   GLOBAL_POSITION_LIMIT: 'Global position limit',
   STOCK_DAILY_LIMIT: 'Stock daily limit',
@@ -323,11 +322,10 @@ export function StockDetail() {
       </Card>
 
       {stats.isLoading ? (
-        <StatGridSkeleton count={6} />
+        <StatGridSkeleton count={4} />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard label="Total trades" value={stats.data?.totalTrades ?? 0} format={formatCount} />
-          <StatCard label="Total invested" value={stats.data?.totalInvested ?? 0} format={formatMoney} />
           <StatCard label="Buy / sell" value={stats.data?.buyCount ?? 0} format={(v) => `${formatCount(v)} / ${formatCount(stats.data?.sellCount ?? 0)}`} />
           <StatCard label="Success rate" value={stats.data?.successRate ?? 0} format={formatPercent} />
           <StatCard
@@ -376,16 +374,6 @@ export function StockDetail() {
           loading={stats.isLoading}
           onExpand={() => setExpandedChart('status-breakdown')}
         />
-        <div className="lg:col-span-2">
-          <BarChartCard
-            title="Invested amount over time"
-            data={stats.data?.investedOverTime}
-            xKey="date"
-            yKey="invested"
-            loading={stats.isLoading}
-            onExpand={() => setExpandedChart('invested-over-time')}
-          />
-        </div>
       </div>
 
       {/* ── Expanded chart modal — reuses the page's own date-range filter,
@@ -441,17 +429,6 @@ export function StockDetail() {
             data={stats.data?.statusBreakdown}
             xKey="status"
             yKey="count"
-            loading={stats.isLoading}
-            height={420}
-          />
-        )}
-        {expandedChart === 'invested-over-time' && (
-          <BarChartCard
-            title={EXPANDED_CHART_TITLES['invested-over-time']}
-            bare
-            data={stats.data?.investedOverTime}
-            xKey="date"
-            yKey="invested"
             loading={stats.isLoading}
             height={420}
           />

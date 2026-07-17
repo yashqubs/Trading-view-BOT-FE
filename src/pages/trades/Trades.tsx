@@ -54,7 +54,7 @@ const STATUS_LABELS: Record<TradeStatus, string> = {
   BOT_PAUSED: 'Bot paused',
   BUY_DISABLED: 'Buy disabled',
   SELL_DISABLED: 'Sell disabled',
-  DAILY_TOTAL_LIMIT: 'Daily total limit',
+  DAILY_TOTAL_LIMIT: 'Daily open cap reached',
   DAILY_TRADE_LIMIT: 'Daily trade limit',
   GLOBAL_POSITION_LIMIT: 'Global position limit',
   STOCK_DAILY_LIMIT: 'Stock daily limit',
@@ -229,7 +229,7 @@ function SummaryCard({
 
 function SummaryRow({ summary, loading }: { summary: TradeSummary | undefined; loading: boolean }) {
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
       <SummaryCard
         label="Total trades"
         value={summary ? String(summary.totalTrades) : '—'}
@@ -247,12 +247,6 @@ function SummaryRow({ summary, loading }: { summary: TradeSummary | undefined; l
         label="Failed / Skipped"
         value={summary ? `${summary.failedCount} / ${summary.skippedCount}` : '—'}
         positive={summary && summary.failedCount === 0 ? true : summary && summary.failedCount > 0 ? false : null}
-        loading={loading}
-      />
-      <SummaryCard
-        label="Total invested"
-        value={summary ? formatMoney(summary.totalInvested) : '—'}
-        sub={summary?.avgInvestment != null ? `Avg ${formatMoney(summary.avgInvestment)}` : undefined}
         loading={loading}
       />
     </div>

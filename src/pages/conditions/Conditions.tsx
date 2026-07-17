@@ -247,7 +247,7 @@ export function Conditions() {
         </CardHeader>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="daily-max-investment">Daily max investment (£)</Label>
+            <Label htmlFor="daily-max-investment">Daily max new positions (£)</Label>
             <Input
               id="daily-max-investment"
               type="number"
@@ -256,6 +256,9 @@ export function Conditions() {
               onChange={(e) => setDailyMaxTotalInvestment(e.target.value)}
               placeholder="No limit"
             />
+            <p className="text-xs text-text-tertiary">
+              Caps capital opened per day. Resets at midnight UTC — closing a position doesn't free up room today.
+            </p>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="daily-max-trades">Daily max trade count</Label>
