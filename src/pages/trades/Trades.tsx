@@ -15,13 +15,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -100,9 +94,10 @@ function SortIcon({ sortKey, current }: { sortKey: TradeSortBy; current: SortCon
 // ─── Failure / skip reason cell ───────────────────────────────────────────────
 
 // Failed trades must show WHY, with the full message reachable in one
-// click — the cell itself stays compact (a single truncated line) so the
-// table doesn't grow ragged row heights, and clicking it opens a modal with
-// the complete explanation + raw code. Nothing is hover-only.
+// click — the cell itself is a fixed width (so truncate has something
+// concrete to clip against; the table has no fixed layout, so a plain
+// max-width on the <td> doesn't cap a growing button inside it) and opens a
+// modal with the complete explanation + raw code. Nothing is hover-only.
 function TradeReason({ trade, onOpen }: { trade: TradeLog; onOpen: (trade: TradeLog) => void }) {
   if (trade.errorMessage) {
     const explanation = explainTradeError(trade.errorMessage, trade.direction)
@@ -110,7 +105,7 @@ function TradeReason({ trade, onOpen }: { trade: TradeLog; onOpen: (trade: Trade
       <button
         type="button"
         onClick={() => onOpen(trade)}
-        className="block max-w-full truncate text-left text-xs text-danger underline decoration-dotted underline-offset-2 hover:text-danger/80"
+        className="block w-48 truncate text-left text-xs text-danger underline decoration-dotted underline-offset-2 hover:text-danger/80"
       >
         {explanation ?? trade.errorMessage}
       </button>
@@ -123,7 +118,7 @@ function TradeReason({ trade, onOpen }: { trade: TradeLog; onOpen: (trade: Trade
       <button
         type="button"
         onClick={() => onOpen(trade)}
-        className="block max-w-full truncate text-left text-xs text-text-tertiary underline decoration-dotted underline-offset-2 hover:text-text-secondary"
+        className="block w-48 truncate text-left text-xs text-text-tertiary underline decoration-dotted underline-offset-2 hover:text-text-secondary"
       >
         {STATUS_LABELS[trade.status] ?? trade.skipReason}
       </button>
@@ -136,36 +131,55 @@ function TradeReasonModal({ trade, onClose }: { trade: TradeLog | null; onClose:
   const explanation = trade?.errorMessage
     ? explainTradeError(trade.errorMessage, trade.direction)
     : null
+  const rawCode = trade?.errorMessage ?? trade?.skipReason ?? null
+  const friendlyText = trade
+    ? trade.errorMessage
+      ? (explanation ?? trade.errorMessage)
+      : (STATUS_LABELS[trade.status] ?? trade.skipReason)
+    : null
+  const isError = !!trade?.errorMessage
+  // The raw code is only worth a second line when it says something the
+  // friendly sentence above it doesn't — otherwise it's the same string twice.
+  const showRawCode = !!rawCode && rawCode !== friendlyText
 
   return (
     <Dialog open={trade !== null} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-sm">
         {trade && (
-          <>
-            <DialogHeader>
-              <DialogTitle>{trade.tvTicker} · {trade.direction}</DialogTitle>
-              <DialogDescription>{formatDateTime(trade.signalReceivedAt)}</DialogDescription>
-            </DialogHeader>
-            <div className="flex flex-col gap-3">
-              <StatusPill status={trade.status} />
-              {trade.errorMessage && (
-                <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-2 px-4 py-3">
-                  <p className="text-sm text-danger">{explanation ?? trade.errorMessage}</p>
-                  {explanation && (
-                    <p className="font-mono text-xs text-text-tertiary">{trade.errorMessage}</p>
-                  )}
+          <div className="flex flex-col gap-5">
+            <div className="flex items-center gap-3">
+              <span
+                className={cn(
+                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-full',
+                  trade.direction === 'BUY' ? 'bg-accent-soft text-accent' : 'bg-surface-2 text-text-secondary',
+                )}
+              >
+                {trade.direction === 'BUY'
+                  ? <TrendingUp className="h-4.5 w-4.5" />
+                  : <TrendingDown className="h-4.5 w-4.5" />}
+              </span>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <p className="text-base font-semibold text-text-primary">{trade.tvTicker}</p>
+                  <StatusPill status={trade.status} />
                 </div>
-              )}
-              {trade.skipReason && (
-                <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-2 px-4 py-3">
-                  <p className="text-sm text-text-secondary">
-                    {STATUS_LABELS[trade.status] ?? trade.skipReason}
-                  </p>
-                  <p className="font-mono text-xs text-text-tertiary">{trade.skipReason}</p>
-                </div>
-              )}
+                <p className="mt-0.5 text-xs text-text-tertiary">
+                  {formatDateTime(trade.signalReceivedAt)} · Signal {formatPrice(trade.signalPrice)}
+                </p>
+              </div>
             </div>
-          </>
+
+            {friendlyText && (
+              <div className={cn('border-l-2 pl-3.5', isError ? 'border-danger' : 'border-accent/40')}>
+                <p className={cn('text-sm leading-relaxed', isError ? 'text-danger' : 'text-text-secondary')}>
+                  {friendlyText}
+                </p>
+                {showRawCode && (
+                  <p className="mt-2 font-mono text-[11px] text-text-tertiary">{rawCode}</p>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </DialogContent>
     </Dialog>
