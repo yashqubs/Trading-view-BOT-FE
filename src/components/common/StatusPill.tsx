@@ -45,6 +45,6 @@ const STATUS_LABEL: Record<TradeStatus, string> = {
   DUPLICATE_SIGNAL: 'Duplicate signal',
 }
 
-export function StatusPill({ status }: { status: TradeStatus }) {
-  return <Badge variant={STATUS_VARIANT[status]}>{STATUS_LABEL[status]}</Badge>
+export function StatusPill({ status, className }: { status: TradeStatus; className?: string }) {
+  return <Badge variant={STATUS_VARIANT[status]} className={className}>{STATUS_LABEL[status]}</Badge>
 }
