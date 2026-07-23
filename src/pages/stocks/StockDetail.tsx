@@ -584,7 +584,14 @@ export function StockDetail() {
                       <TableCell className="text-right tabular-nums">
                         {formatQuantity(trade.size)}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
+                      <TableCell
+                        className="text-right tabular-nums"
+                        title={
+                          trade.isClosingTrade
+                            ? 'Value of the position closed — not counted as new investment'
+                            : undefined
+                        }
+                      >
                         {formatMoney(trade.tradeValue)}
                       </TableCell>
                       <TableCell>

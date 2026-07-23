@@ -56,13 +56,18 @@ export interface TradeLog {
   /** Actual IG fill price. Orders are placed at market, not limit, so this
    * can legitimately differ from signalPrice. Null unless status is SUCCESS. */
   executedPrice: number | null
-  /** The real £ notional actually committed — size × price-in-points — for a
-   * BUY that reached a computed size. Always null for SELL (closing an
-   * existing position is never a new investment) and for any BUY that never
-   * got that far (skipped, or failed before sizing). */
+  /** The real £ notional — size × price-in-points — for any trade that
+   * reached a computed size, whether it opened or closed a position. Null
+   * only for a trade that never got that far (skipped, or failed before
+   * sizing). See isClosingTrade for whether this counts as new investment. */
   tradeValue: number | null
-  /** IG's `size` — a £-per-point stake for BUY, or the exact size of the
-   * position being closed for SELL. NOT a share count. */
+  /** True when this trade closed an existing position rather than opening
+   * new exposure — NOT the same as direction, since either BUY or SELL can
+   * open or close depending on what was already open. A close's tradeValue
+   * is real money but never counts toward "invested" totals/caps. */
+  isClosingTrade: boolean
+  /** IG's `size` — a £-per-point stake when opening, or the exact size of
+   * the position being closed. NOT a share count. */
   size: number | null
   /** Slippage tolerance applied to this trade's LIMIT level, recorded at
    * execution time. Null for MARKET-mode trades (no tolerance applies) and

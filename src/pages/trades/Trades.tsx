@@ -576,7 +576,11 @@ export function Trades() {
                     </TableCell>
                     <TableCell
                       className="text-right tabular-nums"
-                      title={trade.direction === 'SELL' ? 'Closing a position is not a new investment' : undefined}
+                      title={
+                        trade.isClosingTrade
+                          ? 'Value of the position closed — not counted as new investment'
+                          : undefined
+                      }
                     >
                       {formatMoney(trade.tradeValue)}
                     </TableCell>
