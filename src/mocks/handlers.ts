@@ -29,7 +29,7 @@ const LATENCY = 400
 // Mutable in-memory state so mutations actually reflect in subsequent GETs
 let mockRules: TradingRules = { ...MOCK_TRADING_RULES }
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000'
+const BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
 
 function url(path: string) {
   return `${BASE}${path}`
