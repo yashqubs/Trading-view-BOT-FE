@@ -16,3 +16,13 @@ updates:
         update-types:
           - "minor"
           - "patch"
+    # tailwindcss v4 moved the PostCSS plugin to a separate @tailwindcss/postcss
+    # package and changed config format — a real migration, not a drop-in bump.
+    # Confirmed live 2026-07-24: Dependabot's v3->v4 PR broke the build
+    # (postcss error "trying to use tailwindcss directly as a PostCSS plugin").
+    # Ignored here so it stops proposing it weekly; do the v4 upgrade as its
+    # own deliberate task (with full visual re-check) rather than merging an
+    # auto-generated PR that doesn't touch postcss.config.js.
+    ignore:
+      - dependency-name: "tailwindcss"
+        update-types: ["version-update:semver-major"]
