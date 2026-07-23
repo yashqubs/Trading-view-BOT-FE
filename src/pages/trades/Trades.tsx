@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { StatusCombobox } from '@/components/common/StatusCombobox'
 import { StatusPill } from '@/components/common/StatusPill'
 import { EmptyState } from '@/components/common/EmptyState'
 import { DateRangePicker, type DateRangeValue, type PresetKey } from '@/components/common/DateRangePicker'
@@ -430,15 +431,7 @@ export function Trades() {
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as TradeStatus | 'ALL')}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All statuses</SelectItem>
-                  {TRADE_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <StatusCombobox value={status} onChange={setStatus} />
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Sort by</Label>
