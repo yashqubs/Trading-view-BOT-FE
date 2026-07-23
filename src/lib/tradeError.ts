@@ -27,6 +27,8 @@ export function explainTradeError(error: string, direction?: TradeDirection): st
       return 'IG rejected the order price level as invalid for this market.'
     case 'MARKET_NOT_BORROWABLE':
       return 'This market cannot be shorted on IG right now — opening a short position (a SELL with no existing position to close) is not available for this instrument.'
+    case 'error.confirms.deal-not-found':
+      return 'IG rejected this order at the gateway before it created a confirmable deal, so IG never returned a specific reason. We checked IG’s live positions and confirmed nothing was opened, so this genuinely did not fill. A common cause is the stock being unborrowable for shorting — check IG’s own account activity history for the exact reason.'
     default:
       return null
   }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   Download,
@@ -258,6 +258,7 @@ function SummaryRow({ summary, loading }: { summary: TradeSummary | undefined; l
 export function Trades() {
   // Supports deep links like /trades?status=FAILED&from=2026-06-01&to=2026-06-30&ticker=AAPL
   // from the dashboard cards — they carry the exact filter context the user saw there.
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const initialStatus = searchParams.get('status')
   const initialFrom = searchParams.get('from') ?? undefined
@@ -538,7 +539,20 @@ export function Trades() {
               </TableHeader>
               <TableBody>
                 {data.items.map((trade) => (
-                  <TableRow key={trade.id}>
+                  <TableRow
+                    key={trade.id}
+                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`View ${trade.tvTicker} statistics`}
+                    onClick={() => navigate(`/stocks/${trade.tvTicker}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        navigate(`/stocks/${trade.tvTicker}`)
+                      }
+                    }}
+                  >
                     <TableCell className="whitespace-nowrap text-text-secondary text-xs">
                       {formatDateTime(trade.signalReceivedAt)}
                     </TableCell>
@@ -579,7 +593,7 @@ export function Trades() {
                     <TableCell>
                       <StatusPill status={trade.status} />
                     </TableCell>
-                    <TableCell className="max-w-[260px]">
+                    <TableCell className="max-w-[260px]" onClick={(e) => e.stopPropagation()}>
                       <TradeReason trade={trade} onOpen={setReasonModalTrade} />
                     </TableCell>
                     <TableCell className="font-mono text-xs text-text-tertiary">
