@@ -38,7 +38,8 @@ import { formatDateTime, formatMoney, formatPercent, formatPrice, formatQuantity
 import { explainTradeError } from '@/lib/tradeError'
 import { cn } from '@/lib/utils'
 
-const PAGE_SIZE = 25
+const DEFAULT_PAGE_SIZE = 25
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100] as const
 
 // ─── Status labels ───────────────────────────────────────────────────────────
 
@@ -284,6 +285,7 @@ export function Trades() {
   )
   const [sort, setSort] = useState<SortConfig>({ by: 'signalReceivedAt', order: 'desc' })
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [exporting, setExporting] = useState(false)
 
   // Debounce ticker input
@@ -292,10 +294,10 @@ export function Trades() {
     return () => clearTimeout(t)
   }, [ticker])
 
-  // Reset to page 1 when filters change
+  // Reset to page 1 when filters (or the page size itself) change
   useEffect(() => {
     setPage(1)
-  }, [debouncedTicker, direction, status, dateRange, sort])
+  }, [debouncedTicker, direction, status, dateRange, sort, pageSize])
 
   // Handle column sort click
   function handleSort(col: TradeSortBy) {
@@ -328,11 +330,11 @@ export function Trades() {
     sortBy: sort.by,
     sortOrder: sort.order,
     page,
-    pageSize: PAGE_SIZE,
+    pageSize,
   }
 
   const { data, isLoading, isFetching } = useTrades(filters)
-  const totalPages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1
+  const totalPages = data ? Math.max(1, Math.ceil(data.total / pageSize)) : 1
 
   // Scoped to this page specifically (not the shared useTrades hook, which
   // StockDetail also uses) — a toast for every trade shouldn't fire while
@@ -611,10 +613,28 @@ export function Trades() {
 
           {/* ── Pagination ── */}
           <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-text-secondary">
-            <span>
-              {data.total.toLocaleString()} trade{data.total !== 1 ? 's' : ''}
-              {' · '}page {page} of {totalPages}
-            </span>
+            <div className="flex flex-wrap items-center gap-3">
+              <span>
+                {data.total.toLocaleString()} trade{data.total !== 1 ? 's' : ''}
+                {' · '}page {page} of {totalPages}
+              </span>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="trades-page-size" className="text-xs">Rows per page</Label>
+                <Select
+                  value={String(pageSize)}
+                  onValueChange={(v) => setPageSize(Number(v))}
+                >
+                  <SelectTrigger id="trades-page-size" className="h-8 w-[72px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PAGE_SIZE_OPTIONS.map((size) => (
+                      <SelectItem key={size} value={String(size)}>{size}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <div className="flex items-center gap-1">
               <Button
                 variant="secondary"
