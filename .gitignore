@@ -30,3 +30,10 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# This is a pnpm project — pnpm-lock.yaml is the only lockfile.
+# A stray package-lock.json is read by GitHub's dependency graph and
+# Dependabot, so a stale one raises alerts for packages the project no
+# longer has (it did exactly that for react-router-dom after the v8 move).
+package-lock.json
+yarn.lock

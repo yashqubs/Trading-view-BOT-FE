@@ -95,9 +95,17 @@ Realtime updates (trades, rules changes, IG connection status, open positions) a
 
 ## Deployment
 
-Push to `main` runs `.github/workflows/ci.yml`: lint → build → test → audit, then runs `.claude/scripts/deploy.sh` over SSH. Deploy targets are Nginx on the EC2 instance or Cloudflare Pages.
+Push to `main` runs `.github/workflows/ci.yml`: lint → build → test → `pnpm audit --audit-level=high`, then runs `.claude/scripts/deploy.sh` over SSH. Deploy targets are Nginx on the EC2 instance or Cloudflare Pages.
 
 **Not Vercel** — its free Hobby plan is non-commercial only, and this is a paid client project.
+
+### Package manager and lockfiles
+
+`pnpm` only, at the version pinned in `package.json`'s `packageManager` field — CI's `pnpm/action-setup` reads it, and pnpm itself fetches that version on the deploy box, so all three environments stay in step. Bump it there, not in the workflow.
+
+`pnpm-lock.yaml` is the **only** lockfile. `package-lock.json` and `yarn.lock` are gitignored on purpose: nothing in CI or deploy reads them, but GitHub's dependency graph and Dependabot do, so a stale one raises alerts for packages the project no longer has. One committed here did exactly that, still pinning `react-router-dom@7.18.1` after the v8 migration removed it.
+
+The audit reads `pnpm-lock.yaml`, so `pnpm audit --audit-level=high` locally gives you CI's answer. Fix a transitive advisory with an `overrides:` entry in `pnpm-workspace.yaml` — pnpm ignores `package.json`'s `overrides`, and since v11 the `pnpm.overrides` key too.
 
 ## Further reading
 
