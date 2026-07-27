@@ -16,22 +16,24 @@ The full project documentation lives at `.claude/PROJECT_DOCUMENTATION.md`. Read
 | Dashboard page | Section 12 (Dashboard & Statistics) — all stat cards + chart requirements |
 | Stocks page / Add stock modal | Section 10 MappingModule endpoints, Section 15 IG search endpoint |
 | Stock detail page `/stocks/:ticker` | Section 12 per-stock statistics — all required charts and stat cards |
-| Trades page | Section 8 trade_log schema — every column + all 17 status values + their meaning |
+| Trades page | Section 8 trade_log schema — every column + all 19 status values + their meaning |
 | Conditions page | Section 9 (Trading Conditions) — every global rule explained |
 | Users page | Section 6 (User Management) — create flow, endpoints |
 | Settings page | Section 5 Layer 3 (webhook), Section 7 (secrets), Section 10 SystemModule (last signal received) |
 | API layer | Section 10 (Backend modules) — every endpoint with method, path, auth required |
-| Trade status badges | Section 8 trade_log status values — all 17 statuses and their meaning |
+| Trade status badges | Section 8 trade_log status values — all 19 statuses and their meaning |
 | Bot ON/OFF toggle | Section 8 trading_rules schema — bot_enabled field |
 | Realtime / sockets | Section 10 RealtimeModule — event names and payloads |
 
 ### Most important things to know from the documentation
 
-- There are 17 possible trade statuses (Section 8 trade_log), including `DUPLICATE_SIGNAL`. Every status needs its own badge colour — do not invent statuses or collapse them. `MARKET_CLOSED` is legacy-only (the markets/trading-hours feature was removed; historical rows still carry it, so keep its badge).
+- There are 19 possible trade statuses (Section 8 trade_log), including `DUPLICATE_SIGNAL`, `ALREADY_LONG`, and `ALREADY_SHORT`. Every status needs its own badge colour — do not invent statuses or collapse them. Five are legacy-only: `MARKET_CLOSED` and `NO_POSITION` (the markets/trading-hours feature was removed, and short selling means a SELL with no position now opens a short rather than skipping), plus `GLOBAL_POSITION_LIMIT`, `COOL_DOWN`, and `MAX_POSITIONS_STOCK` (those throttles were removed). Nothing writes any of them now, but historical rows still carry them — keep their badges.
 - The bot master switch (`bot_enabled` in `trading_rules`) must be one click from anywhere — top bar always.
 - No P&L is shown in the portal — not "no real-time P&L", literally none (Section 19 Limitation 1). A realized-P&L feature (computed from signal price, not IG's fill price) was built and then removed app-wide because the numbers weren't trustworthy. Don't re-add any form of P&L display without discussing it first — the portal shows what was invested, not a return figure.
 - Auth uses HttpOnly cookie — `withCredentials: true` on every Axios call, plus an `X-CSRF-Token` header (read from the `csrf_token` cookie) on mutating requests. Never localStorage.
 - Only one device can be logged into an account at a time (Section 5 Layer 4, backend-enforced) — logging in elsewhere invalidates the current session, surfacing here as a plain 401 that the existing Axios interceptor already redirects to `/login`. No special frontend handling needed unless a future task asks for a distinct "logged in elsewhere" message.
+- **Not every 401 means the session died** — `src/api/axios.ts` draws three distinctions on purpose, and collapsing them back into one has caused real bugs. (1) A 401 from `/auth/refresh` or `/auth/login` never drives a logout or redirect: refresh tokens are single-use, so a tab losing the rotation race 401s while the winner has already installed fresh cookies. (2) The app-load probe — `getMe({ sessionProbe: true })` in `AuthContext` — treats 401 as the normal "not logged in" answer and lets `ProtectedRoute` navigate reactively; forcing `window.location.assign` there reloaded the page mid-boot on every return visit after the session lapsed. (3) Only a session dying *under* the user forces the hard navigation. See Section 5 Layer 4 "Session recovery".
+- The **Close all positions** button on `/positions` closes every position open on IG — not just the filtered rows — so the confirm dialog says so explicitly whenever a search/direction/ticker filter is narrowing the list, and only quotes a count when it isn't. A partial result (`{ attempted, closed, failures[] }`) is a normal outcome, not an error: name each instrument still open and run its raw IG code through `explainTradeError`, because "closed 3 of 5" alone leaves the user with live exposure and no idea which.
 - No roles: every authenticated user sees and edits everything. An earlier ADMIN/VIEWER split was deliberately removed — don't reintroduce role gating.
 - The per-stock detail page `/stocks/:ticker` is a mandatory, fully featured mini-dashboard with five chart types and a stat row (Section 12) — plus its own "Trading conditions" card so a stock's settings can be managed without leaving the page.
 - Execution mode (Market price vs. Signal price) has a global default on the Conditions page and an optional per-stock override on the stock detail page — both use the shared `ExecutionModeToggle` component (Section 9 "Execution Mode"), not a plain Switch, since it's a named-mode choice.
@@ -60,7 +62,7 @@ This is a financial tool. Clarity, correctness, and a calm, trustworthy UI matte
 ## Design direction — 2026 futuristic, simple UX
 
 - **Dark-first** theme with a light toggle. Deep near-black background, elevated frosted card surfaces.
-- **One accent color** (electric teal-cyan or violet). Used for primary actions, active states, chart highlights. Not rainbow.
+- **One accent color** — **indigo-blue** (`#5666f5` dark / `#3548f3` light), which replaced the earlier teal-cyan/violet direction. Used for primary actions, active states, chart highlights. Not rainbow; only the `--stat-*` palette is multi-hued, and only for stat-card icons and chart series. `src/index.css` is the source of truth for exact values.
 - **Data-forward.** Charts and big readable numbers are the hero. Chrome stays minimal.
 - **Glassmorphism, sparingly.** Subtle frosted surfaces, soft borders, 12–16px radius.
 - **Subtle motion.** Fade/slide-in on load, smooth number count-ups on stat cards, gentle hovers. No gratuitous animation.
@@ -73,7 +75,7 @@ This is a financial tool. Clarity, correctness, and a calm, trustworthy UI matte
 - `/` — dashboard: global stats cards + charts + alerts
 - `/stocks` — per-stock config table; click a row → stock detail
 - `/stocks/:ticker` — single-stock statistics with charts, plus a "Trading conditions" card to manage that stock's settings without leaving the page (this is required and important)
-- `/positions` — currently open positions, live from IG
+- `/positions` — currently open positions, live from IG, plus a confirm-gated "Close all positions" button
 - `/trades` — full trade history, filterable, CSV export
 - `/conditions` — global trading rules form
 - `/users` — user management

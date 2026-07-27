@@ -4,32 +4,28 @@ Concrete design tokens and component rules for the 2026-futuristic, simple-UX po
 
 ## Theme tokens (CSS variables)
 
-Define these in `src/index.css` and reference them everywhere — never hardcode hex.
+**`src/index.css` is the source of truth for exact values** — read it there rather than trusting a hex quoted in prose, and never hardcode a colour in a component. The roles below are what matters:
 
-### Dark (default)
-- `--bg`: deep near-black, e.g. `#0A0E1A`
-- `--surface`: elevated card, e.g. `#121826` with subtle translucency
-- `--surface-2`: secondary surface, e.g. `#1A2236`
-- `--border`: `rgba(255,255,255,0.08)`
-- `--text-primary`: `#E8ECF4`
-- `--text-secondary`: `#9AA4B8`
-- `--text-tertiary`: `#5F6B85`
-- `--accent`: electric teal-cyan `#22D3EE` (or violet `#8B5CF6` — pick one, stay consistent)
-- `--accent-soft`: accent at low alpha for glows/highlights
-- `--success`: `#34D399`
-- `--danger`: `#F87171`
-- `--warning`: `#FBBF24`
+| Token | Role |
+|---|---|
+| `--bg` | Page background — deep near-black in dark, near-white in light |
+| `--surface` / `--surface-2` | Elevated card, and a secondary surface for tooltips/inputs |
+| `--border` | Hairline separators |
+| `--text-primary` / `--text-secondary` / `--text-tertiary` | Headings and numbers / labels and body / muted axis text |
+| `--accent` / `--accent-soft` / `--accent-foreground` | **Indigo-blue** — the single accent, its low-alpha glow form, and the text colour that sits on top of it |
+| `--success` / `--danger` / `--warning` / `--neutral` | Status semantics, used by badges, pills, and trend indicators |
+| `--shadow-card` / `--shadow-floating` / `--shadow-sm` | The only three elevations. Don't invent a fourth |
+| `--stat-violet`…`--stat-rose` | A 7-colour palette for per-card stat icons and multi-series charts |
 
-### Light
-- `--bg`: `#F5F7FB`
-- `--surface`: `#FFFFFF`
-- `--border`: `rgba(0,0,0,0.08)`
-- `--text-primary`: `#0F172A`
-- accent/success/danger/warning: same hues, adjusted for contrast
+**One accent, not a rainbow.** The accent is indigo-blue (`#5666f5` dark, `#3548f3` light) — this replaced the earlier teal-cyan/violet direction. Only the `--stat-*` palette is allowed to be multi-hued, and only for distinguishing stat cards and chart series.
+
+### The `-rgb` channel triplets
+
+Every colour also has an `--x-rgb` channel form (`--accent-rgb: 86 102 245`). Tailwind can't derive channels from a `var()` that resolves to a hex string, so opacity modifiers like `border-danger/30` or `bg-warning/10` only work through the triplet. **If you add or change a colour token, update its `-rgb` twin in the same edit** — they silently drift otherwise, and the failure looks like an opacity modifier just not applying.
 
 ## Typography
 
-- Font: Inter or Geist. Two weights: 400 regular, 500 medium. Never 600/700.
+- Font: Inter (loaded at 400/500/600). **400 and 500 do almost all the work** — `font-medium` is the heaviest weight you should reach for by default, including for page `<h1>`s. `font-semibold` (600) exists and is used in ~14 deliberate spots (stat values, OTP digits, active nav); treat it as emphasis, not as a heading default. Never 700+ — `font-bold` appears nowhere and shouldn't start.
 - Stat numbers: large (28–36px), medium weight, tabular-nums.
 - Body: 14–16px, line-height 1.6.
 - Sentence case everywhere. Never ALL CAPS, never Title Case.
@@ -67,6 +63,12 @@ Define these in `src/index.css` and reference them everywhere — never hardcode
 
 ### Toggles / switches
 - The bot ON/OFF master switch is prominent in the top bar — accent when ON, muted when OFF, with a clear label.
+
+### Destructive actions
+- Every destructive action goes through `ConfirmDialog` — deleting a user or stock, disabling a stock, closing positions. No exceptions, no "are you sure?" via `window.confirm`.
+- **The dialog description states what will actually happen, in the user's terms**, not what the endpoint is called. For anything touching real money, say so explicitly: "Real orders are placed immediately and this cannot be undone."
+- **Never let the confirm copy imply a narrower scope than the action has.** "Close all positions" on `/positions` closes everything on IG, not the filtered rows, so the dialog says so whenever a filter is narrowing the table and only quotes a count when it isn't.
+- **Partial success is a real outcome, not an error.** When an action can half-succeed, the result toast names each item that failed and why (run raw backend codes through `explainTradeError`). A bare "3 of 5 succeeded" leaves the user unable to act on the other two.
 
 ## Motion
 

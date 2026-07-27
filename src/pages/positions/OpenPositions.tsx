@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search, TrendingDown, TrendingUp, X } from 'lucide-react'
+import { toast } from 'sonner'
+import { Search, TrendingDown, TrendingUp, X, XCircle } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
@@ -8,13 +9,16 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { EmptyState } from '@/components/common/EmptyState'
 import { TableSkeleton } from '@/components/common/PageSkeleton'
 import { SortableHeader, toggleSort, type SortConfig } from '@/components/common/SortableHeader'
 import { Pagination } from '@/components/common/Pagination'
 import { useOpenPositions } from '@/hooks/useStats'
+import { useCloseAllPositions } from '@/hooks/useTrades'
 import type { OpenPositionFilters } from '@/api/stats'
 import { formatQuantity } from '@/lib/format'
+import { explainTradeError } from '@/lib/tradeError'
 import { cn } from '@/lib/utils'
 import type { TradeDirection } from '@/types'
 
@@ -67,12 +71,58 @@ export function OpenPositions() {
   }
 
   const { data, isLoading, isFetching } = useOpenPositions(filters)
+  const closeAll = useCloseAllPositions()
 
   function handleSort(key: SortKey) {
     setSort((s) => toggleSort(s, key))
   }
 
+  /**
+   * Closes every position on IG, not just the ones matching the current
+   * filters — the button says "all", and a filtered subset would be a
+   * dangerous thing to get wrong with real money.
+   */
+  async function handleCloseAll() {
+    try {
+      const result = await closeAll.mutateAsync()
+
+      if (result.attempted === 0) {
+        toast.info('There were no open positions to close.')
+        return
+      }
+      if (result.failures.length === 0) {
+        toast.success(`Closed ${result.closed} of ${result.attempted} positions.`)
+        return
+      }
+
+      // Name the instruments that survived and why — "3 of 5" alone leaves the
+      // user with open exposure and no idea which, or what to do next.
+      toast.error(
+        <div className="flex flex-col gap-1.5">
+          <span>
+            Closed {result.closed} of {result.attempted}. Still open:
+          </span>
+          <ul className="flex flex-col gap-1">
+            {result.failures.map((failure) => (
+              <li key={failure.igEpic} className="text-xs">
+                <span className="font-medium">{failure.tvTicker}</span> —{' '}
+                {explainTradeError(failure.reason) ?? failure.reason}
+              </li>
+            ))}
+          </ul>
+        </div>,
+        { duration: 15_000 },
+      )
+    } catch {
+      toast.error('Could not close positions. Nothing was changed — check the trade history.')
+    }
+  }
+
   const showFilterBar = isLoading || (data?.total ?? 0) > 0
+  const visibleTotal = data?.total ?? 0
+  // data.total is the count *after* filtering, so it can only be quoted as the
+  // number about to close when nothing is narrowing the list.
+  const isNarrowed = hasFilters || !!ticker
 
   return (
     <div className="flex flex-col gap-6">
@@ -83,15 +133,35 @@ export function OpenPositions() {
             Live positions currently held on IG, by stock.
           </p>
         </div>
-        {ticker && (
-          <button
-            type="button"
-            onClick={clearTickerFilter}
-            className="flex items-center gap-1 rounded-full border border-border bg-surface-2 px-3 py-1.5 text-xs text-text-secondary transition-colors hover:text-text-primary"
-          >
-            {ticker} <X className="h-3 w-3" />
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {ticker && (
+            <button
+              type="button"
+              onClick={clearTickerFilter}
+              className="flex items-center gap-1 rounded-full border border-border bg-surface-2 px-3 py-1.5 text-xs text-text-secondary transition-colors hover:text-text-primary"
+            >
+              {ticker} <X className="h-3 w-3" />
+            </button>
+          )}
+          {visibleTotal > 0 && (
+            <ConfirmDialog
+              trigger={
+                <Button variant="destructive" size="sm" disabled={closeAll.isPending}>
+                  <XCircle className="mr-1.5 h-4 w-4" />
+                  {closeAll.isPending ? 'Closing…' : 'Close all positions'}
+                </Button>
+              }
+              title="Close all open positions?"
+              description={
+                isNarrowed
+                  ? 'This closes every position open on IG at the current market price — including any not shown by the filters above. Real orders are placed immediately and this cannot be undone.'
+                  : `This closes all ${visibleTotal} open ${visibleTotal === 1 ? 'position' : 'positions'} on IG at the current market price. Real orders are placed immediately and this cannot be undone.`
+              }
+              confirmLabel="Close all positions"
+              onConfirm={handleCloseAll}
+            />
+          )}
+        </div>
       </div>
 
       {showFilterBar && (

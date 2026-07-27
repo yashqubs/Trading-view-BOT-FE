@@ -5,6 +5,7 @@ This folder configures Claude Code for the trading bot admin portal (React + Vit
 ## Files
 
 ```
+README.md                  Human entry point — setup, commands, structure
 CLAUDE.md                  Root context + documentation reference
 .claude/
 ├── PROJECT_DOCUMENTATION.md   Full project documentation (source of truth)
@@ -37,13 +38,15 @@ CLAUDE.md                  Root context + documentation reference
 
 ## Design direction encoded here
 
-- 2026 futuristic, dark-first, single accent color, glassmorphism (sparingly)
+- 2026 futuristic, dark-first, **one accent colour — indigo-blue**, glassmorphism (sparingly)
 - Data-forward: charts + big numbers are the hero
 - Simple UX: one primary action per screen, max 2 clicks, bot toggle always visible
 - Per-stock detail page is a mini-dashboard with its own charts (required)
-- Auth via HttpOnly cookie (never localStorage)
-- Theme tokens only, never hardcoded colors
+- Auth via HttpOnly cookie (never localStorage); not every 401 means the session died — see `rules.md` and Section 5 Layer 4 "Session recovery"
+- Theme tokens only, never hardcoded colors — and keep each token's `-rgb` twin in sync or Tailwind opacity modifiers silently stop working
+- Every destructive action confirms, and states its real scope and irreversibility
 - Accessible (shadcn/ui), subtle motion only
+- No P&L anywhere in the portal — deliberately removed, not merely unbuilt
 
 ## Hosting note
 

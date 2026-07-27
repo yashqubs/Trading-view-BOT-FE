@@ -231,6 +231,7 @@ When a TradingView indicator fires a green (buy) or red (sell) signal, the bot a
 | Brute force lockout | 5 attempts / 15 min then locked | Stops password guessing |
 | Token blacklist | Invalidated on logout | Stolen token cannot be reused |
 | **Single active session (IMPLEMENTED)** | **One login per account at a time** — signing in on a new device immediately ends every other device's session | A leaked/stolen session can't quietly persist alongside the real user's |
+| **Session recovery (IMPLEMENTED)** | A lapsed session always self-heals — the backend clears dead cookies, and not every 401 is treated as session death | A user returning after a gap must never be stuck; see below |
 
 #### 2FA Implementation (Implemented)
 
@@ -245,8 +246,23 @@ When a TradingView indicator fires a green (buy) or red (sell) signal, the bot a
 #### Single-Session Enforcement (Implemented)
 
 - Only one device/browser can be logged into an account at a time. Logging in anywhere — password-only, or password+2FA, or the forced-password-change flow on first login — immediately ends every other active session for that account, no confirmation step, no "log out other devices" button needed.
-- From the frontend's point of view this needs no special handling: the kicked-out device just gets a 401 on its next request (even mid-session, before its token would otherwise have expired), and the existing Axios response interceptor already redirects any 401 to `/login` — see `src/api/axios.ts`. There's currently no toast distinguishing "you were logged in elsewhere" from a normal expired session; both look like a plain redirect to the login page.
+- From the frontend's point of view this needs no special handling: the kicked-out device just gets a 401 on its next request (even mid-session, before its token would otherwise have expired), which the Axios response interceptor turns into a redirect to `/login` — see `src/api/axios.ts` and "Session recovery" below for exactly which 401s do that. There's currently no toast distinguishing "you were logged in elsewhere" from a normal expired session; both look like a plain redirect to the login page.
 - Enforced entirely on the backend (new `currentSessionId` stamped on the user row per login, compared against the JWT on every request) — nothing to build or maintain on the frontend for this.
+
+#### Session recovery (Implemented — 2026-07-27)
+
+**The bug this fixes.** Returning to the portal after a few days' gap produced repeated `401 /api/auth/me` and no way back in short of clearing cookies by hand. Being logged out after a gap is correct — the refresh token's idle window is one hour, and that is deliberate (see the backend documentation's Layer 4 "Session recovery" for why it stays at one hour). Being *unable to log back in* was not.
+
+The backend half — an unauthenticated `POST /auth/logout`, and a 401 evicting the dead `access_token`/`csrf_token` when no refresh cookie remains — is documented on that side. The frontend half is `src/api/axios.ts`, which now draws three distinctions instead of treating every 401 identically. **Collapsing them back into one is what caused the bug**, so they're worth stating plainly:
+
+| Case | Behaviour | Why |
+|---|---|---|
+| 401 on a normal request | One shared silent `POST /auth/refresh` (deduped across a burst via `refreshPromise`), then retry the original request | The 15-minute access token lapsing mid-session is routine; the user should never see it |
+| 401 from `/auth/refresh` or `/auth/login` (`NON_SESSION_401_PATHS`) | Rejected as-is. Never triggers a refresh retry, never calls `onUnauthorized`, never redirects | Refresh tokens are single-use, so a tab that loses the rotation race 401s here *while the winner has already installed fresh cookies in the shared jar*. Redirecting on that logged every tab out over a race the retry recovers from. And a wrong password is not a dead session |
+| 401 on the app-load probe (`getMe({ sessionProbe: true })` in `AuthContext`) | `onUnauthorized()` clears the user; **no** `window.location.assign` | A 401 here is the normal "not logged in" answer on any cold visit. Forcing a hard navigation reloaded the page mid-boot before the login form had rendered — which is what the user actually saw as "the error keeps coming back". `ProtectedRoute` navigates to `/login` reactively, which is enough |
+| 401 after a refresh was already tried, on a non-probe request | `onUnauthorized()` **and** `window.location.assign('/login')` | Only a session that died *under* the user warrants a hard navigation — never leave someone staring at a broken authenticated page |
+
+`sessionProbe` and `_retriedAfterRefresh` are declared via module augmentation on `AxiosRequestConfig` in `src/api/axios.ts`, so they're type-safe rather than casts. Regression tests live in `src/api/axios.test.ts` — they stub the transport (`api.defaults.adapter`) rather than the network, so the interceptor itself is what's under test.
 
 ### Layer 5 — Secrets Management (Implemented)
 
@@ -285,7 +301,7 @@ How it works:
 | Daily total spend cap | Stops BUYs at daily GBP limit |
 | Daily trade count cap | Stops after max trades/day |
 | Consecutive failure auto-pause | Pauses bot after N failures |
-| SELL position check | Verifies open position before SELL |
+| Existing-position resolution | Resolves the ticker's open position (either direction) before the throttles — decides open vs. skip vs. reverse |
 
 ### Honest Security Statement
 
@@ -659,15 +675,21 @@ The frontend mostly uses these events to trigger a TanStack Query refetch (`quer
 | Dashboard | / | Global stats + charts |
 | Stocks | /stocks | Per-stock config table |
 | Stock Detail | /stocks/:ticker | Single-stock statistics + charts + per-stock trading conditions (trading on/off switch, investment amount, daily cap) |
-| Open Positions | /positions | Currently open positions, live from IG |
+| Open Positions | /positions | Currently open positions, live from IG, plus a "Close all positions" button (see below) |
 | Trades | /trades | Full trade history with filters + CSV export |
 | Conditions | /conditions | Global trading rules |
 | Users | /users | User management |
 | Settings | /settings | Webhook URL, IG connection status, last TradingView signal received, password, 2FA |
 
+#### Close all positions (manual)
+
+A destructive, confirm-gated button in the `/positions` header calling `POST /trades/close-all-positions` (`closeAllPositions` in `api/trades.ts`, `useCloseAllPositions` in `hooks/useTrades.ts`). It closes **every** position open on IG at market price — not just the rows matching the current search/direction/ticker filters — so the confirm dialog says so explicitly whenever the list is narrowed, and only quotes a count when it isn't.
+
+The response is `{ attempted, closed, failures[] }`; a partial result is a normal outcome, not an error. On a partial result the toast names each instrument still open and runs its raw IG code through `explainTradeError` — "closed 3 of 5" on its own would leave the user with live exposure and no idea which. The button hides when there is nothing to close and disables while the request is in flight (the backend also rejects a concurrent second call with `409`).
+
 ### Stack
 
-React + TypeScript + Vite, TailwindCSS, shadcn/ui, Recharts, Axios with interceptors (JWT cookie auto-sent, 401 → redirect to login).
+React + TypeScript + Vite, TailwindCSS, shadcn/ui, Recharts, TanStack Query, Socket.IO client, Axios with interceptors (JWT cookie auto-sent, `X-CSRF-Token` attached to mutations, 401 → silent refresh then redirect to login — see Section 5 Layer 4 "Session recovery" for which 401s redirect and which don't).
 
 ---
 
@@ -745,7 +767,7 @@ All statistics are computed from the `trade_log` table by the StatsModule. No ex
 ### Visual Language
 
 - **Theme:** Dark mode default with a light mode toggle. Deep slate/near-black background (#0A0E1A range) with elevated card surfaces.
-- **Accent:** A single electric accent (teal-cyan or violet) used for primary actions, active states, and chart highlights. Not rainbow.
+- **Accent:** A single electric accent — **indigo-blue** (`#5666f5` dark / `#3548f3` light), which replaced the earlier teal-cyan/violet direction — used for primary actions, active states, and chart highlights. Not rainbow. Only the `--stat-*` palette is multi-hued, and only to distinguish stat cards and chart series.
 - **Typography:** Clean geometric sans (Inter or Geist). Large readable numbers for stats. Two weights only.
 - **Cards:** Subtle border, soft inner elevation, slight frosted/translucent surface. Rounded corners (12–16px).
 - **Charts:** Smooth, animated-in-on-load Recharts with the accent color. Gridlines muted. Tooltips on hover.
