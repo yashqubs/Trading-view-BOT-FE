@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartSkeleton } from '@/components/common/PageSkeleton'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ChartTooltip } from './ChartTooltip'
+import { chartDataKey } from './chartDataKey'
 
 interface BarChartCardProps<T> {
   title: string
@@ -47,16 +48,16 @@ export function BarChartCard<T extends object>({
         {horizontal ? (
           <>
             <XAxis type="number" stroke="var(--text-tertiary)" fontSize={12} tickLine={false} axisLine={false} />
-            <YAxis dataKey={xKey as any} type="category" stroke="var(--text-tertiary)" fontSize={12} tickLine={false} axisLine={false} width={80} />
+            <YAxis dataKey={chartDataKey<T>(xKey)} type="category" stroke="var(--text-tertiary)" fontSize={12} tickLine={false} axisLine={false} width={80} />
           </>
         ) : (
           <>
-            <XAxis dataKey={xKey as any} stroke="var(--text-tertiary)" fontSize={12} tickLine={false} axisLine={false} />
+            <XAxis dataKey={chartDataKey<T>(xKey)} stroke="var(--text-tertiary)" fontSize={12} tickLine={false} axisLine={false} />
             <YAxis stroke="var(--text-tertiary)" fontSize={12} tickLine={false} axisLine={false} />
           </>
         )}
         <RechartsTooltip content={<ChartTooltip />} cursor={{ fill: 'var(--surface-2)' }} />
-        <Bar dataKey={yKey as any} radius={[4, 4, 4, 4]} animationDuration={400}>
+        <Bar dataKey={chartDataKey<T>(yKey)} radius={[4, 4, 4, 4]} animationDuration={400}>
           {data.map((_, index) => (
             <Cell key={index} fill={colors?.[index] ?? 'var(--accent)'} />
           ))}

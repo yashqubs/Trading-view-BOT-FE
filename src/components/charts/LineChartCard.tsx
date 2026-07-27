@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartSkeleton } from '@/components/common/PageSkeleton'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ChartTooltip } from './ChartTooltip'
+import { chartDataKey } from './chartDataKey'
 
 interface LineChartCardProps<T> {
   title: string
@@ -37,7 +38,7 @@ export function LineChartCard<T extends object>({
     <ResponsiveContainer width="100%" height={height}>
       <LineChart data={data as Record<string, unknown>[]} aria-label={title} role="img">
         <CartesianGrid stroke="var(--border)" vertical={false} />
-        <XAxis dataKey={xKey as any} stroke="var(--text-tertiary)" fontSize={12} tickLine={false} axisLine={false} />
+        <XAxis dataKey={chartDataKey<T>(xKey)} stroke="var(--text-tertiary)" fontSize={12} tickLine={false} axisLine={false} />
         <YAxis
           stroke="var(--text-tertiary)"
           fontSize={12}
@@ -50,7 +51,7 @@ export function LineChartCard<T extends object>({
           }
         />
         <RechartsTooltip content={<ChartTooltip />} />
-        <Line type="monotone" dataKey={yKey as any} stroke="var(--accent)" strokeWidth={2} dot={false} animationDuration={400} />
+        <Line type="monotone" dataKey={chartDataKey<T>(yKey)} stroke="var(--accent)" strokeWidth={2} dot={false} animationDuration={400} />
       </LineChart>
     </ResponsiveContainer>
   )

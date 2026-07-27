@@ -41,6 +41,7 @@ import {
   type ExecutionMode,
   type StockMapping,
   type TradeDirection,
+  type TradeLog,
   type TradeStatus,
 } from '@/types'
 import { formatCount, formatDateTime, formatMoney, formatPercent, formatPrice, formatQuantity } from '@/lib/format'
@@ -561,7 +562,7 @@ export function StockDetail() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {trades.data.items.map((trade) => (
+                  {trades.data.items.map((trade: TradeLog) => (
                     <TableRow key={trade.id}>
                       <TableCell className="whitespace-nowrap text-text-secondary text-xs">
                         {formatDateTime(trade.signalReceivedAt)}

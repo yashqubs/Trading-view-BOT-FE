@@ -530,7 +530,7 @@ export function Trades() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.items.map((trade) => (
+                {data.items.map((trade: TradeLog) => (
                   <TableRow
                     key={trade.id}
                     className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"

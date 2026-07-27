@@ -4,6 +4,7 @@ import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import { ChartSkeleton } from '@/components/common/PageSkeleton'
 import { EmptyState } from '@/components/common/EmptyState'
 import { ChartTooltip } from './ChartTooltip'
+import { chartDataKey } from './chartDataKey'
 
 interface AreaChartCardProps<T> {
   title: string
@@ -41,12 +42,12 @@ export function AreaChartCard<T extends object>({
           </linearGradient>
         </defs>
         <CartesianGrid stroke="var(--border)" vertical={false} />
-        <XAxis dataKey={xKey as any} stroke="var(--text-tertiary)" fontSize={12} tickLine={false} axisLine={false} />
+        <XAxis dataKey={chartDataKey<T>(xKey)} stroke="var(--text-tertiary)" fontSize={12} tickLine={false} axisLine={false} />
         <YAxis stroke="var(--text-tertiary)" fontSize={12} tickLine={false} axisLine={false} />
         <RechartsTooltip content={<ChartTooltip />} />
         <Area
           type="monotone"
-          dataKey={yKey as any}
+          dataKey={chartDataKey<T>(yKey)}
           stroke="var(--accent)"
           strokeWidth={2}
           fill="url(#areaFill)"
