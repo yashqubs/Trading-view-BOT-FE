@@ -10,6 +10,8 @@ import { Switch } from '@/components/ui/switch'
 import { useSystemStatus } from '@/hooks/useSystem'
 import { disableTwoFactor, enableTwoFactor } from '@/api/auth'
 import { useAuth } from '@/context/AuthContext'
+import { useSocketEvent } from '@/hooks/useSocketEvent'
+import { socket } from '@/lib/socket'
 import { formatDateTime, formatRelativeTime } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +20,15 @@ export function Settings() {
   const system = useSystemStatus()
   const [copied, setCopied] = useState(false)
   const [toggling2fa, setToggling2fa] = useState(false)
+
+  // Whether THIS browser tab has a live push connection open — separate from
+  // TradingView and the broker, which is why it lives here rather than
+  // alongside "Broker connection" above. Was previously shown as a "Live"
+  // pill in the top bar, which non-technical users read as "is TradingView
+  // connected" — it never was.
+  const [liveUpdates, setLiveUpdates] = useState(() => socket.connected)
+  useSocketEvent('connect', () => setLiveUpdates(true))
+  useSocketEvent('disconnect', () => setLiveUpdates(false))
 
   const twoFactorOn = user?.twoFactorEnabled ?? false
 
@@ -79,7 +90,7 @@ export function Settings() {
               <p className="text-xs text-text-tertiary">Set this as the webhook URL on both TradingView alerts.</p>
             </div>
             <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
-              <Label>IG connection</Label>
+              <Label>Broker connection (IG)</Label>
               <Badge variant={system.data?.igConnected ? 'success' : 'danger'}>
                 {system.data?.igConnected ? 'Connected' : 'Disconnected'}
               </Badge>
@@ -96,6 +107,19 @@ export function Settings() {
               ) : (
                 <Badge variant="neutral">None received yet</Badge>
               )}
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2.5">
+              <div>
+                <Label>Live updates in this browser</Label>
+                <p className="mt-0.5 text-xs text-text-tertiary">
+                  Whether new trades and positions appear here instantly, without a page
+                  refresh. Separate from TradingView and the broker — a "disconnected" here
+                  just means reload this tab.
+                </p>
+              </div>
+              <Badge variant={liveUpdates ? 'success' : 'neutral'}>
+                {liveUpdates ? 'Connected' : 'Disconnected'}
+              </Badge>
             </div>
           </div>
         )}

@@ -4,11 +4,9 @@ import { Moon, Sun, Sunrise, Sunset, type LucideIcon } from 'lucide-react'
 import { NAV_ITEMS } from './nav-items'
 import { BotToggle } from './BotToggle'
 import { ThemeToggle } from './ThemeToggle'
+import { TradingStatusPill } from './TradingStatusPill'
 import { UserMenu } from './UserMenu'
 import { useAuth } from '@/context/AuthContext'
-import { useSocketEvent } from '@/hooks/useSocketEvent'
-import { socket } from '@/lib/socket'
-import { cn } from '@/lib/utils'
 
 // The sidebar and page heading already say what page you're on, so the top
 // bar doesn't repeat a third copy of the label. Instead it surfaces the
@@ -36,7 +34,6 @@ export function TopBar() {
   const { user } = useAuth()
   const crumb = useTickerCrumb()
   const [now, setNow] = useState(() => new Date())
-  const [live, setLive] = useState(() => socket.connected)
 
   // Minute-granularity is plenty for a greeting/date — avoids a per-second
   // re-render tax on every page for something nobody reads that precisely.
@@ -44,9 +41,6 @@ export function TopBar() {
     const id = setInterval(() => setNow(new Date()), 60_000)
     return () => clearInterval(id)
   }, [])
-
-  useSocketEvent('connect', () => setLive(true))
-  useSocketEvent('disconnect', () => setLive(false))
 
   const { text, icon: Icon } = getGreeting(now.getHours())
   const firstName = user?.name.split(' ')[0]
@@ -71,17 +65,7 @@ export function TopBar() {
       </div>
 
       <div className="flex flex-1 items-center justify-end gap-2 sm:gap-3">
-        <span
-          className={cn(
-            'hidden items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium sm:flex',
-            live
-              ? 'border-success/30 bg-success/10 text-success'
-              : 'border-border bg-surface-2 text-text-tertiary',
-          )}
-        >
-          <span className={cn('h-1.5 w-1.5 rounded-full', live ? 'animate-pulse bg-success' : 'bg-text-tertiary')} />
-          {live ? 'Live' : 'Offline'}
-        </span>
+        <TradingStatusPill />
         <div className="hidden h-6 w-px bg-border sm:block" />
         <BotToggle />
         <ThemeToggle />
