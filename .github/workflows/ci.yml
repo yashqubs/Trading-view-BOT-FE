@@ -104,7 +104,13 @@ jobs:
             git reset --hard origin/main
 
             echo "Installing dependencies..."
-            pnpm install --frozen-lockfile
+            # CI=true tells pnpm to skip the interactive confirm-before-purge
+            # prompt it otherwise shows when node_modules needs rebuilding —
+            # this SSH script runs with no TTY to answer it, so pnpm aborted
+            # instead (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY). Safe here:
+            # --frozen-lockfile already guarantees only the lockfile's exact
+            # contents get installed.
+            CI=true pnpm install --frozen-lockfile
 
             echo "Building frontend..."
             VITE_MOCK=false VITE_API_BASE_URL="${{ secrets.VITE_API_BASE_URL }}" pnpm build

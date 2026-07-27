@@ -340,10 +340,14 @@ const ALL_STATUS_TRADES: TradeLog[] = TRADE_STATUSES.map((status, i) => {
   const direction: 'BUY' | 'SELL' = i % 2 === 0 ? 'BUY' : 'SELL'
   const signalPrice = 150 + i * 10
   const signalAt = hoursAgo(i * 2 + 1)
-  // Closing a position (SELL) is never a new investment — tradeValue is only
-  // ever set for a successful BUY, mirroring the real backend. size is set
-  // for any successful trade (the stake, or the size of the closed position).
-  const tradeValue = isSuccess && direction === 'BUY' ? 500 + i * 50 : null
+  // This mock's simplified mental model: SELL rows close, BUY rows open
+  // (the real backend can do either direction for either action — see
+  // TradeService.executeTrade — but that needs actual position state to
+  // model, which this synthetic data doesn't track). tradeValue is set for
+  // any successful trade, open or close, mirroring the real backend since
+  // 2026-07-24; isClosingTrade is what keeps a close out of "invested" totals.
+  const isClosingTrade = direction === 'SELL'
+  const tradeValue = isSuccess ? 500 + i * 50 : null
   const size = isSuccess ? parseFloat(((tradeValue ?? 500 + i * 50) / signalPrice / 100).toFixed(4)) : null
   // Market orders fill at whatever price IG has right now, not the signal
   // price — a small drift here mirrors that instead of implying an exact match.
@@ -356,6 +360,7 @@ const ALL_STATUS_TRADES: TradeLog[] = TRADE_STATUSES.map((status, i) => {
     signalPrice,
     executedPrice,
     tradeValue,
+    isClosingTrade,
     size,
     // Some trades ran in SIGNAL_PRICE mode with a tolerance; MARKET rows are null.
     maxSlippagePercent: isSuccess && i % 3 === 0 ? 1 : null,
@@ -379,10 +384,9 @@ const BULK_TRADES: TradeLog[] = Array.from({ length: 100 }, (_, i) => {
   const direction: 'BUY' | 'SELL' = i % 2 === 0 ? 'BUY' : 'SELL'
   const signalPrice = parseFloat((150 + (i % 30) * 5 + seeded(i * 5) * 3).toFixed(2))
   const signalAt = hoursAgo(i * 0.5 + 1)
-  // Closing a position (SELL) is never a new investment — tradeValue is only
-  // ever set for a successful BUY, mirroring the real backend. size is set
-  // for any successful trade (the stake, or the size of the closed position).
-  const tradeValue = isSuccess && direction === 'BUY' ? 500 + (i % 5) * 100 : null
+  // See ALL_STATUS_TRADES above for the SELL-closes/BUY-opens mock model.
+  const isClosingTrade = direction === 'SELL'
+  const tradeValue = isSuccess ? 500 + (i % 5) * 100 : null
   const size = isSuccess
     ? parseFloat(((tradeValue ?? 500 + (i % 5) * 100) / signalPrice / 100).toFixed(4))
     : null
@@ -399,6 +403,7 @@ const BULK_TRADES: TradeLog[] = Array.from({ length: 100 }, (_, i) => {
     signalPrice,
     executedPrice,
     tradeValue,
+    isClosingTrade,
     size,
     maxSlippagePercent: isSuccess && i % 4 === 0 ? 0.5 : null,
     dealReference: isSuccess ? randomId((i + 100) * 11, 'DRF') : null,
@@ -424,12 +429,12 @@ function computeSummary(trades: TradeLog[]): TradeSummary {
   ).length
   const buyCount = trades.filter((t) => t.direction === 'BUY').length
   const sellCount = trades.filter((t) => t.direction === 'SELL').length
-  const totalInvested = trades.reduce((s, t) => s + (t.tradeValue ?? 0), 0)
-  const executedTrades = trades.filter((t) => t.tradeValue !== null)
+  // Closes have a real tradeValue too now, but they're not new investment —
+  // excluded here the same way the real backend excludes them (isClosingTrade).
+  const newInvestmentTrades = trades.filter((t) => t.tradeValue !== null && !t.isClosingTrade)
+  const totalInvested = newInvestmentTrades.reduce((s, t) => s + (t.tradeValue ?? 0), 0)
   const avgInvestment =
-    executedTrades.length > 0
-      ? executedTrades.reduce((s, t) => s + (t.tradeValue ?? 0), 0) / executedTrades.length
-      : null
+    newInvestmentTrades.length > 0 ? totalInvested / newInvestmentTrades.length : null
 
   return {
     totalTrades: trades.length,

@@ -29,7 +29,7 @@ const LATENCY = 400
 // Mutable in-memory state so mutations actually reflect in subsequent GETs
 let mockRules: TradingRules = { ...MOCK_TRADING_RULES }
 
-const BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000'
+const BASE = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api'
 
 function url(path: string) {
   return `${BASE}${path}`
@@ -133,6 +133,10 @@ export const handlers = [
       tvTicker: body.tvTicker,
       igEpic: stock?.igEpic ?? null,
       direction: body.direction,
+      // Mirrors this mock's simplified SELL-closes/BUY-opens model (see
+      // mocks/data.ts) — the real backend decides open-vs-close from
+      // existing position state, not direction alone.
+      isClosingTrade: body.direction === 'SELL',
       signalPrice: body.price,
       // Recorded only when a LIMIT level enforces it, mirroring the backend.
       maxSlippagePercent:
@@ -190,14 +194,16 @@ export const handlers = [
       } satisfies TestSignalResult)
     }
 
-    // SELL closes the existing position's own size — never a new investment.
-    // BUY sizes from the resolved investment amount, mirroring the real
+    // SELL closes the existing position's own size — its £ notional is real
+    // (shown via tradeValue) but never a new investment (isClosingTrade,
+    // already set on base, is what keeps it out of "invested" totals). BUY
+    // sizes from the resolved investment amount, mirroring the real
     // backend's calculateSize (£/point stake ÷ price, not a share count).
     let size: number;
     let tradeValue: number | null;
     if (body.direction === 'SELL') {
       size = existingPosition!.size
-      tradeValue = null
+      tradeValue = Number((size * body.price * 100).toFixed(2))
     } else {
       const investmentAmount = body.investmentAmount ?? stock.investmentAmount ?? mockRules.investmentAmount
       size = Math.floor((investmentAmount / body.price / 100) * 100) / 100
@@ -504,7 +510,7 @@ export const handlers = [
       sortOrder: (sp.get('sortOrder') as TradeFilters['sortOrder']) ?? undefined,
       pageSize: 10000,
     }
-    const header = 'id,ticker,direction,status,signalPrice,executedPrice,size,tradeValue,dealId,signalReceivedAt,executedAt\n'
+    const header = 'id,ticker,direction,status,signalPrice,executedPrice,size,tradeValue,isClosingTrade,dealId,signalReceivedAt,executedAt\n'
     const rows = getMockTradesPage(filters)
       .items.map((t) =>
         [
@@ -516,6 +522,7 @@ export const handlers = [
           t.executedPrice?.toFixed(2) ?? '',
           t.size ?? '',
           t.tradeValue ?? '',
+          t.isClosingTrade,
           t.dealId ?? '',
           t.signalReceivedAt,
           t.executedAt ?? '',

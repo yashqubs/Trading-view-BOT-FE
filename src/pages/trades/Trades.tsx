@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import {
   Download,
@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
+import { StatusCombobox } from '@/components/common/StatusCombobox'
 import { StatusPill } from '@/components/common/StatusPill'
 import { EmptyState } from '@/components/common/EmptyState'
 import { Pagination } from '@/components/common/Pagination'
@@ -257,6 +258,7 @@ function SummaryRow({ summary, loading }: { summary: TradeSummary | undefined; l
 export function Trades() {
   // Supports deep links like /trades?status=FAILED&from=2026-06-01&to=2026-06-30&ticker=AAPL
   // from the dashboard cards — they carry the exact filter context the user saw there.
+  const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const initialStatus = searchParams.get('status')
   const initialFrom = searchParams.get('from') ?? undefined
@@ -426,15 +428,7 @@ export function Trades() {
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as TradeStatus | 'ALL')}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ALL">All statuses</SelectItem>
-                  {TRADE_STATUSES.map((s) => (
-                    <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <StatusCombobox value={status} onChange={setStatus} />
             </div>
             <div className="flex flex-col gap-1">
               <Label className="text-xs">Sort by</Label>
@@ -537,7 +531,20 @@ export function Trades() {
               </TableHeader>
               <TableBody>
                 {data.items.map((trade) => (
-                  <TableRow key={trade.id}>
+                  <TableRow
+                    key={trade.id}
+                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`View ${trade.tvTicker} statistics`}
+                    onClick={() => navigate(`/stocks/${trade.tvTicker}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        navigate(`/stocks/${trade.tvTicker}`)
+                      }
+                    }}
+                  >
                     <TableCell className="whitespace-nowrap text-text-secondary text-xs">
                       {formatDateTime(trade.signalReceivedAt)}
                     </TableCell>
@@ -561,7 +568,11 @@ export function Trades() {
                     </TableCell>
                     <TableCell
                       className="text-right tabular-nums"
-                      title={trade.direction === 'SELL' ? 'Closing a position is not a new investment' : undefined}
+                      title={
+                        trade.isClosingTrade
+                          ? 'Value of the position closed — not counted as new investment'
+                          : undefined
+                      }
                     >
                       {formatMoney(trade.tradeValue)}
                     </TableCell>
@@ -578,7 +589,7 @@ export function Trades() {
                     <TableCell>
                       <StatusPill status={trade.status} />
                     </TableCell>
-                    <TableCell className="max-w-[260px]">
+                    <TableCell className="max-w-[260px]" onClick={(e) => e.stopPropagation()}>
                       <TradeReason trade={trade} onOpen={setReasonModalTrade} />
                     </TableCell>
                     <TableCell className="font-mono text-xs text-text-tertiary">
