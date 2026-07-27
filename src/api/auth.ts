@@ -48,8 +48,8 @@ export function logout() {
   return api.post('/auth/logout').then((r) => r.data)
 }
 
-export function getMe() {
-  return api.get<User>('/auth/me').then((r) => r.data)
+export function getMe(options?: { sessionProbe?: boolean }) {
+  return api.get<User>('/auth/me', options).then((r) => r.data)
 }
 
 export function changeOwnPassword(currentPassword: string, newPassword: string) {

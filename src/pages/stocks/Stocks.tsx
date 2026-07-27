@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Plus, Search, Trash2, X } from 'lucide-react'
@@ -14,6 +14,7 @@ import { EmptyState } from '@/components/common/EmptyState'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { TableSkeleton } from '@/components/common/PageSkeleton'
 import { SortableHeader, toggleSort, type SortConfig } from '@/components/common/SortableHeader'
+import { Pagination } from '@/components/common/Pagination'
 import { useDeleteStock, useStocks, useUpdateStock } from '@/hooks/useStocks'
 import { useTradingRules } from '@/hooks/useRules'
 import { useSystemStatus } from '@/hooks/useSystem'
@@ -47,6 +48,8 @@ export function Stocks() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ENABLED' | 'DISABLED'>('ALL')
   // Newest-added first by default so a stock you just added is easy to find.
   const [sort, setSort] = useState<SortConfig<SortKey>>({ by: 'createdAt', order: 'desc' })
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
 
   const hasFilters = !!search || statusFilter !== 'ALL'
 
@@ -84,6 +87,13 @@ export function Stocks() {
       }
     })
   }, [stocks, search, statusFilter, sort, rules])
+
+  // Reset to page 1 when filters, sort, or page size change.
+  useEffect(() => {
+    setPage(1)
+  }, [search, statusFilter, sort, pageSize])
+
+  const pagedStocks = filteredStocks.slice((page - 1) * pageSize, page * pageSize)
 
   function handleSort(key: SortKey) {
     setSort((s) => toggleSort(s, key))
@@ -165,6 +175,7 @@ export function Stocks() {
           }
         />
       ) : (
+        <>
         <Card className="p-0 animate-fade-slide-in">
           <Table>
             <TableHeader>
@@ -180,7 +191,7 @@ export function Stocks() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredStocks.map((stock) => (
+              {pagedStocks.map((stock) => (
                 <TableRow
                   key={stock.id}
                   className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
@@ -251,6 +262,15 @@ export function Stocks() {
             </TableBody>
           </Table>
         </Card>
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalItems={filteredStocks.length}
+          itemLabel="stock"
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+        </>
       )}
     </div>
   )

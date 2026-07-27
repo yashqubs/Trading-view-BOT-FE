@@ -19,8 +19,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
   const queryClient = useQueryClient()
 
+  // Restore an existing session on load. Flagged as a probe so a 401 — the
+  // normal answer whenever the session has lapsed — resolves to "logged out"
+  // and lets ProtectedRoute route to /login, instead of the Axios interceptor
+  // force-reloading the page out from under a boot that hasn't finished.
   useEffect(() => {
-    getMe()
+    getMe({ sessionProbe: true })
       .then(setUser)
       .catch(() => setUser(null))
       .finally(() => setLoading(false))

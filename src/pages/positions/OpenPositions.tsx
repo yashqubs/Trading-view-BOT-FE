@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Search, TrendingDown, TrendingUp, X } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { EmptyState } from '@/components/common/EmptyState'
 import { TableSkeleton } from '@/components/common/PageSkeleton'
 import { SortableHeader, toggleSort, type SortConfig } from '@/components/common/SortableHeader'
+import { Pagination } from '@/components/common/Pagination'
 import { useOpenPositions } from '@/hooks/useStats'
 import { formatQuantity } from '@/lib/format'
 import type { TradeDirection } from '@/types'
@@ -25,6 +26,8 @@ export function OpenPositions() {
   const [search, setSearch] = useState('')
   const [directionFilter, setDirectionFilter] = useState<TradeDirection | 'ALL'>('ALL')
   const [sort, setSort] = useState<SortConfig<SortKey>>({ by: 'tvTicker', order: 'asc' })
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
 
   const hasFilters = !!search || directionFilter !== 'ALL'
 
@@ -67,6 +70,13 @@ export function OpenPositions() {
       }
     })
   }, [positions.data, search, directionFilter, sort])
+
+  // Reset to page 1 when filters, sort, or page size change.
+  useEffect(() => {
+    setPage(1)
+  }, [search, directionFilter, sort, pageSize, ticker])
+
+  const pagedPositions = filteredPositions.slice((page - 1) * pageSize, page * pageSize)
 
   function handleSort(key: SortKey) {
     setSort((s) => toggleSort(s, key))
@@ -153,6 +163,7 @@ export function OpenPositions() {
           }
         />
       ) : (
+        <>
         <Card className="p-0 animate-fade-slide-in">
           <Table>
             <TableHeader>
@@ -165,7 +176,7 @@ export function OpenPositions() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPositions.map((position) => (
+              {pagedPositions.map((position) => (
                 <TableRow key={position.igEpic}>
                   <TableCell className="font-medium">{position.tvTicker}</TableCell>
                   <TableCell className="text-text-secondary">{position.instrumentName}</TableCell>
@@ -197,6 +208,15 @@ export function OpenPositions() {
             </TableBody>
           </Table>
         </Card>
+        <Pagination
+          page={page}
+          pageSize={pageSize}
+          totalItems={filteredPositions.length}
+          itemLabel="position"
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+        </>
       )}
     </div>
   )

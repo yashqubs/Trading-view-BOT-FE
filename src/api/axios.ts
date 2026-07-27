@@ -1,5 +1,19 @@
 import axios from "axios";
 
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    /**
+     * Marks the one-off "am I already logged in?" call AuthContext makes on
+     * app load. A 401 there is a normal answer on any cold visit, not a
+     * session dying under the user, so it must not force a hard navigation —
+     * see the response interceptor.
+     */
+    sessionProbe?: boolean;
+    /** Set by the response interceptor; guards against a refresh/retry loop. */
+    _retriedAfterRefresh?: boolean;
+  }
+}
+
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3000",
   withCredentials: true,
@@ -31,13 +45,21 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// A 401 on any of these means "wrong credentials" or "no session to refresh
-// yet" — not "my session expired" — so a silent-refresh retry would be
-// pointless (or, for /auth/refresh itself, an infinite loop).
-const NO_REFRESH_RETRY_PATHS = ["/auth/login", "/auth/refresh"];
+// A 401 from either of these is not, on its own, evidence that the session is
+// dead — so neither gets a silent-refresh retry, and neither drives the
+// logout/redirect below. The request that originally failed decides that.
+//
+//   /auth/login — "wrong credentials" or "no session yet". Retrying via
+//     refresh would be pointless.
+//   /auth/refresh — retrying it through itself would loop, and a 401 here is
+//     routinely benign: refresh tokens are single-use, so a tab that loses the
+//     rotation race 401s while the winner has already put fresh cookies in the
+//     shared jar. Redirecting on that would log every tab out over a race the
+//     retry below recovers from cleanly.
+const NON_SESSION_401_PATHS = ["/auth/login", "/auth/refresh"];
 
-function shouldAttemptRefresh(url: string | undefined): boolean {
-  return !!url && !NO_REFRESH_RETRY_PATHS.some((path) => url.includes(path));
+function isNonSession401(url: string | undefined): boolean {
+  return !!url && NON_SESSION_401_PATHS.some((path) => url.includes(path));
 }
 
 // Shared across concurrent 401s so a burst of requests failing at once (the
@@ -49,16 +71,17 @@ let refreshPromise: Promise<unknown> | null = null;
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config as
-      | (typeof error.config & { _retriedAfterRefresh?: boolean })
-      | undefined;
+    const originalRequest = error.config;
 
     if (
-      error.response?.status === 401 &&
-      originalRequest &&
-      !originalRequest._retriedAfterRefresh &&
-      shouldAttemptRefresh(originalRequest.url)
+      error.response?.status !== 401 ||
+      !originalRequest ||
+      isNonSession401(originalRequest.url)
     ) {
+      return Promise.reject(error);
+    }
+
+    if (!originalRequest._retriedAfterRefresh) {
       originalRequest._retriedAfterRefresh = true;
       try {
         if (!refreshPromise) {
@@ -69,27 +92,30 @@ api.interceptors.response.use(
         await refreshPromise;
         return api(originalRequest);
       } catch {
-        // Refresh failed — but that's not always session death. Refresh
-        // tokens are single-use, so when another tab wins the rotation race
-        // this tab's refresh 401s even though the winner already put fresh
-        // cookies in the shared jar. Retry the original request once with
-        // whatever cookies exist now; if it still 401s, its own pass through
-        // this interceptor skips refresh (_retriedAfterRefresh) and lands in
-        // the logout branch below.
+        // Refresh failed — but that's not always session death (see
+        // NON_SESSION_401_PATHS on the rotation race). Retry the original
+        // request once with whatever cookies exist now; if it still 401s, its
+        // own pass through here skips refresh (_retriedAfterRefresh) and
+        // lands in the logout branch below.
         return api(originalRequest);
       }
     }
 
-    if (error.response?.status === 401) {
-      onUnauthorized?.();
-      // Belt-and-braces: clearing the user in AuthContext should make
-      // ProtectedRoute redirect reactively, but don't rely solely on that
-      // propagating through React's render cycle. A stale/expired session
-      // must never leave the user stuck looking at a broken authenticated
-      // page — force it.
-      if (window.location.pathname !== "/login") {
-        window.location.assign("/login");
-      }
+    // Refresh has already been tried and the request still 401s: the session
+    // really is gone.
+    onUnauthorized?.();
+
+    // Only a session that died *under* the user warrants a hard navigation.
+    // The app-load probe 401s on every cold visit, which is simply "not
+    // logged in" — forcing a full page reload for that meant every return
+    // visit after the session lapsed reloaded the page mid-boot before the
+    // login form had rendered. AuthContext clears the user and ProtectedRoute
+    // navigates to /login reactively, which is enough for the probe.
+    if (
+      !originalRequest.sessionProbe &&
+      window.location.pathname !== "/login"
+    ) {
+      window.location.assign("/login");
     }
     return Promise.reject(error);
   },

@@ -9,8 +9,6 @@ import {
   TrendingUp,
   TrendingDown,
   X,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -25,6 +23,7 @@ import { StatCard } from '@/components/common/StatCard'
 import { StatusPill } from '@/components/common/StatusPill'
 import { EmptyState } from '@/components/common/EmptyState'
 import { StatGridSkeleton } from '@/components/common/PageSkeleton'
+import { Pagination } from '@/components/common/Pagination'
 import { DateRangePicker, type DateRangeValue } from '@/components/common/DateRangePicker'
 import { LineChartCard } from '@/components/charts/LineChartCard'
 import { BarChartCard } from '@/components/charts/BarChartCard'
@@ -47,7 +46,7 @@ import {
 import { formatCount, formatDateTime, formatMoney, formatPercent, formatPrice, formatQuantity } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
-const PAGE_SIZE = 25
+const DEFAULT_PAGE_SIZE = 25
 
 type ExpandedChart = 'timeline' | 'entry-prices' | 'buy-sell' | 'status-breakdown'
 
@@ -204,12 +203,13 @@ export function StockDetail() {
   const [dateRange, setDateRange] = useState<DateRangeValue>({ preset: 'all' })
   const [sort, setSort] = useState<SortConfig>({ by: 'signalReceivedAt', order: 'desc' })
   const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
   const [exporting, setExporting] = useState(false)
   const [expandedChart, setExpandedChart] = useState<ExpandedChart | null>(null)
 
   useEffect(() => {
     setPage(1)
-  }, [direction, status, dateRange, sort, ticker])
+  }, [direction, status, dateRange, sort, ticker, pageSize])
 
   function handleSort(col: TradeSortBy) {
     setSort((s) =>
@@ -240,11 +240,10 @@ export function StockDetail() {
     sortBy: sort.by,
     sortOrder: sort.order,
     page,
-    pageSize: PAGE_SIZE,
+    pageSize,
   }
 
   const trades = useTrades(filters)
-  const totalPages = trades.data ? Math.max(1, Math.ceil(trades.data.total / PAGE_SIZE)) : 1
 
   async function handleExport() {
     setExporting(true)
@@ -597,78 +596,14 @@ export function StockDetail() {
             </Card>
 
             {/* Pagination */}
-            <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-text-secondary">
-              <span>
-                {trades.data.total.toLocaleString()} trade{trades.data.total !== 1 ? 's' : ''}
-                {' · '}page {page} of {totalPages}
-              </span>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  disabled={page <= 1}
-                  onClick={() => setPage(1)}
-                  aria-label="First page"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <ChevronLeft className="-ml-3 h-4 w-4" />
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={page <= 1}
-                  onClick={() => setPage((p) => p - 1)}
-                >
-                  <ChevronLeft className="h-4 w-4" /> Previous
-                </Button>
-                <div className="flex items-center gap-1 px-2">
-                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
-                    let p: number
-                    if (totalPages <= 5) {
-                      p = i + 1
-                    } else if (page <= 3) {
-                      p = i + 1
-                    } else if (page >= totalPages - 2) {
-                      p = totalPages - 4 + i
-                    } else {
-                      p = page - 2 + i
-                    }
-                    return (
-                      <button
-                        key={p}
-                        onClick={() => setPage(p)}
-                        className={cn(
-                          'h-8 w-8 rounded-md text-sm font-medium transition-colors',
-                          p === page
-                            ? 'bg-accent-soft text-accent'
-                            : 'text-text-tertiary hover:bg-surface-2 hover:text-text-primary',
-                        )}
-                      >
-                        {p}
-                      </button>
-                    )
-                  })}
-                </div>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage((p) => p + 1)}
-                >
-                  Next <ChevronRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="icon"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage(totalPages)}
-                  aria-label="Last page"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                  <ChevronRight className="-ml-3 h-4 w-4" />
-                </Button>
-              </div>
-            </div>
+            <Pagination
+              page={page}
+              pageSize={pageSize}
+              totalItems={trades.data.total}
+              itemLabel="trade"
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </>
         )}
       </div>

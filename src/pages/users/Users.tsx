@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { Check, Copy, KeyRound, Search, ShieldCheck, UserCheck, UserX, X } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -19,6 +19,7 @@ import { EmptyState } from '@/components/common/EmptyState'
 import { ConfirmDialog } from '@/components/common/ConfirmDialog'
 import { TableSkeleton } from '@/components/common/PageSkeleton'
 import { SortableHeader, toggleSort, type SortConfig } from '@/components/common/SortableHeader'
+import { Pagination } from '@/components/common/Pagination'
 import { CreateUserModal } from './components/CreateUserModal'
 import { useDeactivateUser, useResetUserPassword, useUpdateUser, useUsers } from '@/hooks/useUsers'
 import { useAuth } from '@/context/AuthContext'
@@ -39,6 +40,8 @@ export function Users() {
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL')
   // Newest-added first by default so a user you just created is easy to find.
   const [sort, setSort] = useState<SortConfig<SortKey>>({ by: 'createdAt', order: 'desc' })
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(25)
 
   const hasFilters = !!search || statusFilter !== 'ALL'
 
@@ -76,6 +79,13 @@ export function Users() {
       }
     })
   }, [users, search, statusFilter, sort])
+
+  // Reset to page 1 when filters, sort, or page size change.
+  useEffect(() => {
+    setPage(1)
+  }, [search, statusFilter, sort, pageSize])
+
+  const pagedUsers = filteredUsers.slice((page - 1) * pageSize, page * pageSize)
 
   function handleSort(key: SortKey) {
     setSort((s) => toggleSort(s, key))
@@ -167,6 +177,7 @@ export function Users() {
             }
           />
         ) : (
+          <>
           <Card className="p-0 animate-fade-slide-in">
             <Table>
               <TableHeader>
@@ -180,7 +191,7 @@ export function Users() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((u) => {
+                {pagedUsers.map((u) => {
                   const isSelf = u.id === currentUser?.id
 
                   return (
@@ -274,6 +285,15 @@ export function Users() {
               </TableBody>
             </Table>
           </Card>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            totalItems={filteredUsers.length}
+            itemLabel="user"
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
+          </>
         )}
 
         <Dialog open={!!resetResult} onOpenChange={(open) => !open && setResetResult(null)}>
