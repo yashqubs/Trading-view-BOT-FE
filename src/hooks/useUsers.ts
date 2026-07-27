@@ -8,9 +8,10 @@ import {
   type CreateUserInput,
   type UpdateUserInput,
 } from '@/api/users'
+import type { User } from '@/types'
 
 export function useUsers() {
-  return useQuery({ queryKey: ['users'], queryFn: listUsers })
+  return useQuery<User[]>({ queryKey: ['users'], queryFn: listUsers })
 }
 
 export function useCreateUser() {

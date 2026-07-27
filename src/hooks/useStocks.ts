@@ -12,6 +12,7 @@ import {
   type StockListResponse,
   type UpdateStockInput,
 } from '@/api/mapping'
+import type { IgMarketResult, StockMapping } from '@/types'
 
 export function useStocks(filters: StockFilters) {
   return useQuery<StockListResponse>({
@@ -22,14 +23,14 @@ export function useStocks(filters: StockFilters) {
 }
 
 export function useStockTickers() {
-  return useQuery({
+  return useQuery<string[]>({
     queryKey: ['stocks', 'tickers'],
     queryFn: listStockTickers,
   })
 }
 
 export function useStock(ticker: string) {
-  return useQuery({
+  return useQuery<StockMapping>({
     queryKey: ['stocks', ticker],
     queryFn: () => getStock(ticker),
     enabled: !!ticker,
@@ -37,7 +38,7 @@ export function useStock(ticker: string) {
 }
 
 export function useIgMarketSearch(term: string) {
-  return useQuery({
+  return useQuery<IgMarketResult[]>({
     queryKey: ['ig-market-search', term],
     queryFn: () => searchIgMarkets(term),
     enabled: term.trim().length > 1,

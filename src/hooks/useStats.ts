@@ -7,9 +7,17 @@ import {
   getStatusBreakdown,
   getStockStats,
   type OpenPositionFilters,
+  type OpenPositionListResponse,
   type StatsFilters,
   type StockStatsFilters,
 } from '@/api/stats'
+import type {
+  DailyActivityPoint,
+  DashboardOverview,
+  StatusBreakdownPoint,
+  StockActivity,
+  StockStats,
+} from '@/types'
 import { useSocketEvent } from './useSocketEvent'
 
 export function useOverview(filters: StatsFilters = {}) {
@@ -20,7 +28,7 @@ export function useOverview(filters: StatsFilters = {}) {
   useSocketEvent('trade:created', invalidate)
   useSocketEvent('rules:updated', invalidate)
 
-  return useQuery({
+  return useQuery<DashboardOverview>({
     queryKey: ['stats', 'overview', filters],
     queryFn: () => getOverview(filters),
   })
@@ -32,7 +40,7 @@ export function useDailyActivity(filters: StatsFilters = {}) {
     queryClient.invalidateQueries({ queryKey: ['stats', 'daily-activity'] }),
   )
 
-  return useQuery({
+  return useQuery<DailyActivityPoint[]>({
     queryKey: ['stats', 'daily-activity', filters],
     queryFn: () => getDailyActivity(filters),
   })
@@ -44,7 +52,7 @@ export function useByStock(filters: StatsFilters = {}) {
     queryClient.invalidateQueries({ queryKey: ['stats', 'by-stock'] }),
   )
 
-  return useQuery({
+  return useQuery<StockActivity[]>({
     queryKey: ['stats', 'by-stock', filters],
     queryFn: () => getByStock(filters),
   })
@@ -56,7 +64,7 @@ export function useStatusBreakdown(filters: StatsFilters = {}) {
     queryClient.invalidateQueries({ queryKey: ['stats', 'status-breakdown'] }),
   )
 
-  return useQuery({
+  return useQuery<StatusBreakdownPoint[]>({
     queryKey: ['stats', 'status-breakdown', filters],
     queryFn: () => getStatusBreakdown(filters),
   })
@@ -68,7 +76,7 @@ export function useOpenPositions(filters: OpenPositionFilters = {}) {
     queryClient.invalidateQueries({ queryKey: ['stats', 'open-positions'] }),
   )
 
-  return useQuery({
+  return useQuery<OpenPositionListResponse>({
     queryKey: ['stats', 'open-positions', filters],
     queryFn: () => getOpenPositions(filters),
     placeholderData: keepPreviousData,
@@ -76,7 +84,7 @@ export function useOpenPositions(filters: OpenPositionFilters = {}) {
 }
 
 export function useStockStats(ticker: string, filters: StockStatsFilters = {}) {
-  return useQuery({
+  return useQuery<StockStats>({
     queryKey: ['stats', 'stock', ticker, filters],
     queryFn: () => getStockStats(ticker, filters),
   })

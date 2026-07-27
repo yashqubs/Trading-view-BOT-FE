@@ -1,5 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { getSystemStatus } from '@/api/system'
+import type { SystemStatus } from '@/api/system'
 import { useSocketEvent } from './useSocketEvent'
 
 export function useSystemStatus() {
@@ -12,5 +13,5 @@ export function useSystemStatus() {
   // system status card does.
   useSocketEvent('trade:created', invalidate)
 
-  return useQuery({ queryKey: ['system', 'status'], queryFn: getSystemStatus })
+  return useQuery<SystemStatus>({ queryKey: ['system', 'status'], queryFn: getSystemStatus })
 }

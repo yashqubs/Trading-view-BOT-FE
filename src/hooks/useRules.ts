@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getTradingRules, setBotEnabled, updateTradingRules, type UpdateTradingRulesInput } from '@/api/rules'
+import type { TradingRules } from '@/types'
 
 export function useTradingRules() {
-  return useQuery({ queryKey: ['rules'], queryFn: getTradingRules })
+  return useQuery<TradingRules>({ queryKey: ['rules'], queryFn: getTradingRules })
 }
 
 export function useUpdateTradingRules() {
@@ -23,8 +24,8 @@ export function useSetBotEnabled() {
     onMutate: async (enabled) => {
       await queryClient.cancelQueries({ queryKey: ['rules'] })
       const previous = queryClient.getQueryData(['rules'])
-      queryClient.setQueryData(['rules'], (old: unknown) =>
-        old ? { ...(old as object), botEnabled: enabled } : old,
+      queryClient.setQueryData<TradingRules>(['rules'], (old) =>
+        old ? { ...old, botEnabled: enabled } : old,
       )
       return { previous }
     },

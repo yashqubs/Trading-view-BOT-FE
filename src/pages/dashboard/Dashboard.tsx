@@ -28,6 +28,7 @@ import { useSetBotEnabled } from '@/hooks/useRules'
 import { useStockTickers } from '@/hooks/useStocks'
 import { formatCount, formatMoney, formatPercent } from '@/lib/format'
 import type { StatsFilters } from '@/api/stats'
+import type { StatusBreakdownPoint, StockActivity } from '@/types'
 import { cn } from '@/lib/utils'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -185,9 +186,9 @@ export function Dashboard() {
   const limitPct = Math.max(investedPct ?? 0, tradesPct ?? 0)
   const approachingLimit = limitPct >= 80 && limitPct < 100
 
-  const topStocks = (byStock.data ?? [])
+  const topStocks: StockActivity[] = (byStock.data ?? [])
     .slice()
-    .sort((a, b) => b.trades - a.trades)
+    .sort((a: StockActivity, b: StockActivity) => b.trades - a.trades)
     .slice(0, 8)
 
   const hasFilter = days !== DEFAULT_DAYS || !!ticker
@@ -451,11 +452,11 @@ export function Dashboard() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <BarChartCard
           title={`Status breakdown — ${periodLabel}`}
-          data={statusBreakdown.data?.filter((d) => d.count > 0)}
+          data={statusBreakdown.data?.filter((d: StatusBreakdownPoint) => d.count > 0)}
           xKey="status"
           yKey="count"
           loading={statusBreakdown.isLoading}
-          colors={statusBreakdown.data?.map((d) => STATUS_COLOR[d.status] ?? 'var(--accent)')}
+          colors={statusBreakdown.data?.map((d: StatusBreakdownPoint) => STATUS_COLOR[d.status] ?? 'var(--accent)')}
           onExpand={() => setExpandedChart('status-breakdown')}
         />
         <BarChartCard
@@ -525,11 +526,11 @@ export function Dashboard() {
           <BarChartCard
             title={expandedChartTitle}
             bare
-            data={statusBreakdown.data?.filter((d) => d.count > 0)}
+            data={statusBreakdown.data?.filter((d: StatusBreakdownPoint) => d.count > 0)}
             xKey="status"
             yKey="count"
             loading={statusBreakdown.isLoading}
-            colors={statusBreakdown.data?.map((d) => STATUS_COLOR[d.status] ?? 'var(--accent)')}
+            colors={statusBreakdown.data?.map((d: StatusBreakdownPoint) => STATUS_COLOR[d.status] ?? 'var(--accent)')}
             height={420}
           />
         )}
@@ -537,7 +538,7 @@ export function Dashboard() {
           <BarChartCard
             title={expandedChartTitle}
             bare
-            data={(byStock.data ?? []).slice().sort((a, b) => b.trades - a.trades)}
+            data={(byStock.data ?? []).slice().sort((a: StockActivity, b: StockActivity) => b.trades - a.trades)}
             xKey="tvTicker"
             yKey="trades"
             horizontal
