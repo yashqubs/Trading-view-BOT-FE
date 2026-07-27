@@ -689,7 +689,7 @@ The response is `{ attempted, closed, failures[] }`; a partial result is a norma
 
 ### Stack
 
-React + TypeScript + Vite, TailwindCSS, shadcn/ui, Recharts, TanStack Query, Socket.IO client, Axios with interceptors (JWT cookie auto-sent, `X-CSRF-Token` attached to mutations, 401 → silent refresh then redirect to login — see Section 5 Layer 4 "Session recovery" for which 401s redirect and which don't).
+React 19 + TypeScript + Vite, react-router v8 (import from `react-router`; `RouterProvider` from `react-router/dom`), TailwindCSS, shadcn/ui, Recharts, TanStack Query, Socket.IO client, Axios with interceptors (JWT cookie auto-sent, `X-CSRF-Token` attached to mutations, 401 → silent refresh then redirect to login — see Section 5 Layer 4 "Session recovery" for which 401s redirect and which don't).
 
 ---
 

@@ -47,6 +47,17 @@ Two ways to run without the real backend:
 - `src/routes/` — router and the auth route guard
 - `src/mocks/` — MSW handlers + fixtures for `VITE_MOCK=true`
 
+### Routing — import from `react-router`, not `react-router-dom`
+
+The `react-router-dom` package **no longer exists**: v8 removed it (it had only been a v6 compatibility shim). Everything imports from `react-router` — with one exception that matters:
+
+```ts
+import { RouterProvider } from 'react-router/dom'   // ← only this one
+import { Link, Navigate, Outlet, useNavigate } from 'react-router'
+```
+
+`RouterProvider` must come from `react-router/dom`, which wraps the base provider with React DOM's `flushSync`. Both exports are **type-identical**, so importing the wrong one compiles cleanly and fails silently at runtime (view transitions and scroll restoration lose synchronous flushing). `src/routes/router.test.tsx` covers the routing layer but deliberately does *not* catch this — it's called out in that file.
+
 ## Pages
 
 | Path | What it is |

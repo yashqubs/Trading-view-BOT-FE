@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useParams } from 'react-router-dom'
+import { useLocation, useParams } from 'react-router'
 import { Moon, Sun, Sunrise, Sunset, type LucideIcon } from 'lucide-react'
 import { NAV_ITEMS } from './nav-items'
 import { BotToggle } from './BotToggle'

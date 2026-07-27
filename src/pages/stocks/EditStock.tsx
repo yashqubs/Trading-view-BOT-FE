@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router'
 import { toast } from 'sonner'
 import { ArrowLeft } from 'lucide-react'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'

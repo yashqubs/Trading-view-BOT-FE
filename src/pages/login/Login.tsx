@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { Mail } from 'lucide-react'
 import axios from 'axios'

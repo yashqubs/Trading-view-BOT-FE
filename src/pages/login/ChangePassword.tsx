@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router'
 import { changeOwnPassword, getMe } from '@/api/auth'
 import { useAuth } from '@/context/AuthContext'
 import { AuthShell } from '@/components/common/AuthShell'
