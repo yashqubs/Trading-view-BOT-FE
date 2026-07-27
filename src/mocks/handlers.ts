@@ -18,7 +18,11 @@ import {
   MOCK_STATUS_BREAKDOWN,
   MOCK_STOCK_STATS,
   getMockTradesPage,
+  getMockStocksPage,
+  getMockOpenPositionsPage,
 } from './data'
+import type { StockFilters } from '@/api/mapping'
+import type { OpenPositionFilters } from '@/api/stats'
 import type { TradeFilters } from '@/api/trades'
 import type { TestSignalResult } from '@/api/testSignal'
 import type { TradingRules } from '@/types'
@@ -339,9 +343,23 @@ export const handlers = [
 
   // ─── Stocks / Mapping ─────────────────────────────────────────────────────────
 
-  http.get(url('/mapping'), async () => {
+  http.get(url('/mapping'), async ({ request }) => {
     await delay(LATENCY)
-    return HttpResponse.json(MOCK_STOCKS)
+    const sp = new URL(request.url).searchParams
+    const filters: StockFilters = {
+      search: sp.get('search') ?? undefined,
+      enabled: sp.has('enabled') ? sp.get('enabled') === 'true' : undefined,
+      sortBy: (sp.get('sortBy') as StockFilters['sortBy']) ?? undefined,
+      sortOrder: (sp.get('sortOrder') as StockFilters['sortOrder']) ?? undefined,
+      page: sp.has('page') ? Number(sp.get('page')) : undefined,
+      pageSize: sp.has('pageSize') ? Number(sp.get('pageSize')) : undefined,
+    }
+    return HttpResponse.json(getMockStocksPage(filters))
+  }),
+
+  http.get(url('/mapping/tickers'), async () => {
+    await delay(LATENCY)
+    return HttpResponse.json(MOCK_STOCKS.map((stock) => stock.tvTicker).sort())
   }),
 
   http.get(url('/mapping/search'), async ({ request }) => {
@@ -450,9 +468,16 @@ export const handlers = [
   http.get(url('/stats/open-positions'), async ({ request }) => {
     await delay(LATENCY)
     const sp = new URL(request.url).searchParams
-    const ticker = sp.get('ticker') ?? undefined
-    const positions = ticker ? MOCK_OPEN_POSITIONS.filter((p) => p.tvTicker === ticker) : MOCK_OPEN_POSITIONS
-    return HttpResponse.json(positions)
+    const filters: OpenPositionFilters = {
+      ticker: sp.get('ticker') ?? undefined,
+      search: sp.get('search') ?? undefined,
+      direction: (sp.get('direction') as OpenPositionFilters['direction']) ?? undefined,
+      sortBy: (sp.get('sortBy') as OpenPositionFilters['sortBy']) ?? undefined,
+      sortOrder: (sp.get('sortOrder') as OpenPositionFilters['sortOrder']) ?? undefined,
+      page: sp.has('page') ? Number(sp.get('page')) : undefined,
+      pageSize: sp.has('pageSize') ? Number(sp.get('pageSize')) : undefined,
+    }
+    return HttpResponse.json(getMockOpenPositionsPage(filters))
   }),
 
   http.get(url('/stats/status-breakdown'), async ({ request }) => {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Search, TrendingDown, TrendingUp, X } from 'lucide-react'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -13,23 +13,34 @@ import { TableSkeleton } from '@/components/common/PageSkeleton'
 import { SortableHeader, toggleSort, type SortConfig } from '@/components/common/SortableHeader'
 import { Pagination } from '@/components/common/Pagination'
 import { useOpenPositions } from '@/hooks/useStats'
+import type { OpenPositionFilters } from '@/api/stats'
 import { formatQuantity } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import type { TradeDirection } from '@/types'
 
-type SortKey = 'tvTicker' | 'direction' | 'size'
+type SortKey = NonNullable<OpenPositionFilters['sortBy']>
 
 export function OpenPositions() {
   const [searchParams, setSearchParams] = useSearchParams()
   const ticker = searchParams.get('ticker') ?? undefined
-  const positions = useOpenPositions(ticker)
 
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [directionFilter, setDirectionFilter] = useState<TradeDirection | 'ALL'>('ALL')
   const [sort, setSort] = useState<SortConfig<SortKey>>({ by: 'tvTicker', order: 'asc' })
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
 
-  const hasFilters = !!search || directionFilter !== 'ALL'
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch, directionFilter, sort, pageSize, ticker])
+
+  const hasFilters = !!debouncedSearch || directionFilter !== 'ALL'
 
   function clearTickerFilter() {
     setSearchParams((prev) => {
@@ -41,46 +52,27 @@ export function OpenPositions() {
 
   function clearFilters() {
     setSearch('')
+    setDebouncedSearch('')
     setDirectionFilter('ALL')
   }
 
-  const filteredPositions = useMemo(() => {
-    if (!positions.data) return []
-    const term = search.trim().toLowerCase()
+  const filters: OpenPositionFilters = {
+    ticker,
+    search: debouncedSearch || undefined,
+    direction: directionFilter === 'ALL' ? undefined : directionFilter,
+    sortBy: sort.by,
+    sortOrder: sort.order,
+    page,
+    pageSize,
+  }
 
-    const filtered = positions.data.filter((p) => {
-      if (term && !p.tvTicker.toLowerCase().includes(term) && !p.instrumentName.toLowerCase().includes(term)) {
-        return false
-      }
-      if (directionFilter !== 'ALL' && p.direction !== directionFilter) return false
-      return true
-    })
-
-    const dir = sort.order === 'asc' ? 1 : -1
-    return filtered.slice().sort((a, b) => {
-      switch (sort.by) {
-        case 'tvTicker':
-          return a.tvTicker.localeCompare(b.tvTicker) * dir
-        case 'direction':
-          return a.direction.localeCompare(b.direction) * dir
-        case 'size':
-          return (a.size - b.size) * dir
-        default:
-          return 0
-      }
-    })
-  }, [positions.data, search, directionFilter, sort])
-
-  // Reset to page 1 when filters, sort, or page size change.
-  useEffect(() => {
-    setPage(1)
-  }, [search, directionFilter, sort, pageSize, ticker])
-
-  const pagedPositions = filteredPositions.slice((page - 1) * pageSize, page * pageSize)
+  const { data, isLoading, isFetching } = useOpenPositions(filters)
 
   function handleSort(key: SortKey) {
     setSort((s) => toggleSort(s, key))
   }
+
+  const showFilterBar = isLoading || (data?.total ?? 0) > 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -102,7 +94,7 @@ export function OpenPositions() {
         )}
       </div>
 
-      {!positions.isLoading && !!positions.data?.length && (
+      {showFilterBar && (
         <Card className="animate-fade-slide-in">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex min-w-[200px] flex-1 flex-col gap-1">
@@ -141,18 +133,19 @@ export function OpenPositions() {
         </Card>
       )}
 
-      {positions.isLoading ? (
+      {isLoading ? (
         <TableSkeleton />
-      ) : !positions.data?.length ? (
+      ) : !data?.total && !hasFilters && !ticker ? (
         <EmptyState
           title="No open positions"
-          description={
-            ticker
-              ? `${ticker} has no open position right now.`
-              : 'Nothing is currently held on IG — positions appear here as soon as a BUY executes.'
-          }
+          description="Nothing is currently held on IG — positions appear here as soon as a BUY executes."
         />
-      ) : !filteredPositions.length ? (
+      ) : !data?.total && ticker ? (
+        <EmptyState
+          title="No open positions"
+          description={`${ticker} has no open position right now.`}
+        />
+      ) : !data?.items.length ? (
         <EmptyState
           title="No positions match your filters"
           description="Try a different search term or clear the filters."
@@ -164,58 +157,58 @@ export function OpenPositions() {
         />
       ) : (
         <>
-        <Card className="p-0 animate-fade-slide-in">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <SortableHeader sortKey="tvTicker" current={sort} onSort={handleSort}>Ticker</SortableHeader>
-                <TableHead>Instrument</TableHead>
-                <SortableHeader sortKey="direction" current={sort} onSort={handleSort}>Direction</SortableHeader>
-                <SortableHeader sortKey="size" current={sort} onSort={handleSort} className="text-right">Size</SortableHeader>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pagedPositions.map((position) => (
-                <TableRow key={position.igEpic}>
-                  <TableCell className="font-medium">{position.tvTicker}</TableCell>
-                  <TableCell className="text-text-secondary">{position.instrumentName}</TableCell>
-                  <TableCell>
-                    <Badge variant={position.direction === 'BUY' ? 'accent' : 'neutral'}>
-                      {position.direction === 'BUY' ? (
-                        <TrendingUp className="mr-1 h-3 w-3 inline" />
-                      ) : (
-                        <TrendingDown className="mr-1 h-3 w-3 inline" />
-                      )}
-                      {position.direction}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">{formatQuantity(position.size)}</TableCell>
-                  <TableCell className="text-right">
-                    {position.mapped ? (
-                      <Link
-                        to={`/stocks/${position.tvTicker}`}
-                        className="text-xs text-accent hover:underline"
-                      >
-                        View stock
-                      </Link>
-                    ) : (
-                      <span className="text-xs text-text-tertiary">Unmapped epic</span>
-                    )}
-                  </TableCell>
+          <Card className={cn('p-0 animate-fade-slide-in transition-opacity', isFetching && 'opacity-60')}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortableHeader sortKey="tvTicker" current={sort} onSort={handleSort}>Ticker</SortableHeader>
+                  <TableHead>Instrument</TableHead>
+                  <SortableHeader sortKey="direction" current={sort} onSort={handleSort}>Direction</SortableHeader>
+                  <SortableHeader sortKey="size" current={sort} onSort={handleSort} className="text-right">Size</SortableHeader>
+                  <TableHead />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-        <Pagination
-          page={page}
-          pageSize={pageSize}
-          totalItems={filteredPositions.length}
-          itemLabel="position"
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
+              </TableHeader>
+              <TableBody>
+                {data.items.map((position) => (
+                  <TableRow key={position.igEpic}>
+                    <TableCell className="font-medium">{position.tvTicker}</TableCell>
+                    <TableCell className="text-text-secondary">{position.instrumentName}</TableCell>
+                    <TableCell>
+                      <Badge variant={position.direction === 'BUY' ? 'accent' : 'neutral'}>
+                        {position.direction === 'BUY' ? (
+                          <TrendingUp className="mr-1 h-3 w-3 inline" />
+                        ) : (
+                          <TrendingDown className="mr-1 h-3 w-3 inline" />
+                        )}
+                        {position.direction}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{formatQuantity(position.size)}</TableCell>
+                    <TableCell className="text-right">
+                      {position.mapped ? (
+                        <Link
+                          to={`/stocks/${position.tvTicker}`}
+                          className="text-xs text-accent hover:underline"
+                        >
+                          View stock
+                        </Link>
+                      ) : (
+                        <span className="text-xs text-text-tertiary">Unmapped epic</span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            totalItems={data.total}
+            itemLabel="position"
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </>
       )}
     </div>

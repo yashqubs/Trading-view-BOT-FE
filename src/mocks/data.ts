@@ -18,6 +18,8 @@ import type {
 } from '@/types'
 import { TRADE_STATUSES } from '@/types'
 import type { TradeFilters, TradeListResponse, TradeSortBy } from '@/api/trades'
+import type { StockFilters, StockListResponse } from '@/api/mapping'
+import type { OpenPositionFilters, OpenPositionListResponse } from '@/api/stats'
 import type { SystemStatus } from '@/api/system'
 
 // ─── Users ───────────────────────────────────────────────────────────────────
@@ -499,4 +501,93 @@ export function getMockTradesPage(filters: TradeFilters = {}): TradeListResponse
   const items = filtered.slice(start, start + pageSize)
 
   return { items, total, summary }
+}
+
+// ─── Mock stocks page ────────────────────────────────────────────────────────
+
+export function getMockStocksPage(filters: StockFilters = {}): StockListResponse {
+  const page = filters.page ?? 1
+  const pageSize = filters.pageSize ?? 25
+  let filtered = [...MOCK_STOCKS]
+
+  if (filters.search?.trim()) {
+    const term = filters.search.trim().toLowerCase()
+    filtered = filtered.filter(
+      (stock) =>
+        stock.tvTicker.toLowerCase().includes(term) ||
+        stock.instrumentName.toLowerCase().includes(term),
+    )
+  }
+
+  if (filters.enabled !== undefined) {
+    filtered = filtered.filter((stock) => stock.enabled === filters.enabled)
+  }
+
+  const sortBy = filters.sortBy ?? 'createdAt'
+  const sortOrder = filters.sortOrder ?? 'desc'
+  const dir = sortOrder === 'asc' ? 1 : -1
+
+  filtered.sort((a, b) => {
+    switch (sortBy) {
+      case 'tvTicker':
+        return a.tvTicker.localeCompare(b.tvTicker) * dir
+      case 'investmentAmount':
+        return ((a.investmentAmount ?? MOCK_TRADING_RULES.investmentAmount) -
+          (b.investmentAmount ?? MOCK_TRADING_RULES.investmentAmount)) * dir
+      case 'maxDailySpend':
+        return ((a.maxDailySpend ?? -1) - (b.maxDailySpend ?? -1)) * dir
+      case 'createdAt':
+      default:
+        return (Date.parse(a.createdAt) - Date.parse(b.createdAt)) * dir
+    }
+  })
+
+  const total = filtered.length
+  const start = (page - 1) * pageSize
+  return { items: filtered.slice(start, start + pageSize), total }
+}
+
+export function getMockOpenPositionsPage(
+  filters: OpenPositionFilters = {},
+): OpenPositionListResponse {
+  const page = filters.page ?? 1
+  const pageSize = filters.pageSize ?? 25
+  let filtered = [...MOCK_OPEN_POSITIONS]
+
+  if (filters.ticker) {
+    filtered = filtered.filter((position) => position.tvTicker === filters.ticker)
+  }
+
+  if (filters.search?.trim()) {
+    const term = filters.search.trim().toLowerCase()
+    filtered = filtered.filter(
+      (position) =>
+        position.tvTicker.toLowerCase().includes(term) ||
+        position.instrumentName.toLowerCase().includes(term),
+    )
+  }
+
+  if (filters.direction) {
+    filtered = filtered.filter((position) => position.direction === filters.direction)
+  }
+
+  const sortBy = filters.sortBy ?? 'tvTicker'
+  const sortOrder = filters.sortOrder ?? 'asc'
+  const dir = sortOrder === 'asc' ? 1 : -1
+
+  filtered.sort((a, b) => {
+    switch (sortBy) {
+      case 'direction':
+        return a.direction.localeCompare(b.direction) * dir
+      case 'size':
+        return (a.size - b.size) * dir
+      case 'tvTicker':
+      default:
+        return a.tvTicker.localeCompare(b.tvTicker) * dir
+    }
+  })
+
+  const total = filtered.length
+  const start = (page - 1) * pageSize
+  return { items: filtered.slice(start, start + pageSize), total }
 }

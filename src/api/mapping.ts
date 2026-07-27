@@ -1,8 +1,28 @@
 import { api } from './axios'
 import type { ExecutionMode, IgMarketResult, StockMapping } from '@/types'
 
-export function listStocks() {
-  return api.get<StockMapping[]>('/mapping').then((r) => r.data)
+export type StockSortBy = 'tvTicker' | 'investmentAmount' | 'maxDailySpend' | 'createdAt'
+
+export interface StockFilters {
+  search?: string
+  enabled?: boolean
+  sortBy?: StockSortBy
+  sortOrder?: 'asc' | 'desc'
+  page?: number
+  pageSize?: number
+}
+
+export interface StockListResponse {
+  items: StockMapping[]
+  total: number
+}
+
+export function listStocks(filters: StockFilters = {}) {
+  return api.get<StockListResponse>('/mapping', { params: filters }).then((r) => r.data)
+}
+
+export function listStockTickers() {
+  return api.get<string[]>('/mapping/tickers').then((r) => r.data)
 }
 
 export function getStock(ticker: string) {

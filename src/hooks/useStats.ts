@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   getByStock,
   getDailyActivity,
@@ -6,6 +6,7 @@ import {
   getOverview,
   getStatusBreakdown,
   getStockStats,
+  type OpenPositionFilters,
   type StatsFilters,
   type StockStatsFilters,
 } from '@/api/stats'
@@ -61,15 +62,16 @@ export function useStatusBreakdown(filters: StatsFilters = {}) {
   })
 }
 
-export function useOpenPositions(ticker?: string) {
+export function useOpenPositions(filters: OpenPositionFilters = {}) {
   const queryClient = useQueryClient()
   useSocketEvent('positions:updated', () =>
     queryClient.invalidateQueries({ queryKey: ['stats', 'open-positions'] }),
   )
 
   return useQuery({
-    queryKey: ['stats', 'open-positions', ticker],
-    queryFn: () => getOpenPositions(ticker),
+    queryKey: ['stats', 'open-positions', filters],
+    queryFn: () => getOpenPositions(filters),
+    placeholderData: keepPreviousData,
   })
 }
 

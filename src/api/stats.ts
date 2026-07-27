@@ -6,7 +6,25 @@ import type {
   StatusBreakdownPoint,
   StockActivity,
   StockStats,
+  TradeDirection,
 } from '@/types'
+
+export type OpenPositionSortBy = 'tvTicker' | 'direction' | 'size'
+
+export interface OpenPositionFilters {
+  ticker?: string
+  search?: string
+  direction?: TradeDirection
+  sortBy?: OpenPositionSortBy
+  sortOrder?: 'asc' | 'desc'
+  page?: number
+  pageSize?: number
+}
+
+export interface OpenPositionListResponse {
+  items: OpenPosition[]
+  total: number
+}
 
 /**
  * Shared filter applied to all chart endpoints.
@@ -41,9 +59,9 @@ export function getStatusBreakdown(filters: StatsFilters = {}) {
     .then((r) => r.data)
 }
 
-export function getOpenPositions(ticker?: string) {
+export function getOpenPositions(filters: OpenPositionFilters = {}) {
   return api
-    .get<OpenPosition[]>('/stats/open-positions', { params: ticker ? { ticker } : {} })
+    .get<OpenPositionListResponse>('/stats/open-positions', { params: filters })
     .then((r) => r.data)
 }
 

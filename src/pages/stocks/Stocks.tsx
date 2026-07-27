@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { Plus, Search, Trash2, X } from 'lucide-react'
@@ -18,14 +18,15 @@ import { Pagination } from '@/components/common/Pagination'
 import { useDeleteStock, useStocks, useUpdateStock } from '@/hooks/useStocks'
 import { useTradingRules } from '@/hooks/useRules'
 import { useSystemStatus } from '@/hooks/useSystem'
+import type { StockFilters } from '@/api/mapping'
 import { formatMoney } from '@/lib/format'
+import { cn } from '@/lib/utils'
 import { SendTestSignalModal } from './components/SendTestSignalModal'
 
-type SortKey = 'tvTicker' | 'investmentAmount' | 'maxDailySpend' | 'createdAt'
+type SortKey = StockFilters['sortBy']
 
 export function Stocks() {
   const navigate = useNavigate()
-  const { data: stocks, isLoading } = useStocks()
   const { data: rules } = useTradingRules()
   const { data: systemStatus } = useSystemStatus()
   const deleteStock = useDeleteStock()
@@ -45,59 +46,45 @@ export function Stocks() {
   }
 
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ENABLED' | 'DISABLED'>('ALL')
-  // Newest-added first by default so a stock you just added is easy to find.
-  const [sort, setSort] = useState<SortConfig<SortKey>>({ by: 'createdAt', order: 'desc' })
+  const [sort, setSort] = useState<SortConfig<NonNullable<SortKey>>>({ by: 'createdAt', order: 'desc' })
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(25)
 
-  const hasFilters = !!search || statusFilter !== 'ALL'
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(t)
+  }, [search])
+
+  useEffect(() => {
+    setPage(1)
+  }, [debouncedSearch, statusFilter, sort, pageSize])
+
+  const hasFilters = !!debouncedSearch || statusFilter !== 'ALL'
 
   function clearFilters() {
     setSearch('')
+    setDebouncedSearch('')
     setStatusFilter('ALL')
   }
 
-  const filteredStocks = useMemo(() => {
-    if (!stocks) return []
-    const term = search.trim().toLowerCase()
+  const filters: StockFilters = {
+    search: debouncedSearch || undefined,
+    enabled: statusFilter === 'ALL' ? undefined : statusFilter === 'ENABLED',
+    sortBy: sort.by,
+    sortOrder: sort.order,
+    page,
+    pageSize,
+  }
 
-    const filtered = stocks.filter((s) => {
-      if (term && !s.tvTicker.toLowerCase().includes(term) && !s.instrumentName.toLowerCase().includes(term)) {
-        return false
-      }
-      if (statusFilter === 'ENABLED' && !s.enabled) return false
-      if (statusFilter === 'DISABLED' && s.enabled) return false
-      return true
-    })
+  const { data, isLoading, isFetching } = useStocks(filters)
 
-    const dir = sort.order === 'asc' ? 1 : -1
-    return filtered.slice().sort((a, b) => {
-      switch (sort.by) {
-        case 'tvTicker':
-          return a.tvTicker.localeCompare(b.tvTicker) * dir
-        case 'investmentAmount':
-          return ((resolvedInvestment(a.investmentAmount) ?? 0) - (resolvedInvestment(b.investmentAmount) ?? 0)) * dir
-        case 'maxDailySpend':
-          return ((a.maxDailySpend ?? -1) - (b.maxDailySpend ?? -1)) * dir
-        case 'createdAt':
-          return (Date.parse(a.createdAt) - Date.parse(b.createdAt)) * dir
-        default:
-          return 0
-      }
-    })
-  }, [stocks, search, statusFilter, sort, rules])
-
-  // Reset to page 1 when filters, sort, or page size change.
-  useEffect(() => {
-    setPage(1)
-  }, [search, statusFilter, sort, pageSize])
-
-  const pagedStocks = filteredStocks.slice((page - 1) * pageSize, page * pageSize)
-
-  function handleSort(key: SortKey) {
+  function handleSort(key: NonNullable<SortKey>) {
     setSort((s) => toggleSort(s, key))
   }
+
+  const showFilterBar = isLoading || (data?.total ?? 0) > 0
 
   return (
     <div className="flex flex-col gap-6">
@@ -112,7 +99,7 @@ export function Stocks() {
         </Button>
       </div>
 
-      {!isLoading && !!stocks?.length && (
+      {showFilterBar && (
         <Card className="animate-fade-slide-in">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex min-w-[200px] flex-1 flex-col gap-1">
@@ -153,7 +140,7 @@ export function Stocks() {
 
       {isLoading ? (
         <TableSkeleton />
-      ) : !stocks?.length ? (
+      ) : !data?.total && !hasFilters ? (
         <EmptyState
           title="No stocks yet"
           description="Add your first stock to start mapping TradingView signals to IG instruments."
@@ -164,7 +151,7 @@ export function Stocks() {
             </Button>
           }
         />
-      ) : !filteredStocks.length ? (
+      ) : !data?.items.length ? (
         <EmptyState
           title="No stocks match your filters"
           description="Try a different search term or clear the filters."
@@ -176,100 +163,100 @@ export function Stocks() {
         />
       ) : (
         <>
-        <Card className="p-0 animate-fade-slide-in">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <SortableHeader sortKey="tvTicker" current={sort} onSort={handleSort}>Ticker</SortableHeader>
-                <TableHead>Instrument</TableHead>
-                <TableHead>IG epic</TableHead>
-                <TableHead>Trading</TableHead>
-                <SortableHeader sortKey="investmentAmount" current={sort} onSort={handleSort}>Investment</SortableHeader>
-                <SortableHeader sortKey="maxDailySpend" current={sort} onSort={handleSort}>Daily cap</SortableHeader>
-                <TableHead>Fill price</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {pagedStocks.map((stock) => (
-                <TableRow
-                  key={stock.id}
-                  className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                  tabIndex={0}
-                  role="link"
-                  aria-label={`View ${stock.tvTicker} statistics`}
-                  onClick={() => navigate(`/stocks/${stock.tvTicker}`)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault()
-                      navigate(`/stocks/${stock.tvTicker}`)
-                    }
-                  }}
-                >
-                  <TableCell className="font-medium">{stock.tvTicker}</TableCell>
-                  <TableCell className="text-text-secondary">{stock.instrumentName}</TableCell>
-                  <TableCell className="font-mono text-xs text-text-tertiary">{stock.igEpic}</TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <div className="flex items-center gap-2">
-                      <Switch
-                        checked={stock.enabled}
-                        onCheckedChange={(checked) => handleTradingToggle(stock.id, stock.tvTicker, checked)}
-                        disabled={updateStock.isPending}
-                        aria-label={stock.enabled ? `Stop trading ${stock.tvTicker}` : `Start trading ${stock.tvTicker}`}
-                      />
-                      <span className={stock.enabled ? 'text-xs text-success' : 'text-xs text-text-tertiary'}>
-                        {stock.enabled ? 'On' : 'Stopped'}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {formatMoney(resolvedInvestment(stock.investmentAmount))}
-                    {stock.investmentAmount == null && (
-                      <span className="ml-1.5 text-xs text-text-tertiary">(default)</span>
-                    )}
-                  </TableCell>
-                  <TableCell>{stock.maxDailySpend ? formatMoney(stock.maxDailySpend) : '—'}</TableCell>
-                  <TableCell>
-                    {stock.executionMode ? (
-                      <Badge variant={stock.executionMode === 'SIGNAL_PRICE' ? 'accent' : 'neutral'}>
-                        {stock.executionMode === 'SIGNAL_PRICE' ? 'Signal' : 'Market'}
-                      </Badge>
-                    ) : (
-                      <span className="text-xs text-text-tertiary">Default</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
-                      {systemStatus?.testSignalsEnabled && <SendTestSignalModal stock={stock} />}
-                      <ConfirmDialog
-                        trigger={
-                          <Button variant="ghost" size="icon" aria-label={`Delete ${stock.tvTicker}`}>
-                            <Trash2 className="h-4 w-4 text-danger" />
-                          </Button>
-                        }
-                        title={`Delete ${stock.tvTicker}?`}
-                        description="This removes the stock mapping. Trade history for this ticker is kept."
-                        confirmLabel="Delete"
-                        onConfirm={async () => {
-                          await deleteStock.mutateAsync(stock.id)
-                          toast.success(`${stock.tvTicker} removed`)
-                        }}
-                      />
-                    </div>
-                  </TableCell>
+          <Card className={cn('p-0 animate-fade-slide-in transition-opacity', isFetching && 'opacity-60')}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <SortableHeader sortKey="tvTicker" current={sort} onSort={handleSort}>Ticker</SortableHeader>
+                  <TableHead>Instrument</TableHead>
+                  <TableHead>IG epic</TableHead>
+                  <TableHead>Trading</TableHead>
+                  <SortableHeader sortKey="investmentAmount" current={sort} onSort={handleSort}>Investment</SortableHeader>
+                  <SortableHeader sortKey="maxDailySpend" current={sort} onSort={handleSort}>Daily cap</SortableHeader>
+                  <TableHead>Fill price</TableHead>
+                  <TableHead />
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-        <Pagination
-          page={page}
-          pageSize={pageSize}
-          totalItems={filteredStocks.length}
-          itemLabel="stock"
-          onPageChange={setPage}
-          onPageSizeChange={setPageSize}
-        />
+              </TableHeader>
+              <TableBody>
+                {data.items.map((stock) => (
+                  <TableRow
+                    key={stock.id}
+                    className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                    tabIndex={0}
+                    role="link"
+                    aria-label={`View ${stock.tvTicker} statistics`}
+                    onClick={() => navigate(`/stocks/${stock.tvTicker}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        navigate(`/stocks/${stock.tvTicker}`)
+                      }
+                    }}
+                  >
+                    <TableCell className="font-medium">{stock.tvTicker}</TableCell>
+                    <TableCell className="text-text-secondary">{stock.instrumentName}</TableCell>
+                    <TableCell className="font-mono text-xs text-text-tertiary">{stock.igEpic}</TableCell>
+                    <TableCell onClick={(e) => e.stopPropagation()}>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          checked={stock.enabled}
+                          onCheckedChange={(checked) => handleTradingToggle(stock.id, stock.tvTicker, checked)}
+                          disabled={updateStock.isPending}
+                          aria-label={stock.enabled ? `Stop trading ${stock.tvTicker}` : `Start trading ${stock.tvTicker}`}
+                        />
+                        <span className={stock.enabled ? 'text-xs text-success' : 'text-xs text-text-tertiary'}>
+                          {stock.enabled ? 'On' : 'Stopped'}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      {formatMoney(resolvedInvestment(stock.investmentAmount))}
+                      {stock.investmentAmount == null && (
+                        <span className="ml-1.5 text-xs text-text-tertiary">(default)</span>
+                      )}
+                    </TableCell>
+                    <TableCell>{stock.maxDailySpend ? formatMoney(stock.maxDailySpend) : '—'}</TableCell>
+                    <TableCell>
+                      {stock.executionMode ? (
+                        <Badge variant={stock.executionMode === 'SIGNAL_PRICE' ? 'accent' : 'neutral'}>
+                          {stock.executionMode === 'SIGNAL_PRICE' ? 'Signal' : 'Market'}
+                        </Badge>
+                      ) : (
+                        <span className="text-xs text-text-tertiary">Default</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1" onClick={(e) => e.stopPropagation()}>
+                        {systemStatus?.testSignalsEnabled && <SendTestSignalModal stock={stock} />}
+                        <ConfirmDialog
+                          trigger={
+                            <Button variant="ghost" size="icon" aria-label={`Delete ${stock.tvTicker}`}>
+                              <Trash2 className="h-4 w-4 text-danger" />
+                            </Button>
+                          }
+                          title={`Delete ${stock.tvTicker}?`}
+                          description="This removes the stock mapping. Trade history for this ticker is kept."
+                          confirmLabel="Delete"
+                          onConfirm={async () => {
+                            await deleteStock.mutateAsync(stock.id)
+                            toast.success(`${stock.tvTicker} removed`)
+                          }}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+          <Pagination
+            page={page}
+            pageSize={pageSize}
+            totalItems={data.total}
+            itemLabel="stock"
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </>
       )}
     </div>

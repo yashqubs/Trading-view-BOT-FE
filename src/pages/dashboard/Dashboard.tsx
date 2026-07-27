@@ -25,7 +25,7 @@ import { StockCombobox } from '@/components/common/StockCombobox'
 import { DateRangePicker, calcPreset, type DateRangeValue } from '@/components/common/DateRangePicker'
 import { useOverview, useByStock, useDailyActivity, useStatusBreakdown } from '@/hooks/useStats'
 import { useSetBotEnabled } from '@/hooks/useRules'
-import { useStocks } from '@/hooks/useStocks'
+import { useStockTickers } from '@/hooks/useStocks'
 import { formatCount, formatMoney, formatPercent } from '@/lib/format'
 import type { StatsFilters } from '@/api/stats'
 import { cn } from '@/lib/utils'
@@ -171,7 +171,7 @@ export function Dashboard() {
   // accept a ticker filter (would be degenerate: a single-row breakdown).
   const byStock = useByStock({ from: dateRange.from, to: dateRange.to })
   const statusBreakdown = useStatusBreakdown(filters)
-  const { data: stocks } = useStocks()
+  const { data: stockTickers = [] } = useStockTickers()
 
   const data = overview.data
   const investedPct =
@@ -190,7 +190,6 @@ export function Dashboard() {
     .sort((a, b) => b.trades - a.trades)
     .slice(0, 8)
 
-  const stockTickers = (stocks ?? []).map((s) => s.tvTicker)
   const hasFilter = days !== DEFAULT_DAYS || !!ticker
 
   // Carries the dashboard's current period + ticker filter into /trades, so
