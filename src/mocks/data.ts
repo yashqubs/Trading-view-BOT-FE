@@ -465,7 +465,10 @@ export function getMockTradesPage(filters: TradeFilters = {}): TradeListResponse
     filtered = filtered.filter((tr) => tr.tvTicker.includes(t))
   }
   if (filters.direction) filtered = filtered.filter((t) => t.direction === filters.direction)
-  if (filters.status) filtered = filtered.filter((t) => t.status === filters.status)
+  if (filters.status) {
+    const statuses = Array.isArray(filters.status) ? filters.status : [filters.status]
+    filtered = filtered.filter((t) => statuses.includes(t.status))
+  }
   if (filters.from) {
     const from = new Date(filters.from).getTime()
     filtered = filtered.filter((t) => new Date(t.signalReceivedAt).getTime() >= from)

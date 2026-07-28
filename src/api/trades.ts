@@ -11,7 +11,11 @@ export type TradeSortBy =
 export interface TradeFilters {
   ticker?: string
   direction?: TradeDirection
-  status?: TradeStatus
+  /** A single status, or several — the portal's default "executed only" view
+   * sends [SUCCESS, FAILED] as one request. Serialized as a comma-separated
+   * string on the wire (see toQueryParams); the backend DTO normalizes both
+   * shapes into an IN(...) filter either way. */
+  status?: TradeStatus | TradeStatus[]
   from?: string
   to?: string
   sortBy?: TradeSortBy
@@ -26,8 +30,20 @@ export interface TradeListResponse {
   summary: TradeSummary
 }
 
+// Axios has no opinion on how to serialize an array query param, and this
+// repo doesn't configure a paramsSerializer — so array vs. single-value
+// `status` would otherwise hit the wire in an unpredictable shape. Joining
+// to a comma-separated string here keeps it unambiguous and matches exactly
+// what TradeLogQueryDto.status expects.
+function toQueryParams(filters: TradeFilters) {
+  return {
+    ...filters,
+    status: Array.isArray(filters.status) ? filters.status.join(',') : filters.status,
+  }
+}
+
 export function listTrades(filters: TradeFilters = {}) {
-  return api.get<TradeListResponse>('/trades', { params: filters }).then((r) => r.data)
+  return api.get<TradeListResponse>('/trades', { params: toQueryParams(filters) }).then((r) => r.data)
 }
 
 export interface CloseAllFailure {
@@ -55,6 +71,6 @@ export function closeAllPositions() {
 
 export function exportTradesCsv(filters: TradeFilters = {}) {
   return api
-    .get<Blob>('/trades/export', { params: filters, responseType: 'blob' })
+    .get<Blob>('/trades/export', { params: toQueryParams(filters), responseType: 'blob' })
     .then((r) => r.data)
 }

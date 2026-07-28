@@ -676,7 +676,7 @@ The frontend mostly uses these events to trigger a TanStack Query refetch (`quer
 | Stocks | /stocks | Per-stock config table |
 | Stock Detail | /stocks/:ticker | Single-stock statistics + charts + per-stock trading conditions (trading on/off switch, investment amount, daily cap) |
 | Open Positions | /positions | Currently open positions, live from IG, plus a "Close all positions" button (see below) |
-| Trades | /trades | Full trade history with filters + CSV export |
+| Trades | /trades | Full trade history with filters + CSV export — defaults to executed trades only (see below) |
 | Conditions | /conditions | Global trading rules |
 | Users | /users | User management |
 | Settings | /settings | Webhook URL, IG connection status, last TradingView signal received, password, 2FA |
@@ -686,6 +686,16 @@ The frontend mostly uses these events to trigger a TanStack Query refetch (`quer
 A destructive, confirm-gated button in the `/positions` header calling `POST /trades/close-all-positions` (`closeAllPositions` in `api/trades.ts`, `useCloseAllPositions` in `hooks/useTrades.ts`). It closes **every** position open on IG at market price — not just the rows matching the current search/direction/ticker filters — so the confirm dialog says so explicitly whenever the list is narrowed, and only quotes a count when it isn't.
 
 The response is `{ attempted, closed, failures[] }`; a partial result is a normal outcome, not an error. On a partial result the toast names each instrument still open and runs its raw IG code through `explainTradeError` — "closed 3 of 5" on its own would leave the user with live exposure and no idea which. The button hides when there is nothing to close and disables while the request is in flight (the backend also rejects a concurrent second call with `409`).
+
+#### Trade history default filter — "Executed only" (added 2026-07-27)
+
+`/trades` and the trade table on `/stocks/:ticker` both default their status filter to **SUCCESS + FAILED only** ("Executed only" in `StatusCombobox`), not every status. Raw signal volume is dominated by skip reasons (`BOT_PAUSED`, cool-downs, `DAILY_TRADE_LIMIT`, etc.) that aren't outcomes a client scanning trade history usually wants mixed in — this was a direct client request after the unfiltered table read as noise.
+
+- `StatusCombobox` (`src/components/common/StatusCombobox.tsx`) now has three tiers: **Executed only** (the default — SUCCESS + FAILED), **All statuses** (every row, including skips), and the existing grouped list of individual statuses (still lets you isolate, say, only `ALREADY_LONG`). Both pages share this one component now — `StockDetail` used to have its own flat `<Select>` with a duplicated status-label map; that's gone.
+- The backend accepts multiple statuses in one request: `GET /trades?status=SUCCESS,FAILED` (comma-separated, or repeated `status=` keys — `TradeLogQueryDto` normalizes either into an `IN (...)` clause via `applyTradeLogFilters`, Section 10 TradeModule). A bare `status=FAILED` still works exactly as before — this is additive, not a breaking change to the query contract. `GET /trades/export` shares the same DTO, so CSV export respects the same filter.
+- "Executed only" is the *baseline*, not something `hasActiveFilters` counts as an active filter — clearing filters returns to it, not to "All statuses". Deep links with an explicit `?status=` (e.g. the dashboard's failed-trades card, `/trades?status=FAILED`) still override the default outright, unaffected by this change.
+- The summary stat row (`Total trades`, `Success rate`, `Failed / Skipped`) reflects whatever the current filter shows — it already worked this way for any single-status filter before this change, so under the new default `Skipped` reads `0` and `Success rate` becomes a true executed-trades rate rather than one diluted by skip volume. Switching to "All statuses" restores the old, skip-inclusive numbers.
+- Empty state handles the case where every signal so far has been skipped: normally `hasActiveFilters=false` hides the "Clear filters" action, but that would leave a genuinely-skip-only history looking identical to "nothing has happened yet" with no visible way out — so both pages show a **"Show all statuses"** action specifically when the (empty) result is under the default filter.
 
 ### Stack
 

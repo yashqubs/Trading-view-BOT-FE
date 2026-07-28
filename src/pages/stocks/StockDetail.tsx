@@ -20,6 +20,7 @@ import { Switch } from '@/components/ui/switch'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatCard } from '@/components/common/StatCard'
+import { StatusCombobox, type StatusFilterValue } from '@/components/common/StatusCombobox'
 import { StatusPill } from '@/components/common/StatusPill'
 import { EmptyState } from '@/components/common/EmptyState'
 import { StatGridSkeleton } from '@/components/common/PageSkeleton'
@@ -37,12 +38,10 @@ import { useSystemStatus } from '@/hooks/useSystem'
 import { exportTradesCsv, type TradeFilters, type TradeSortBy } from '@/api/trades'
 import { SendTestSignalModal } from './components/SendTestSignalModal'
 import {
-  TRADE_STATUSES,
   type ExecutionMode,
   type StockMapping,
   type TradeDirection,
   type TradeLog,
-  type TradeStatus,
 } from '@/types'
 import { formatCount, formatDateTime, formatMoney, formatPercent, formatPrice, formatQuantity } from '@/lib/format'
 import { cn } from '@/lib/utils'
@@ -56,28 +55,6 @@ const EXPANDED_CHART_TITLES: Record<ExpandedChart, string> = {
   'entry-prices': 'Signal entry prices',
   'buy-sell': 'Buy vs sell',
   'status-breakdown': 'Status breakdown',
-}
-
-const STATUS_LABELS: Record<TradeStatus, string> = {
-  SUCCESS: 'Success',
-  FAILED: 'Failed',
-  MARKET_CLOSED: 'Market closed',
-  NOT_MAPPED: 'Not mapped',
-  DISABLED: 'Disabled',
-  NO_POSITION: 'No position',
-  ALREADY_LONG: 'Already long',
-  ALREADY_SHORT: 'Already short',
-  BOT_PAUSED: 'Bot paused',
-  BUY_DISABLED: 'Buy disabled',
-  SELL_DISABLED: 'Sell disabled',
-  DAILY_TOTAL_LIMIT: 'Daily open cap reached',
-  DAILY_TRADE_LIMIT: 'Daily trade limit',
-  GLOBAL_POSITION_LIMIT: 'Global position limit',
-  STOCK_DAILY_LIMIT: 'Stock daily limit',
-  COOL_DOWN: 'Cool-down',
-  MAX_POSITIONS_STOCK: 'Max positions',
-  AUTO_PAUSED: 'Auto-paused',
-  DUPLICATE_SIGNAL: 'Duplicate signal',
 }
 
 type SortConfig = { by: TradeSortBy; order: 'asc' | 'desc' }
@@ -200,7 +177,11 @@ export function StockDetail() {
   // below; direction/status/sort only affect the trade table since the
   // stats endpoint only aggregates by date.
   const [direction, setDirection] = useState<TradeDirection | 'ALL'>('ALL')
-  const [status, setStatus] = useState<TradeStatus | 'ALL'>('ALL')
+  // 'EXECUTED' (Success + Failed) is the default — see StatusCombobox and the
+  // matching default on the global Trades page. Keeping this consistent with
+  // that page matters: a stock's own trade history is the same underlying
+  // data, just scoped to one ticker.
+  const [status, setStatus] = useState<StatusFilterValue>('EXECUTED')
   const [dateRange, setDateRange] = useState<DateRangeValue>({ preset: 'all' })
   const [sort, setSort] = useState<SortConfig>({ by: 'signalReceivedAt', order: 'desc' })
   const [page, setPage] = useState(1)
@@ -222,20 +203,21 @@ export function StockDetail() {
 
   function clearFilters() {
     setDirection('ALL')
-    setStatus('ALL')
+    setStatus('EXECUTED')
     setDateRange({ preset: 'all' })
     setSort({ by: 'signalReceivedAt', order: 'desc' })
     setPage(1)
   }
 
-  const hasActiveFilters = direction !== 'ALL' || status !== 'ALL' || dateRange.preset !== 'all'
+  const hasActiveFilters = direction !== 'ALL' || status !== 'EXECUTED' || dateRange.preset !== 'all'
 
   const stats = useStockStats(ticker, { from: dateRange.from || undefined, to: dateRange.to || undefined })
 
   const filters: TradeFilters = {
     ticker,
     direction: direction === 'ALL' ? undefined : direction,
-    status: status === 'ALL' ? undefined : status,
+    status:
+      status === 'ALL' ? undefined : status === 'EXECUTED' ? ['SUCCESS', 'FAILED'] : status,
     from: dateRange.from || undefined,
     to: dateRange.to || undefined,
     sortBy: sort.by,
@@ -466,15 +448,7 @@ export function StockDetail() {
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs">Status</Label>
-                <Select value={status} onValueChange={(v) => setStatus(v as TradeStatus | 'ALL')}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ALL">All statuses</SelectItem>
-                    {TRADE_STATUSES.map((s) => (
-                      <SelectItem key={s} value={s}>{STATUS_LABELS[s]}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <StatusCombobox value={status} onChange={setStatus} />
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs">Sort by</Label>
@@ -537,11 +511,19 @@ export function StockDetail() {
         ) : !trades.data?.items.length ? (
           <EmptyState
             title="No trades found"
-            description="Try widening your filters or check back once signals start arriving."
+            description={
+              !hasActiveFilters && status === 'EXECUTED'
+                ? 'No successful or failed trades yet for this stock. If signals are coming in but being skipped, switch to "All statuses" to see them.'
+                : 'Try widening your filters or check back once signals start arriving.'
+            }
             action={
               hasActiveFilters ? (
                 <Button variant="secondary" size="sm" onClick={clearFilters}>
                   Clear filters
+                </Button>
+              ) : status === 'EXECUTED' ? (
+                <Button variant="secondary" size="sm" onClick={() => setStatus('ALL')}>
+                  Show all statuses
                 </Button>
               ) : undefined
             }

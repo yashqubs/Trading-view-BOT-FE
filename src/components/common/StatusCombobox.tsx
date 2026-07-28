@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Check, ChevronsUpDown, ListFilter } from 'lucide-react'
+import { Check, ChevronsUpDown, ListChecks, ListFilter } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import {
@@ -58,9 +58,17 @@ const STATUS_LABEL: Record<TradeStatus, string> = {
   DUPLICATE_SIGNAL: 'Duplicate signal',
 }
 
+// 'EXECUTED' is the portal default: SUCCESS + FAILED only, hiding the ~17
+// skip-reason statuses that dominate the raw signal log by volume (bot
+// paused, cool-downs, position-already-open, etc.) but aren't outcomes a
+// client scanning trade history usually wants mixed in. 'ALL' is the
+// explicit opt-in to see everything, including skips; a specific TradeStatus
+// still narrows to exactly that one status, same as before.
+export type StatusFilterValue = TradeStatus | 'ALL' | 'EXECUTED'
+
 interface StatusComboboxProps {
-  value: TradeStatus | 'ALL'
-  onChange: (value: TradeStatus | 'ALL') => void
+  value: StatusFilterValue
+  onChange: (value: StatusFilterValue) => void
 }
 
 export function StatusCombobox({ value, onChange }: StatusComboboxProps) {
@@ -80,6 +88,11 @@ export function StatusCombobox({ value, onChange }: StatusComboboxProps) {
               <ListFilter className="h-3.5 w-3.5" />
               All statuses
             </span>
+          ) : value === 'EXECUTED' ? (
+            <span className="flex items-center gap-1.5 text-text-secondary">
+              <ListChecks className="h-3.5 w-3.5" />
+              Executed only
+            </span>
           ) : (
             <StatusPill status={value} />
           )}
@@ -87,9 +100,12 @@ export function StatusCombobox({ value, onChange }: StatusComboboxProps) {
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent align="start" className="w-[260px] p-0">
+      <PopoverContent align="start" className="w-[280px] p-0">
         <Command
           filter={(itemValue, search) => {
+            if (itemValue === 'EXECUTED') {
+              return 'executed only success failed'.includes(search.toLowerCase()) ? 1 : 0
+            }
             const label = STATUS_LABEL[itemValue as TradeStatus] ?? itemValue
             return label.toLowerCase().includes(search.toLowerCase()) ? 1 : 0
           }}
@@ -98,6 +114,23 @@ export function StatusCombobox({ value, onChange }: StatusComboboxProps) {
           <CommandList>
             <CommandEmpty>No status found.</CommandEmpty>
             <CommandGroup>
+              <CommandItem
+                value="EXECUTED"
+                onSelect={() => {
+                  onChange('EXECUTED')
+                  setOpen(false)
+                }}
+              >
+                <Check
+                  className={cn('h-3.5 w-3.5', value === 'EXECUTED' ? 'opacity-100 text-accent' : 'opacity-0')}
+                />
+                <span className="flex flex-col">
+                  <span>Executed only</span>
+                  <span className="text-[11px] font-normal text-text-tertiary">
+                    Success + Failed — default view
+                  </span>
+                </span>
+              </CommandItem>
               <CommandItem
                 value="ALL"
                 onSelect={() => {
@@ -117,7 +150,7 @@ export function StatusCombobox({ value, onChange }: StatusComboboxProps) {
                     key={status}
                     value={status}
                     onSelect={(selected) => {
-                      onChange(selected === value ? 'ALL' : (selected as TradeStatus))
+                      onChange(selected === value ? 'EXECUTED' : (selected as TradeStatus))
                       setOpen(false)
                     }}
                   >

@@ -25,7 +25,16 @@ import type { StockFilters } from '@/api/mapping'
 import type { OpenPositionFilters } from '@/api/stats'
 import type { TradeFilters } from '@/api/trades'
 import type { TestSignalResult } from '@/api/testSignal'
-import type { TradingRules } from '@/types'
+import type { TradeStatus, TradingRules } from '@/types'
+
+// Mirrors the real API's `status` query param: absent, a single value, or a
+// comma-separated list (how the portal's "Executed only" default sends
+// SUCCESS+FAILED in one request — see api/trades.ts's toQueryParams).
+function parseStatusParam(sp: URLSearchParams): TradeStatus[] | undefined {
+  const raw = sp.get('status')
+  if (!raw) return undefined
+  return raw.split(',').map((s) => s.trim()) as TradeStatus[]
+}
 
 // Shared latency to make loading states visible
 const LATENCY = 400
@@ -510,7 +519,7 @@ export const handlers = [
     const filters: TradeFilters = {
       ticker: sp.get('ticker') ?? undefined,
       direction: (sp.get('direction') as TradeFilters['direction']) ?? undefined,
-      status: (sp.get('status') as TradeFilters['status']) ?? undefined,
+      status: parseStatusParam(sp),
       from: sp.get('from') ?? undefined,
       to: sp.get('to') ?? undefined,
       sortBy: (sp.get('sortBy') as TradeFilters['sortBy']) ?? undefined,
@@ -528,7 +537,7 @@ export const handlers = [
     const filters: TradeFilters = {
       ticker: sp.get('ticker') ?? undefined,
       direction: (sp.get('direction') as TradeFilters['direction']) ?? undefined,
-      status: (sp.get('status') as TradeFilters['status']) ?? undefined,
+      status: parseStatusParam(sp),
       from: sp.get('from') ?? undefined,
       to: sp.get('to') ?? undefined,
       sortBy: (sp.get('sortBy') as TradeFilters['sortBy']) ?? undefined,
