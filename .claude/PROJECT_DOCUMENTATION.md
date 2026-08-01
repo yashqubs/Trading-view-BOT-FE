@@ -675,7 +675,7 @@ The frontend mostly uses these events to trigger a TanStack Query refetch (`quer
 | Dashboard | / | Global stats + charts |
 | Stocks | /stocks | Per-stock config table |
 | Stock Detail | /stocks/:ticker | Single-stock statistics + charts + per-stock trading conditions (trading on/off switch, investment amount, daily cap) |
-| Open Positions | /positions | Currently open positions, live from IG, plus a "Close all positions" button (see below) |
+| Open Positions | /positions | Currently open positions, live from IG, with the time each was opened, plus a "Close all positions" button (see below) |
 | Trades | /trades | Full trade history with filters + CSV export — defaults to all statuses (see below) |
 | Conditions | /conditions | Global trading rules |
 | Users | /users | User management |
@@ -686,6 +686,18 @@ The frontend mostly uses these events to trigger a TanStack Query refetch (`quer
 A destructive, confirm-gated button in the `/positions` header calling `POST /trades/close-all-positions` (`closeAllPositions` in `api/trades.ts`, `useCloseAllPositions` in `hooks/useTrades.ts`). It closes **every** position open on IG at market price — not just the rows matching the current search/direction/ticker filters — so the confirm dialog says so explicitly whenever the list is narrowed, and only quotes a count when it isn't.
 
 The response is `{ attempted, closed, failures[] }`; a partial result is a normal outcome, not an error. On a partial result the toast names each instrument still open and runs its raw IG code through `explainTradeError` — "closed 3 of 5" on its own would leave the user with live exposure and no idea which. The button hides when there is nothing to close and disables while the request is in flight (the backend also rejects a concurrent second call with `409`).
+
+#### "Opened" column on /positions (added 2026-08-01)
+
+The table has an **Opened** column: absolute date + time, with a relative hint ("2 days ago") underneath — how long a position has been held is the question the column actually gets asked, and the absolute value is what you'd cross-check against IG's own screen. It's sortable (`sortBy=openedAt`), and the sort puts **nulls last in both directions**, front and back end alike: a position IG gave no open time for is missing data, not "the oldest".
+
+`OpenPosition.openedAt` is an ISO 8601 UTC string or null. It comes from IG's `position.createdDateUTC`, **not** from `trade_log` — so a position opened outside this bot (or one whose trade rows have since been cleared) still reports an open time. Null renders as "—", never as "now"; see Section 15 endpoint 6 for why a missing value isn't back-filled from IG's other timestamp.
+
+#### "Open / Close" column on /trades (added 2026-08-01)
+
+The trade table shows whether a row **opened** new exposure or **closed** an existing position, from `TradeLog.isClosingTrade`. Direction alone hasn't answered this since short selling landed (2026-07-16): a SELL opens a short when nothing is held and closes a long when something is, and a BUY does the mirror image.
+
+The column renders "—", not "Open", for any row whose status isn't `SUCCESS` or `FAILED`. `isClosingTrade` is a non-nullable column defaulting to `false`, and `TradeService.logSkip` never sets it — only `executeTrade` does — so every skipped signal carries `false` regardless of what was actually held, and printing that as "Open" would invent an order that was never placed. `SUCCESS`/`FAILED` are exactly the rows that went through `executeTrade`. CSV export already carried `isClosingTrade`, so nothing changed there.
 
 #### Trade history status filter — per-page defaults (revised 2026-08-01)
 
