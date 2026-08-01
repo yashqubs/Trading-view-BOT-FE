@@ -91,6 +91,44 @@ function SortIcon({ sortKey, current }: { sortKey: TradeSortBy; current: SortCon
     : <ArrowDown className="ml-1 h-3 w-3 text-accent" />
 }
 
+// ─── Open / close cell ────────────────────────────────────────────────────────
+
+// Since short selling (2026-07-16) direction no longer tells you this: a SELL
+// opens a short when nothing is held and closes a long when something is, and
+// a BUY does the mirror image. `isClosingTrade` is the only field that says
+// which happened.
+//
+// It's only meaningful once a trade reached execution, though — `logSkip`
+// writes rows without it, so the column defaults to false on every skipped
+// signal and would label all of them "Open" when nothing was placed at all.
+// SUCCESS and FAILED are exactly the statuses that came through
+// TradeService.executeTrade, where the flag is set from the real position
+// state; everything else gets an em dash.
+function TradeIntent({ trade }: { trade: TradeLog }) {
+  const attemptedExecution = trade.status === 'SUCCESS' || trade.status === 'FAILED'
+
+  if (!attemptedExecution) {
+    return (
+      <span className="text-text-tertiary" title="Skipped before any order was placed">
+        —
+      </span>
+    )
+  }
+
+  return trade.isClosingTrade ? (
+    <span
+      className="text-xs font-medium text-text-secondary"
+      title="Closed an existing position — real money, but not new investment"
+    >
+      Close
+    </span>
+  ) : (
+    <span className="text-xs font-medium text-accent" title="Opened new exposure">
+      Open
+    </span>
+  )
+}
+
 // ─── Failure / skip reason cell ───────────────────────────────────────────────
 
 // Failed trades must show WHY, with the full message reachable in one
@@ -533,6 +571,7 @@ export function Trades() {
                   <SortHead col="signalReceivedAt">Date</SortHead>
                   <SortHead col="tvTicker">Ticker</SortHead>
                   <TableHead>Direction</TableHead>
+                  <TableHead className="whitespace-nowrap">Open / Close</TableHead>
                   <SortHead col="signalPrice" className="text-right">Signal price</SortHead>
                   <TableHead className="text-right">Executed price</TableHead>
                   <TableHead className="text-right">Size</TableHead>
@@ -570,6 +609,9 @@ export function Trades() {
                           : <TrendingDown className="mr-1 h-3 w-3 inline" />}
                         {trade.direction}
                       </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <TradeIntent trade={trade} />
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatPrice(trade.signalPrice)}

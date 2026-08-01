@@ -17,7 +17,7 @@ import { Pagination } from '@/components/common/Pagination'
 import { useOpenPositions } from '@/hooks/useStats'
 import { useCloseAllPositions } from '@/hooks/useTrades'
 import type { OpenPositionFilters } from '@/api/stats'
-import { formatQuantity } from '@/lib/format'
+import { formatDateTime, formatQuantity, formatRelativeTime } from '@/lib/format'
 import { explainTradeError } from '@/lib/tradeError'
 import { cn } from '@/lib/utils'
 import type { TradeDirection } from '@/types'
@@ -235,6 +235,7 @@ export function OpenPositions() {
                   <TableHead>Instrument</TableHead>
                   <SortableHeader sortKey="direction" current={sort} onSort={handleSort}>Direction</SortableHeader>
                   <SortableHeader sortKey="size" current={sort} onSort={handleSort} className="text-right">Size</SortableHeader>
+                  <SortableHeader sortKey="openedAt" current={sort} onSort={handleSort}>Opened</SortableHeader>
                   <TableHead />
                 </TableRow>
               </TableHeader>
@@ -254,6 +255,30 @@ export function OpenPositions() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{formatQuantity(position.size)}</TableCell>
+                    <TableCell className="whitespace-nowrap">
+                      {position.openedAt ? (
+                        <div className="flex flex-col">
+                          <span className="text-xs text-text-secondary">
+                            {formatDateTime(position.openedAt)}
+                          </span>
+                          {/* How long it's been held is the question this
+                              column actually gets asked; the absolute time
+                              above is what you'd cross-check against IG. */}
+                          {formatRelativeTime(position.openedAt) && (
+                            <span className="text-[11px] text-text-tertiary">
+                              {formatRelativeTime(position.openedAt)}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span
+                          className="text-xs text-text-tertiary"
+                          title="IG did not report an open time for this position"
+                        >
+                          —
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       {position.mapped ? (
                         <Link

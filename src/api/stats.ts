@@ -9,7 +9,7 @@ import type {
   TradeDirection,
 } from '@/types'
 
-export type OpenPositionSortBy = 'tvTicker' | 'direction' | 'size'
+export type OpenPositionSortBy = 'tvTicker' | 'direction' | 'size' | 'openedAt'
 
 export interface OpenPositionFilters {
   ticker?: string

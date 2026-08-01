@@ -169,11 +169,16 @@ export const MOCK_STOCKS: StockMapping[] = [
 
 // ─── Open Positions ───────────────────────────────────────────────────────────
 
+// openedAt is relative to "now" (hoursAgo is declared further down and hoists)
+// so the "Opened" column's relative hint ("2 days ago") stays meaningful
+// however long this fixture sits unedited. AMZN's null covers the case where
+// IG reports no open time — the column has to render "—" there, not fall back
+// to the current time.
 export const MOCK_OPEN_POSITIONS: OpenPosition[] = [
-  { tvTicker: 'AAPL', instrumentName: 'Apple Inc', igEpic: 'IX.D.AAPL.DAILY.IP', direction: 'BUY', size: 1.5, mapped: true },
-  { tvTicker: 'TSLA', instrumentName: 'Tesla Inc', igEpic: 'IX.D.TSLA.DAILY.IP', direction: 'BUY', size: 0.8, mapped: true },
-  { tvTicker: 'NVDA', instrumentName: 'NVIDIA Corp', igEpic: 'IX.D.NVDA.DAILY.IP', direction: 'BUY', size: 2.1, mapped: true },
-  { tvTicker: 'AMZN', instrumentName: 'Amazon.com Inc', igEpic: 'IX.D.AMZN.DAILY.IP', direction: 'BUY', size: 1.2, mapped: true },
+  { tvTicker: 'AAPL', instrumentName: 'Apple Inc', igEpic: 'IX.D.AAPL.DAILY.IP', direction: 'BUY', size: 1.5, openedAt: hoursAgo(3), mapped: true },
+  { tvTicker: 'TSLA', instrumentName: 'Tesla Inc', igEpic: 'IX.D.TSLA.DAILY.IP', direction: 'BUY', size: 0.8, openedAt: hoursAgo(29), mapped: true },
+  { tvTicker: 'NVDA', instrumentName: 'NVIDIA Corp', igEpic: 'IX.D.NVDA.DAILY.IP', direction: 'BUY', size: 2.1, openedAt: hoursAgo(126), mapped: true },
+  { tvTicker: 'AMZN', instrumentName: 'Amazon.com Inc', igEpic: 'IX.D.AMZN.DAILY.IP', direction: 'BUY', size: 1.2, openedAt: null, mapped: true },
 ]
 
 // ─── IG Market Search ─────────────────────────────────────────────────────────
@@ -584,6 +589,12 @@ export function getMockOpenPositionsPage(
         return a.direction.localeCompare(b.direction) * dir
       case 'size':
         return (a.size - b.size) * dir
+      case 'openedAt':
+        // Mirrors the backend: nulls last in both directions (stats.service.ts).
+        if (a.openedAt === b.openedAt) return 0
+        if (a.openedAt === null) return 1
+        if (b.openedAt === null) return -1
+        return a.openedAt.localeCompare(b.openedAt) * dir
       case 'tvTicker':
       default:
         return a.tvTicker.localeCompare(b.tvTicker) * dir
