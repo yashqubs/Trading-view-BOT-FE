@@ -12,6 +12,7 @@ import './index.css'
 import { router } from '@/routes/router'
 import { AuthProvider } from '@/context/AuthContext'
 import { ThemeProvider } from '@/context/ThemeContext'
+import { TimezoneProvider } from '@/context/TimezoneContext'
 import { Toaster } from '@/components/ui/toaster'
 
 const queryClient = new QueryClient({
@@ -39,10 +40,12 @@ enableMocking().then(() => {
     <StrictMode>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
-          <AuthProvider>
-            <RouterProvider router={router} />
-            <Toaster />
-          </AuthProvider>
+          <TimezoneProvider>
+            <AuthProvider>
+              <RouterProvider router={router} />
+              <Toaster />
+            </AuthProvider>
+          </TimezoneProvider>
         </ThemeProvider>
       </QueryClientProvider>
     </StrictMode>,

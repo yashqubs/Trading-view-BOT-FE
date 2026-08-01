@@ -4,6 +4,7 @@ import type { TradeDirection, TradeLog, TradeStatus, TradeSummary } from '@/type
 export type TradeSortBy =
   | 'signalReceivedAt'
   | 'executedAt'
+  | 'positionOpenedAt'
   | 'signalPrice'
   | 'tradeValue'
   | 'tvTicker'

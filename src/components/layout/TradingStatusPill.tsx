@@ -2,6 +2,7 @@ import { Link } from 'react-router'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { useSystemStatus } from '@/hooks/useSystem'
 import { formatDateTime, formatRelativeTime } from '@/lib/format'
+import { useTimezone } from '@/context/TimezoneContext'
 import { cn } from '@/lib/utils'
 
 // What "TradingView status" can actually mean: TradingView never holds a
@@ -16,6 +17,8 @@ import { cn } from '@/lib/utils'
 // re-fetches on the 'system:status' and 'trade:created' socket events, so
 // this needs no polling of its own.
 export function TradingStatusPill() {
+  // See TimezoneContext — the last-signal tooltip formats a timestamp.
+  useTimezone()
   const { data, isLoading } = useSystemStatus()
 
   if (isLoading || !data) {

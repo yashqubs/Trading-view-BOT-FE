@@ -172,6 +172,7 @@ export const handlers = [
         dealId: null,
         errorMessage: null,
         executedAt: null,
+        positionOpenedAt: null,
         igDebug: [],
       } satisfies TestSignalResult)
     }
@@ -187,6 +188,7 @@ export const handlers = [
         dealId: null,
         errorMessage: null,
         executedAt: null,
+        positionOpenedAt: null,
         igDebug: [],
       } satisfies TestSignalResult)
     }
@@ -203,6 +205,7 @@ export const handlers = [
         dealId: null,
         errorMessage: null,
         executedAt: null,
+        positionOpenedAt: null,
         igDebug: [],
       } satisfies TestSignalResult)
     }
@@ -233,6 +236,7 @@ export const handlers = [
           dealId: null,
           errorMessage: 'Investment amount is too small to open any position at this price',
           executedAt: null,
+          positionOpenedAt: null,
           // Never reached IG — the check fails before any order is built.
           igDebug: [],
         } satisfies TestSignalResult)
@@ -251,6 +255,7 @@ export const handlers = [
       dealId: `MOCK-DEAL-${base.id}`,
       errorMessage: null,
       executedAt: new Date().toISOString(),
+      positionOpenedAt: new Date().toISOString(),
       igDebug: [
         {
           method: 'POST',
@@ -544,7 +549,7 @@ export const handlers = [
       sortOrder: (sp.get('sortOrder') as TradeFilters['sortOrder']) ?? undefined,
       pageSize: 10000,
     }
-    const header = 'id,ticker,direction,status,signalPrice,executedPrice,size,tradeValue,isClosingTrade,dealId,signalReceivedAt,executedAt\n'
+    const header = 'id,ticker,direction,status,signalPrice,executedPrice,size,tradeValue,isClosingTrade,dealId,signalReceivedAt,executedAt,positionOpenedAt\n'
     const rows = getMockTradesPage(filters)
       .items.map((t) =>
         [
@@ -560,6 +565,7 @@ export const handlers = [
           t.dealId ?? '',
           t.signalReceivedAt,
           t.executedAt ?? '',
+          t.positionOpenedAt ?? '',
         ].join(','),
       )
       .join('\n')

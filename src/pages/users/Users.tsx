@@ -24,10 +24,13 @@ import { CreateUserModal } from './components/CreateUserModal'
 import { useDeactivateUser, useResetUserPassword, useUpdateUser, useUsers } from '@/hooks/useUsers'
 import { useAuth } from '@/context/AuthContext'
 import { formatDateTime } from '@/lib/format'
+import { useTimezone } from '@/context/TimezoneContext'
 
 type SortKey = 'name' | 'email' | 'active' | 'lastLoginAt' | 'createdAt'
 
 export function Users() {
+  // See TimezoneContext — the "last login" column formats a timestamp.
+  useTimezone()
   const { user: currentUser } = useAuth()
   const { data: users, isLoading } = useUsers()
   const updateUser = useUpdateUser()

@@ -18,7 +18,7 @@ import { StatusPill } from '@/components/common/StatusPill'
 import { ExecutionModeToggle } from '@/components/common/ExecutionModeToggle'
 import { useSendTestSignal } from '@/hooks/useTestSignal'
 import { useTradingRules } from '@/hooks/useRules'
-import { formatMoney, formatPrice, formatQuantity } from '@/lib/format'
+import { formatMoney, formatPrice, formatSignedQuantity } from '@/lib/format'
 import { explainTradeError } from '@/lib/tradeError'
 import type { TestSignalResult } from '@/api/testSignal'
 import type { ExecutionMode, StockMapping, TradeDirection } from '@/types'
@@ -240,7 +240,9 @@ export function SendTestSignalModal({ stock }: { stock: StockMapping }) {
             <div className="flex flex-col gap-2 rounded-lg border border-border bg-surface-2 px-4 py-3">
               <StatusPill status={result.status} />
               {result.size != null && (
-                <p className="text-sm text-text-secondary">Size: {formatQuantity(result.size)}</p>
+                <p className="text-sm text-text-secondary">
+                  Size: {formatSignedQuantity(result.size, result.direction)}
+                </p>
               )}
               {result.tradeValue != null && (
                 <p className="text-sm text-text-secondary">

@@ -13,9 +13,12 @@ import { useAuth } from '@/context/AuthContext'
 import { useSocketEvent } from '@/hooks/useSocketEvent'
 import { socket } from '@/lib/socket'
 import { formatDateTime, formatRelativeTime } from '@/lib/format'
+import { useTimezone } from '@/context/TimezoneContext'
 import { cn } from '@/lib/utils'
 
 export function Settings() {
+  // See TimezoneContext — "last signal received" formats a timestamp.
+  useTimezone()
   const { user, setUser } = useAuth()
   const system = useSystemStatus()
   const [copied, setCopied] = useState(false)

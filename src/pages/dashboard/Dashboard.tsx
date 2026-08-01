@@ -26,7 +26,7 @@ import { DateRangePicker, calcPreset, type DateRangeValue } from '@/components/c
 import { useOverview, useByStock, useDailyActivity, useStatusBreakdown } from '@/hooks/useStats'
 import { useSetBotEnabled } from '@/hooks/useRules'
 import { useStockTickers } from '@/hooks/useStocks'
-import { formatCount, formatMoney, formatPercent } from '@/lib/format'
+import { formatCalendarDate, formatCount, formatMoney, formatPercent } from '@/lib/format'
 import type { StatsFilters } from '@/api/stats'
 import type { StatusBreakdownPoint, StockActivity } from '@/types'
 import { cn } from '@/lib/utils'
@@ -244,8 +244,9 @@ export function Dashboard() {
       case '1y':    return 'Last 12 months'
       case 'custom': {
         if (!dateRange.from) return `${days} days`
-        const fmt = (iso: string) =>
-          new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+        // A calendar date, not an instant — deliberately not shifted by the
+        // display timezone (see formatCalendarDate).
+        const fmt = (iso: string) => formatCalendarDate(iso)
         return dateRange.from === dateRange.to || !dateRange.to
           ? fmt(dateRange.from)
           : `${fmt(dateRange.from)} – ${fmt(dateRange.to)}`

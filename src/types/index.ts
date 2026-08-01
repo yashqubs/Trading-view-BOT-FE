@@ -80,6 +80,13 @@ export interface TradeLog {
   errorMessage: string | null
   signalReceivedAt: string
   executedAt: string | null
+  /** When the POSITION this row acted on was opened — not when the row ran.
+   * On a close it's IG's open time for the position being closed, which is
+   * what tells you how long the exposure was held; on a successful open it's
+   * that fill's own moment. Null for skips, failed opens, and any close where
+   * IG reported no open time (including every row predating 2026-08-01, which
+   * is not back-filled — see the migration). */
+  positionOpenedAt: string | null
   createdAt: string
 }
 

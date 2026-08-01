@@ -4,9 +4,12 @@ import { Moon, Sun, Sunrise, Sunset, type LucideIcon } from 'lucide-react'
 import { NAV_ITEMS } from './nav-items'
 import { BotToggle } from './BotToggle'
 import { ThemeToggle } from './ThemeToggle'
+import { TimeZoneToggle } from './TimeZoneToggle'
 import { TradingStatusPill } from './TradingStatusPill'
 import { UserMenu } from './UserMenu'
 import { useAuth } from '@/context/AuthContext'
+import { useTimezone } from '@/context/TimezoneContext'
+import { TIME_ZONES } from '@/lib/timezone'
 
 // The sidebar and page heading already say what page you're on, so the top
 // bar doesn't repeat a third copy of the label. Instead it surfaces the
@@ -32,6 +35,7 @@ function getGreeting(hour: number): { text: string; icon: LucideIcon } {
 
 export function TopBar() {
   const { user } = useAuth()
+  const { timeZone } = useTimezone()
   const crumb = useTickerCrumb()
   const [now, setNow] = useState(() => new Date())
 
@@ -42,9 +46,25 @@ export function TopBar() {
     return () => clearInterval(id)
   }, [])
 
-  const { text, icon: Icon } = getGreeting(now.getHours())
+  // The greeting and date follow the selected display zone, not the viewer's
+  // machine — "Good evening" while the header says it's 9am in the zone
+  // you're reading the rest of the page in would be nonsense.
+  const ianaZone = TIME_ZONES[timeZone].ianaZone
+  const zonedHour = Number(
+    new Intl.DateTimeFormat('en-GB', { timeZone: ianaZone, hour: 'numeric', hour12: false })
+      .format(now)
+      // hour12:false yields "24" rather than "00" at midnight in en-GB.
+      .replace('24', '0'),
+  )
+
+  const { text, icon: Icon } = getGreeting(zonedHour)
   const firstName = user?.name.split(' ')[0]
-  const dateLabel = now.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+  const dateLabel = new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    timeZone: ianaZone,
+  }).format(now)
 
   return (
     <header className="flex h-16 items-center justify-between gap-2 border-b border-border bg-surface/80 px-3 shadow-[var(--shadow-sm)] backdrop-blur-md sm:gap-4 sm:px-4 md:px-6">
@@ -67,6 +87,7 @@ export function TopBar() {
       <div className="flex flex-1 items-center justify-end gap-2 sm:gap-3">
         <TradingStatusPill />
         <div className="hidden h-6 w-px bg-border sm:block" />
+        <TimeZoneToggle />
         <BotToggle />
         <ThemeToggle />
         <UserMenu />

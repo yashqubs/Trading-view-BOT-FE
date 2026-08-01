@@ -378,6 +378,14 @@ const ALL_STATUS_TRADES: TradeLog[] = TRADE_STATUSES.map((status, i) => {
     errorMessage: status === 'FAILED' ? 'IG API returned 503 Service Unavailable' : null,
     signalReceivedAt: signalAt,
     executedAt: isSuccess ? new Date(new Date(signalAt).getTime() + 800).toISOString() : null,
+    // Mirrors the backend: a close carries the open time of the position it
+    // closed (hours earlier), an open carries its own fill time, and anything
+    // that never executed carries nothing.
+    positionOpenedAt: !isSuccess
+      ? null
+      : isClosingTrade
+        ? hoursAgo(i * 0.75 + 6)
+        : new Date(new Date(signalAt).getTime() + 800).toISOString(),
     createdAt: signalAt,
   }
 })
@@ -420,6 +428,15 @@ const BULK_TRADES: TradeLog[] = Array.from({ length: 100 }, (_, i) => {
     errorMessage: status === 'FAILED' ? 'Order rejected by IG' : null,
     signalReceivedAt: signalAt,
     executedAt: isSuccess ? new Date(new Date(signalAt).getTime() + 650).toISOString() : null,
+    // See ALL_STATUS_TRADES above. Every third close leaves this null so the
+    // "IG reported no open time" path stays visible in mock mode.
+    positionOpenedAt: !isSuccess
+      ? null
+      : isClosingTrade
+        ? i % 3 === 0
+          ? null
+          : hoursAgo(i * 0.5 + 9)
+        : new Date(new Date(signalAt).getTime() + 650).toISOString(),
     createdAt: signalAt,
   }
 })
@@ -493,6 +510,7 @@ export function getMockTradesPage(filters: TradeFilters = {}): TradeListResponse
     switch (sortBy) {
       case 'signalReceivedAt': av = a.signalReceivedAt; bv = b.signalReceivedAt; break
       case 'executedAt': av = a.executedAt ?? ''; bv = b.executedAt ?? ''; break
+      case 'positionOpenedAt': av = a.positionOpenedAt ?? ''; bv = b.positionOpenedAt ?? ''; break
       case 'signalPrice': av = a.signalPrice; bv = b.signalPrice; break
       case 'tradeValue': av = a.tradeValue ?? -1; bv = b.tradeValue ?? -1; break
       case 'tvTicker': av = a.tvTicker; bv = b.tvTicker; break

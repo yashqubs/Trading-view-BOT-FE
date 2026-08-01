@@ -693,6 +693,29 @@ The table has an **Opened** column: absolute date + time, with a relative hint (
 
 `OpenPosition.openedAt` is an ISO 8601 UTC string or null. It comes from IG's `position.createdDateUTC`, **not** from `trade_log` — so a position opened outside this bot (or one whose trade rows have since been cleared) still reports an open time. Null renders as "—", never as "now"; see Section 15 endpoint 6 for why a missing value isn't back-filled from IG's other timestamp.
 
+#### Display timezone — UK / India / USA (added 2026-08-01)
+
+A globe control in the top bar (`components/layout/TimeZoneToggle.tsx`) picks the wall clock every date and time in the portal renders on: **UK** (`Europe/London`), **India** (`Asia/Kolkata`), or **USA** (`America/New_York`). The picker shows each zone's live clock, its current abbreviation (GMT/BST, IST, EST/EDT — read from `Intl`, so DST needs no table), and its offset from the viewer's own clock. The choice persists in `localStorage` under `portal-timezone`; default is UK.
+
+This is **display only**. Everything on the wire stays UTC, and nothing about filtering, sizing, or how trades execute changes.
+
+- `lib/timezone.ts` holds the zone table plus a module-level "active zone", and `lib/format.ts` reads it inside `formatDate`/`formatDateTime`. Keeping the zone off the function signature is deliberate — threading it through ~15 call sites as a prop would be far more invasive and far easier to miss one of.
+- The cost of that indirection: **a component that renders a formatted timestamp must call `useTimezone()`**, even if it ignores the return value. The formatters read a module variable, so without a context subscription the component won't re-render on a zone change and will sit showing the old clock. `Trades`, `StockDetail`, `OpenPositions`, `Users`, `Settings`, `TradingStatusPill` and `TopBar` all do.
+- `TimezoneProvider` syncs the module mirror inside its `useState` lazy initializer, not at module scope or in an effect — module scope reads `localStorage` once per page load and then silently diverges from state on a later mount (a real bug caught by `TimeZoneToggle.test.tsx`), and an effect would paint every date in the default zone first and visibly re-flow.
+- **`formatCalendarDate` deliberately ignores the active zone.** Chart buckets (`YYYY-MM-DD` from the stats endpoints) and the date-range filter's from/to are calendar dates, not instants — shifting them would slide a day's totals onto the wrong label. `formatDate`/`formatDateTime` are for instants; `formatCalendarDate` is for dates that are already dates.
+
+#### Size shown with IG's sign (added 2026-08-01)
+
+`formatSignedQuantity(size, direction)` renders a SELL/short stake negative and a BUY/long stake positive, matching how IG's own platform displays size. IG's REST API reports `size` unsigned with long/short in a separate `direction` field, so the sign is **derived from direction**, not taken from the number — an unsigned `2.34` for a short and for a long makes two opposite exposures look identical.
+
+A value that arrives already negative is normalized via `Math.abs` before the sign is applied, so if IG ever starts signing the field this won't flip shorts back to positive. Used on `/trades`, the `/stocks/:ticker` trade table, `/positions`, and the test-signal result modal. `direction` on a trade row is the direction of the order that went to IG: a close is always the opposite side of the position it closes, which is exactly the signal's own direction, so the two never diverge.
+
+#### "Position opened" column on /trades (added 2026-08-01)
+
+Shows when the position a row acted on was opened, backed by the new `trade_log.position_opened_at`. On a **close** it is IG's own open time for the position being closed, with a "held 3d 5h" hint underneath — that is the point of the column, since the matching open is a separate entry pages away, or predates this bot entirely and has no entry at all. On a successful **open** it is that fill's own moment, so the column stays meaningful whichever row you land on. Sortable (`sortBy=positionOpenedAt`).
+
+Null renders "—" and means one of: a skipped signal, a failed open, a close where IG reported no open time, or **any row created before 2026-08-01** — the migration deliberately does not back-fill, because IG's open time was never captured historically and there is no way to reconstruct it for a position that has since been closed.
+
 #### "Open / Close" column on /trades (added 2026-08-01)
 
 The trade table shows whether a row **opened** new exposure or **closed** an existing position, from `TradeLog.isClosingTrade`. Direction alone hasn't answered this since short selling landed (2026-07-16): a SELL opens a short when nothing is held and closes a long when something is, and a BUY does the mirror image.

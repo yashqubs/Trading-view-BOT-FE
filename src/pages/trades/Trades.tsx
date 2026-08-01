@@ -34,7 +34,15 @@ import {
   type TradeStatus,
   type TradeSummary,
 } from '@/types'
-import { formatDateTime, formatMoney, formatPercent, formatPrice, formatQuantity } from '@/lib/format'
+import {
+  formatDateTime,
+  formatDurationBetween,
+  formatMoney,
+  formatPercent,
+  formatPrice,
+  formatSignedQuantity,
+} from '@/lib/format'
+import { useTimezone } from '@/context/TimezoneContext'
 import { explainTradeError } from '@/lib/tradeError'
 import { cn } from '@/lib/utils'
 
@@ -70,6 +78,7 @@ type SortConfig = { by: TradeSortBy; order: 'asc' | 'desc' }
 
 const SORT_COLUMNS: { key: TradeSortBy; label: string }[] = [
   { key: 'signalReceivedAt', label: 'Date' },
+  { key: 'positionOpenedAt', label: 'Position opened' },
   { key: 'tvTicker', label: 'Ticker' },
   { key: 'signalPrice', label: 'Signal price' },
   { key: 'tradeValue', label: 'Trade value' },
@@ -79,7 +88,9 @@ const SORT_COLUMNS: { key: TradeSortBy; label: string }[] = [
 // alphabetical and the rest are numeric, so the order toggle's text should
 // match what asc/desc actually means for the selected column.
 function sortOrderLabels(by: TradeSortBy): { desc: string; asc: string } {
-  if (by === 'signalReceivedAt') return { desc: 'Newest', asc: 'Oldest' }
+  if (by === 'signalReceivedAt' || by === 'positionOpenedAt') {
+    return { desc: 'Newest', asc: 'Oldest' }
+  }
   if (by === 'tvTicker') return { desc: 'Z → A', asc: 'A → Z' }
   return { desc: 'Highest', asc: 'Lowest' }
 }
@@ -126,6 +137,41 @@ function TradeIntent({ trade }: { trade: TradeLog }) {
     <span className="text-xs font-medium text-accent" title="Opened new exposure">
       Open
     </span>
+  )
+}
+
+// ─── Position opened cell ─────────────────────────────────────────────────────
+
+// The whole point of this column is the CLOSE row: it's the only place that
+// says how long the exposure was actually held, since the matching open is a
+// separate entry pages away — or predates this bot entirely, in which case
+// there is no matching entry at all. On an open it restates that row's own
+// fill time, which keeps the column meaningful whichever row you land on.
+function PositionOpenedCell({ trade }: { trade: TradeLog }) {
+  if (!trade.positionOpenedAt) {
+    return (
+      <span
+        className="text-text-tertiary"
+        title={
+          trade.isClosingTrade
+            ? 'IG reported no open time for the closed position (or it predates this column)'
+            : 'No position was opened by this signal'
+        }
+      >
+        —
+      </span>
+    )
+  }
+
+  const held = trade.isClosingTrade
+    ? formatDurationBetween(trade.positionOpenedAt, trade.executedAt)
+    : null
+
+  return (
+    <div className="flex flex-col whitespace-nowrap">
+      <span className="text-xs text-text-secondary">{formatDateTime(trade.positionOpenedAt)}</span>
+      {held && <span className="text-[11px] text-text-tertiary">held {held}</span>}
+    </div>
   )
 }
 
@@ -297,6 +343,10 @@ export function Trades() {
   // Supports deep links like /trades?status=FAILED&from=2026-06-01&to=2026-06-30&ticker=AAPL
   // from the dashboard cards — they carry the exact filter context the user saw there.
   const navigate = useNavigate()
+  // Subscribes the page to the display-timezone choice — the format helpers
+  // read it from a module variable, so without this the table would keep
+  // showing the previous zone until something else forced a re-render.
+  useTimezone()
   const [searchParams] = useSearchParams()
   const initialStatus = searchParams.get('status')
   const initialFrom = searchParams.get('from') ?? undefined
@@ -572,6 +622,7 @@ export function Trades() {
                   <SortHead col="tvTicker">Ticker</SortHead>
                   <TableHead>Direction</TableHead>
                   <TableHead className="whitespace-nowrap">Open / Close</TableHead>
+                  <SortHead col="positionOpenedAt" className="whitespace-nowrap">Position opened</SortHead>
                   <SortHead col="signalPrice" className="text-right">Signal price</SortHead>
                   <TableHead className="text-right">Executed price</TableHead>
                   <TableHead className="text-right">Size</TableHead>
@@ -613,14 +664,20 @@ export function Trades() {
                     <TableCell>
                       <TradeIntent trade={trade} />
                     </TableCell>
+                    <TableCell>
+                      <PositionOpenedCell trade={trade} />
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {formatPrice(trade.signalPrice)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-text-secondary">
                       {trade.executedPrice != null ? formatPrice(trade.executedPrice) : '—'}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatQuantity(trade.size)}
+                    <TableCell
+                      className="text-right tabular-nums"
+                      title="Negative = a short/sell stake, matching how IG displays size"
+                    >
+                      {formatSignedQuantity(trade.size, trade.direction)}
                     </TableCell>
                     <TableCell
                       className="text-right tabular-nums"

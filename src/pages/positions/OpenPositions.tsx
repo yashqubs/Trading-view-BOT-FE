@@ -17,7 +17,8 @@ import { Pagination } from '@/components/common/Pagination'
 import { useOpenPositions } from '@/hooks/useStats'
 import { useCloseAllPositions } from '@/hooks/useTrades'
 import type { OpenPositionFilters } from '@/api/stats'
-import { formatDateTime, formatQuantity, formatRelativeTime } from '@/lib/format'
+import { formatDateTime, formatRelativeTime, formatSignedQuantity } from '@/lib/format'
+import { useTimezone } from '@/context/TimezoneContext'
 import { explainTradeError } from '@/lib/tradeError'
 import { cn } from '@/lib/utils'
 import type { TradeDirection } from '@/types'
@@ -25,6 +26,9 @@ import type { TradeDirection } from '@/types'
 type SortKey = NonNullable<OpenPositionFilters['sortBy']>
 
 export function OpenPositions() {
+  // See TimezoneContext — required for the "Opened" column to re-render when
+  // the display zone changes.
+  useTimezone()
   const [searchParams, setSearchParams] = useSearchParams()
   const ticker = searchParams.get('ticker') ?? undefined
 
@@ -254,7 +258,12 @@ export function OpenPositions() {
                         {position.direction}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{formatQuantity(position.size)}</TableCell>
+                    <TableCell
+                      className="text-right tabular-nums"
+                      title="Negative = a short position, matching how IG displays size"
+                    >
+                      {formatSignedQuantity(position.size, position.direction)}
+                    </TableCell>
                     <TableCell className="whitespace-nowrap">
                       {position.openedAt ? (
                         <div className="flex flex-col">

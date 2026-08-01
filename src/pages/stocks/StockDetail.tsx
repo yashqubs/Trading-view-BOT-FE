@@ -43,7 +43,15 @@ import {
   type TradeDirection,
   type TradeLog,
 } from '@/types'
-import { formatCount, formatDateTime, formatMoney, formatPercent, formatPrice, formatQuantity } from '@/lib/format'
+import {
+  formatCount,
+  formatDateTime,
+  formatMoney,
+  formatPercent,
+  formatPrice,
+  formatSignedQuantity,
+} from '@/lib/format'
+import { useTimezone } from '@/context/TimezoneContext'
 import { cn } from '@/lib/utils'
 
 const DEFAULT_PAGE_SIZE = 25
@@ -169,6 +177,8 @@ function StockConditionsSummary({ stock }: { stock: StockMapping }) {
 }
 
 export function StockDetail() {
+  // See TimezoneContext — subscribes this page to the display-zone choice.
+  useTimezone()
   const { ticker = '' } = useParams<{ ticker: string }>()
   const stock = useStock(ticker)
 
@@ -563,8 +573,11 @@ export function StockDetail() {
                       <TableCell className="text-right tabular-nums text-text-secondary">
                         {trade.executedPrice != null ? formatPrice(trade.executedPrice) : '—'}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {formatQuantity(trade.size)}
+                      <TableCell
+                        className="text-right tabular-nums"
+                        title="Negative = a short/sell stake, matching how IG displays size"
+                      >
+                        {formatSignedQuantity(trade.size, trade.direction)}
                       </TableCell>
                       <TableCell
                         className="text-right tabular-nums"
