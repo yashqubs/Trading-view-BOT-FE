@@ -58,20 +58,22 @@ const STATUS_LABEL: Record<TradeStatus, string> = {
   DUPLICATE_SIGNAL: 'Duplicate signal',
 }
 
-// 'EXECUTED' is the portal default: SUCCESS + FAILED only, hiding the ~17
-// skip-reason statuses that dominate the raw signal log by volume (bot
-// paused, cool-downs, position-already-open, etc.) but aren't outcomes a
-// client scanning trade history usually wants mixed in. 'ALL' is the
-// explicit opt-in to see everything, including skips; a specific TradeStatus
-// still narrows to exactly that one status, same as before.
+// 'ALL' shows every row, skips included. 'EXECUTED' narrows to SUCCESS +
+// FAILED, hiding the ~17 skip-reason statuses (bot paused, cool-downs,
+// position-already-open, etc.) for when you only want outcomes; a specific
+// TradeStatus narrows to exactly that one status.
 export type StatusFilterValue = TradeStatus | 'ALL' | 'EXECUTED'
 
 interface StatusComboboxProps {
   value: StatusFilterValue
   onChange: (value: StatusFilterValue) => void
+  // What clicking the already-selected status reverts to — each page's
+  // baseline view. /trades shows everything; the per-stock trade table on
+  // /stocks/:ticker still starts from executed-only.
+  baseline?: StatusFilterValue
 }
 
-export function StatusCombobox({ value, onChange }: StatusComboboxProps) {
+export function StatusCombobox({ value, onChange, baseline = 'ALL' }: StatusComboboxProps) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -127,7 +129,7 @@ export function StatusCombobox({ value, onChange }: StatusComboboxProps) {
                 <span className="flex flex-col">
                   <span>Executed only</span>
                   <span className="text-[11px] font-normal text-text-tertiary">
-                    Success + Failed — default view
+                    Success + Failed — hides skipped signals
                   </span>
                 </span>
               </CommandItem>
@@ -150,7 +152,7 @@ export function StatusCombobox({ value, onChange }: StatusComboboxProps) {
                     key={status}
                     value={status}
                     onSelect={(selected) => {
-                      onChange(selected === value ? 'EXECUTED' : (selected as TradeStatus))
+                      onChange(selected === value ? baseline : (selected as TradeStatus))
                       setOpen(false)
                     }}
                   >

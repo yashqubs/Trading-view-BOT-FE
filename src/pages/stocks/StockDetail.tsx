@@ -177,10 +177,10 @@ export function StockDetail() {
   // below; direction/status/sort only affect the trade table since the
   // stats endpoint only aggregates by date.
   const [direction, setDirection] = useState<TradeDirection | 'ALL'>('ALL')
-  // 'EXECUTED' (Success + Failed) is the default — see StatusCombobox and the
-  // matching default on the global Trades page. Keeping this consistent with
-  // that page matters: a stock's own trade history is the same underlying
-  // data, just scoped to one ticker.
+  // 'EXECUTED' (Success + Failed) is this table's baseline — see
+  // StatusCombobox. Note the global /trades page defaults to 'ALL' instead;
+  // this one stays outcome-focused because it sits under a stock's stat
+  // cards and charts, which are themselves about executions.
   const [status, setStatus] = useState<StatusFilterValue>('EXECUTED')
   const [dateRange, setDateRange] = useState<DateRangeValue>({ preset: 'all' })
   const [sort, setSort] = useState<SortConfig>({ by: 'signalReceivedAt', order: 'desc' })
@@ -448,7 +448,7 @@ export function StockDetail() {
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs">Status</Label>
-                <StatusCombobox value={status} onChange={setStatus} />
+                <StatusCombobox value={status} onChange={setStatus} baseline="EXECUTED" />
               </div>
               <div className="flex flex-col gap-1">
                 <Label className="text-xs">Sort by</Label>

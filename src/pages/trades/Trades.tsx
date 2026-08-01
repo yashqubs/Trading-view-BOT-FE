@@ -274,13 +274,12 @@ export function Trades() {
   const [ticker, setTicker] = useState(initialTicker)
   const [debouncedTicker, setDebouncedTicker] = useState(initialTicker)
   const [direction, setDirection] = useState<TradeDirection | 'ALL'>('ALL')
-  // 'EXECUTED' (Success + Failed) is the default — the raw signal log is
-  // dominated by skip reasons (bot paused, cool-downs, etc.) that aren't
-  // outcomes someone scanning trade history usually wants mixed in by
-  // default. A deep link with an explicit ?status= still wins outright, same
-  // as before.
+  // 'ALL' is the default — the trade history page shows every status,
+  // including skips, unless the user narrows it. ("Executed only" is still
+  // one click away in the combobox for scanning outcomes alone.) A deep link
+  // with an explicit ?status= still wins outright.
   const [status, setStatus] = useState<StatusFilterValue>(
-    isValidStatus(initialStatus) ? initialStatus : 'EXECUTED',
+    isValidStatus(initialStatus) ? initialStatus : 'ALL',
   )
   const [dateRange, setDateRange] = useState<DateRangeValue>(
     initialFrom || initialTo
@@ -316,17 +315,17 @@ export function Trades() {
     setTicker('')
     setDebouncedTicker('')
     setDirection('ALL')
-    setStatus('EXECUTED')
+    setStatus('ALL')
     setDateRange({ preset: 'all' })
     setSort({ by: 'signalReceivedAt', order: 'desc' })
     setPage(1)
   }
 
-  // 'EXECUTED' is the baseline view, not an active filter someone chose — so
-  // it must not count toward "has active filters" (which drives the "Clear
-  // filters" affordance and the active-filter empty-state action).
+  // 'ALL' is the baseline view — anything narrower (including "Executed
+  // only") is a filter someone chose, so it counts toward "has active
+  // filters" and "Clear filters" returns here.
   const hasActiveFilters =
-    ticker || direction !== 'ALL' || status !== 'EXECUTED' || dateRange.preset !== 'all'
+    ticker || direction !== 'ALL' || status !== 'ALL' || dateRange.preset !== 'all'
 
   const filters: TradeFilters = {
     ticker: debouncedTicker || undefined,
@@ -511,22 +510,16 @@ export function Trades() {
         <EmptyState
           title="No trades found"
           description={
-            // "Executed only" is the default, invisible filter — a signal log
-            // that's entirely skips (bot just enabled, nothing mapped yet)
-            // would otherwise look identical to "nothing has happened at
-            // all" with no visible way out.
-            !hasActiveFilters && status === 'EXECUTED'
-              ? 'No successful or failed trades yet. If signals are coming in but being skipped (bot paused, not mapped, etc.), switch to "All statuses" to see them.'
-              : 'Try widening your filters or check back once signals start arriving.'
+            // Nothing is hidden by default anymore, so an empty unfiltered
+            // table genuinely means no signals have arrived yet.
+            hasActiveFilters
+              ? 'Try widening your filters or check back once signals start arriving.'
+              : 'No signals received yet. Trades will appear here as TradingView alerts come in.'
           }
           action={
             hasActiveFilters ? (
               <Button variant="secondary" size="sm" onClick={clearFilters}>
                 Clear filters
-              </Button>
-            ) : status === 'EXECUTED' ? (
-              <Button variant="secondary" size="sm" onClick={() => setStatus('ALL')}>
-                Show all statuses
               </Button>
             ) : undefined
           }

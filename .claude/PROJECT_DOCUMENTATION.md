@@ -676,7 +676,7 @@ The frontend mostly uses these events to trigger a TanStack Query refetch (`quer
 | Stocks | /stocks | Per-stock config table |
 | Stock Detail | /stocks/:ticker | Single-stock statistics + charts + per-stock trading conditions (trading on/off switch, investment amount, daily cap) |
 | Open Positions | /positions | Currently open positions, live from IG, plus a "Close all positions" button (see below) |
-| Trades | /trades | Full trade history with filters + CSV export — defaults to executed trades only (see below) |
+| Trades | /trades | Full trade history with filters + CSV export — defaults to all statuses (see below) |
 | Conditions | /conditions | Global trading rules |
 | Users | /users | User management |
 | Settings | /settings | Webhook URL, IG connection status, last TradingView signal received, password, 2FA |
@@ -687,15 +687,23 @@ A destructive, confirm-gated button in the `/positions` header calling `POST /tr
 
 The response is `{ attempted, closed, failures[] }`; a partial result is a normal outcome, not an error. On a partial result the toast names each instrument still open and runs its raw IG code through `explainTradeError` — "closed 3 of 5" on its own would leave the user with live exposure and no idea which. The button hides when there is nothing to close and disables while the request is in flight (the backend also rejects a concurrent second call with `409`).
 
-#### Trade history default filter — "Executed only" (added 2026-07-27)
+#### Trade history status filter — per-page defaults (revised 2026-08-01)
 
-`/trades` and the trade table on `/stocks/:ticker` both default their status filter to **SUCCESS + FAILED only** ("Executed only" in `StatusCombobox`), not every status. Raw signal volume is dominated by skip reasons (`BOT_PAUSED`, cool-downs, `DAILY_TRADE_LIMIT`, etc.) that aren't outcomes a client scanning trade history usually wants mixed in — this was a direct client request after the unfiltered table read as noise.
+The two trade tables start from **different** baselines, deliberately:
 
-- `StatusCombobox` (`src/components/common/StatusCombobox.tsx`) now has three tiers: **Executed only** (the default — SUCCESS + FAILED), **All statuses** (every row, including skips), and the existing grouped list of individual statuses (still lets you isolate, say, only `ALREADY_LONG`). Both pages share this one component now — `StockDetail` used to have its own flat `<Select>` with a duplicated status-label map; that's gone.
-- The backend accepts multiple statuses in one request: `GET /trades?status=SUCCESS,FAILED` (comma-separated, or repeated `status=` keys — `TradeLogQueryDto` normalizes either into an `IN (...)` clause via `applyTradeLogFilters`, Section 10 TradeModule). A bare `status=FAILED` still works exactly as before — this is additive, not a breaking change to the query contract. `GET /trades/export` shares the same DTO, so CSV export respects the same filter.
-- "Executed only" is the *baseline*, not something `hasActiveFilters` counts as an active filter — clearing filters returns to it, not to "All statuses". Deep links with an explicit `?status=` (e.g. the dashboard's failed-trades card, `/trades?status=FAILED`) still override the default outright, unaffected by this change.
-- The summary stat row (`Total trades`, `Success rate`, `Failed / Skipped`) reflects whatever the current filter shows — it already worked this way for any single-status filter before this change, so under the new default `Skipped` reads `0` and `Success rate` becomes a true executed-trades rate rather than one diluted by skip volume. Switching to "All statuses" restores the old, skip-inclusive numbers.
-- Empty state handles the case where every signal so far has been skipped: normally `hasActiveFilters=false` hides the "Clear filters" action, but that would leave a genuinely-skip-only history looking identical to "nothing has happened yet" with no visible way out — so both pages show a **"Show all statuses"** action specifically when the (empty) result is under the default filter.
+| Table | Default status filter |
+|---|---|
+| `/trades` | **All statuses** — every row, skips included |
+| `/stocks/:ticker` trade table | **Executed only** — SUCCESS + FAILED |
+
+`/trades` defaulted to "Executed only" when that view was added on 2026-07-27 (raw signal volume is dominated by skip reasons like `BOT_PAUSED`, cool-downs, `DAILY_TRADE_LIMIT`); that default was reverted on 2026-08-01 — the full-history page is where you go precisely to see *everything* that happened, and a filter hiding most rows by default was surprising there. The per-stock table kept "Executed only" because it sits under that stock's stat cards and charts, which are themselves about executions. "Executed only" remains one click away in the combobox on both pages.
+
+- `StatusCombobox` (`src/components/common/StatusCombobox.tsx`) has three tiers: **Executed only** (SUCCESS + FAILED), **All statuses** (every row, including skips), and the grouped list of individual statuses (lets you isolate, say, only `ALREADY_LONG`). Both pages share this one component — `StockDetail` used to have its own flat `<Select>` with a duplicated status-label map; that's gone.
+- The component takes a **`baseline`** prop (default `'ALL'`, `'EXECUTED'` from `StockDetail`) — it's what clicking the already-selected status reverts to, so the toggle-off lands on the page's own default rather than a hardcoded one.
+- The backend accepts multiple statuses in one request: `GET /trades?status=SUCCESS,FAILED` (comma-separated, or repeated `status=` keys — `TradeLogQueryDto` normalizes either into an `IN (...)` clause via `applyTradeLogFilters`, Section 10 TradeModule). A bare `status=FAILED` still works exactly as before. `GET /trades/export` shares the same DTO, so CSV export respects the same filter.
+- Each page's own default is its *baseline*, not something `hasActiveFilters` counts as an active filter — so on `/trades` picking "Executed only" now surfaces "Clear all filters" (which returns to "All statuses"), while on `/stocks/:ticker` it's the other way round. Deep links with an explicit `?status=` (e.g. the dashboard's failed-trades card, `/trades?status=FAILED`) still override the default outright.
+- The summary stat row (`Total trades`, `Success rate`, `Failed / Skipped`) reflects whatever the current filter shows. Under `/trades`'s "All statuses" default those are the skip-inclusive numbers; narrowing to "Executed only" makes `Skipped` read `0` and turns `Success rate` into a true executed-trades rate.
+- `StockDetail`'s empty state keeps a **"Show all statuses"** action for the case where every signal so far was skipped — with `hasActiveFilters=false` hiding "Clear filters", a genuinely-skip-only history would otherwise look identical to "nothing has happened yet" with no visible way out. `/trades` no longer needs that escape hatch (nothing is hidden by default there), so its empty state just says no signals have arrived.
 
 ### Stack
 
@@ -818,7 +826,10 @@ BUY alert:
   "secret": "WEBHOOK_SECRET_VALUE",
   "ticker": "{{ticker}}",
   "action": "BUY",
-  "price": "{{close}}"
+  "price": "{{close}}",
+  "interval": "{{interval}}",
+  "time": "{{time}}",
+  "indicator": "Profit Investment"
 }
 ```
 
@@ -828,9 +839,14 @@ SELL alert:
   "secret": "WEBHOOK_SECRET_VALUE",
   "ticker": "{{ticker}}",
   "action": "SELL",
-  "price": "{{close}}"
+  "price": "{{close}}",
+  "interval": "{{interval}}",
+  "time": "{{time}}",
+  "indicator": "Profit Investment"
 }
 ```
+
+Only `secret`, `ticker`, `action`, and `price` drive anything — `interval`, `time`, and `indicator` (added 2026-08-01) are contextual, optional, and not stored, so nothing in the portal surfaces them. The bar time in `time` is **not** what the Trades page shows: that column is `signal_received_at`, the server's own receipt clock.
 
 ### Step 3 — Webhook URL
 Notifications tab → Webhook URL → `https://your-domain.com/api/webhook/signal` on both alerts. Don't hand-type this — copy it from the portal's **Settings** page (System status → Webhook URL → copy icon), which reads it straight from the server's own `PUBLIC_BASE_URL`, so it's guaranteed to match what the server actually expects.
