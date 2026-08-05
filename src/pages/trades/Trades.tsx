@@ -43,7 +43,7 @@ import {
   formatSignedQuantity,
 } from '@/lib/format'
 import { useTimezone } from '@/context/TimezoneContext'
-import { explainTradeError } from '@/lib/tradeError'
+import { explainTradeError, humanizeTradeError } from '@/lib/tradeError'
 import { cn } from '@/lib/utils'
 
 const DEFAULT_PAGE_SIZE = 25
@@ -185,13 +185,15 @@ function PositionOpenedCell({ trade }: { trade: TradeLog }) {
 function TradeReason({ trade, onOpen }: { trade: TradeLog; onOpen: (trade: TradeLog) => void }) {
   if (trade.errorMessage) {
     const explanation = explainTradeError(trade.errorMessage, trade.direction)
+    const text = explanation ?? humanizeTradeError(trade.errorMessage)
     return (
       <button
         type="button"
         onClick={() => onOpen(trade)}
+        title={text}
         className="block w-48 truncate text-left text-xs text-danger underline decoration-dotted underline-offset-2 hover:text-danger/80"
       >
-        {explanation ?? trade.errorMessage}
+        {text}
       </button>
     )
   }
@@ -218,7 +220,7 @@ function TradeReasonModal({ trade, onClose }: { trade: TradeLog | null; onClose:
   const rawCode = trade?.errorMessage ?? trade?.skipReason ?? null
   const friendlyText = trade
     ? trade.errorMessage
-      ? (explanation ?? trade.errorMessage)
+      ? (explanation ?? humanizeTradeError(trade.errorMessage))
       : (STATUS_LABELS[trade.status] ?? trade.skipReason)
     : null
   const isError = !!trade?.errorMessage
@@ -254,12 +256,12 @@ function TradeReasonModal({ trade, onClose }: { trade: TradeLog | null; onClose:
             </div>
 
             {friendlyText && (
-              <div className={cn('border-l-2 pl-3.5', isError ? 'border-danger' : 'border-accent/40')}>
-                <p className={cn('text-sm leading-relaxed', isError ? 'text-danger' : 'text-text-secondary')}>
+              <div className={cn('min-w-0 border-l-2 pl-3.5', isError ? 'border-danger' : 'border-accent/40')}>
+                <p className={cn('break-words text-sm leading-relaxed', isError ? 'text-danger' : 'text-text-secondary')}>
                   {friendlyText}
                 </p>
                 {showRawCode && (
-                  <p className="mt-2 font-mono text-[11px] text-text-tertiary">{rawCode}</p>
+                  <p className="mt-2 break-all font-mono text-[11px] text-text-tertiary">{rawCode}</p>
                 )}
               </div>
             )}

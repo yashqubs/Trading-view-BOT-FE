@@ -19,7 +19,7 @@ import { useCloseAllPositions } from '@/hooks/useTrades'
 import type { OpenPositionFilters } from '@/api/stats'
 import { formatDateTime, formatRelativeTime, formatSignedQuantity } from '@/lib/format'
 import { useTimezone } from '@/context/TimezoneContext'
-import { explainTradeError } from '@/lib/tradeError'
+import { explainTradeError, humanizeTradeError } from '@/lib/tradeError'
 import { cn } from '@/lib/utils'
 import type { TradeDirection } from '@/types'
 
@@ -108,9 +108,9 @@ export function OpenPositions() {
           </span>
           <ul className="flex flex-col gap-1">
             {result.failures.map((failure) => (
-              <li key={failure.igEpic} className="text-xs">
+              <li key={failure.igEpic} className="break-words text-xs">
                 <span className="font-medium">{failure.tvTicker}</span> —{' '}
-                {explainTradeError(failure.reason) ?? failure.reason}
+                {explainTradeError(failure.reason) ?? humanizeTradeError(failure.reason)}
               </li>
             ))}
           </ul>

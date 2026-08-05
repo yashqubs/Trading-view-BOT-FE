@@ -27,9 +27,24 @@ export function explainTradeError(error: string, direction?: TradeDirection): st
       return 'IG rejected the order price level as invalid for this market.'
     case 'MARKET_NOT_BORROWABLE':
       return 'This market cannot be shorted on IG right now — opening a short position (a SELL with no existing position to close) is not available for this instrument.'
+    case 'CLOSING_ONLY_TRADES_ACCEPTED_ON_THIS_MARKET':
+      return 'IG has put this market into closing-only mode, so existing positions can be closed but no new position can be opened.'
     case 'error.confirms.deal-not-found':
       return 'IG rejected this order at the gateway before it created a confirmable deal, so IG never returned a specific reason. We checked IG’s live positions and confirmed nothing was opened, so this genuinely did not fill. A common cause is the stock being unborrowable for shorting — check IG’s own account activity history for the exact reason.'
     default:
       return null
   }
+}
+
+/**
+ * Fallback for codes explainTradeError doesn't recognise: IG sends them as one
+ * unbroken SCREAMING_SNAKE token, which reads badly and can't wrap. Turn it
+ * into spaced sentence case so it stays readable (and wrappable) on screen —
+ * anything that isn't a bare code (a real sentence, a dotted key) is left
+ * untouched. The raw code is still shown alongside it in the detail modal.
+ */
+export function humanizeTradeError(error: string): string {
+  if (!/^[A-Z0-9]+(?:_[A-Z0-9]+)+$/.test(error)) return error
+  const sentence = error.toLowerCase().replace(/_/g, ' ')
+  return sentence.charAt(0).toUpperCase() + sentence.slice(1)
 }

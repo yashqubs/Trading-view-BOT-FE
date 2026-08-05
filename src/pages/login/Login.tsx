@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react'
+import { type FormEvent, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 import { toast } from 'sonner'
 import { Mail } from 'lucide-react'
@@ -11,6 +11,7 @@ import {
   resetPassword,
   getMe,
 } from '@/api/auth'
+import { clearServerSession } from '@/api/axios'
 import { useAuth } from '@/context/AuthContext'
 import { AuthShell } from '@/components/common/AuthShell'
 import { Button } from '@/components/ui/button'
@@ -19,15 +20,32 @@ import { PasswordInput } from '@/components/common/PasswordInput'
 import { OtpInput } from '@/components/common/OtpInput'
 import { Label } from '@/components/ui/label'
 
-// axios.isAxiosError(err) && !err.response means the request never got a
-// response at all — blocked by the browser (mixed content, CORS) or the
-// server/network is unreachable. That's a materially different problem from
-// a normal 4xx, so it gets its own honest message instead of whatever
-// fallback the caller would otherwise show (e.g. "Incorrect email or password"
-// for a login call that never even reached the server).
+// Every failure that isn't plainly "wrong credentials" gets its own message.
+// Collapsing all of them into the caller's fallback is how a broken cookie jar
+// and a rate-limit lockout both spent weeks masquerading as "Incorrect email or
+// password" — the one message that tells the user to do the exact thing that
+// cannot possibly help.
+//
+//   no response  — never reached the server: offline, CORS, mixed content.
+//   403          — CsrfGuard. The jar is inconsistent, not the password.
+//   429          — throttled. Retrying immediately just extends the window.
+//   5xx          — the server broke; the credentials were never judged.
 function describeError(err: unknown, fallback: string): string {
-  if (axios.isAxiosError(err) && !err.response) {
+  if (!axios.isAxiosError(err)) return fallback
+
+  if (!err.response) {
     return 'Cannot reach the server. Check your connection and try again.'
+  }
+
+  const status = err.response.status
+  if (status === 403) {
+    return 'Your browser was holding a stale session. It has been cleared — please try again.'
+  }
+  if (status === 429) {
+    return 'Too many attempts. Please wait a few minutes and try again.'
+  }
+  if (status >= 500) {
+    return 'The server had a problem handling that. Please try again in a moment.'
   }
   return fallback
 }
@@ -38,7 +56,7 @@ type ForgotStage = 'email' | 'code' | 'password'
 export function Login() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { setUser } = useAuth()
+  const { setUser, user, loading: authLoading } = useAuth()
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/'
   const [step, setStep] = useState<Step>('credentials')
   const [email, setEmail] = useState('')
@@ -54,6 +72,26 @@ export function Login() {
   const [forgotNewPassword, setForgotNewPassword] = useState('')
   const [forgotConfirmPassword, setForgotConfirmPassword] = useState('')
   const [forgotResending, setForgotResending] = useState(false)
+  const jarReset = useRef(false)
+
+  // Reaching the login screen with no session is the moment to guarantee a
+  // clean cookie jar, before any credentials are typed against it. Whatever is
+  // left over is dead by definition — the session probe just failed — but it is
+  // httpOnly, so only the server can remove it, and while it sits there it can
+  // still break things: a leftover csrf_token that no longer matches, or a
+  // dead-but-present refresh_token that suppresses the backend's own cleanup.
+  //
+  // This is the belt to the interceptor's braces. The interceptor clears the
+  // jar when *it* gives up, but nothing covers the jar being poisoned some
+  // other way — a half-finished login, a config change, a session killed from
+  // another device, or a tab left open across a deploy. Doing it here means
+  // "just reload the login page" is always a complete fix, which is what
+  // clearing cookies by hand was standing in for.
+  useEffect(() => {
+    if (authLoading || user || jarReset.current) return
+    jarReset.current = true
+    void clearServerSession()
+  }, [authLoading, user])
 
   async function handleCredentialsSubmit(e: FormEvent) {
     e.preventDefault()

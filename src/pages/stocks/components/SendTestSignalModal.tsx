@@ -19,13 +19,27 @@ import { ExecutionModeToggle } from '@/components/common/ExecutionModeToggle'
 import { useSendTestSignal } from '@/hooks/useTestSignal'
 import { useTradingRules } from '@/hooks/useRules'
 import { formatMoney, formatPrice, formatSignedQuantity } from '@/lib/format'
-import { explainTradeError } from '@/lib/tradeError'
+import { explainTradeError, humanizeTradeError } from '@/lib/tradeError'
 import type { TestSignalResult } from '@/api/testSignal'
 import type { ExecutionMode, StockMapping, TradeDirection } from '@/types'
 
 const EXECUTION_MODE_LABELS: Record<ExecutionMode, string> = {
   MARKET: 'Market price',
   SIGNAL_PRICE: 'Signal price',
+}
+
+// IG rejection codes arrive as one long unbroken token — they must wrap, or
+// they push the dialog into a horizontal scroll and get clipped.
+function TradeErrorText({ message, direction }: { message: string; direction?: TradeDirection }) {
+  const readable = explainTradeError(message, direction) ?? humanizeTradeError(message)
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <p className="break-words text-sm text-danger">{readable}</p>
+      {readable !== message && (
+        <p className="break-all font-mono text-xs text-text-tertiary">{message}</p>
+      )}
+    </div>
+  )
 }
 
 export function SendTestSignalModal({ stock }: { stock: StockMapping }) {
@@ -258,14 +272,7 @@ export function SendTestSignalModal({ stock }: { stock: StockMapping }) {
                 </p>
               )}
               {result.errorMessage && (
-                <div className="flex flex-col gap-1">
-                  <p className="text-sm text-danger">
-                    {explainTradeError(result.errorMessage, result.direction) ?? result.errorMessage}
-                  </p>
-                  {explainTradeError(result.errorMessage, result.direction) && (
-                    <p className="font-mono text-xs text-text-tertiary">{result.errorMessage}</p>
-                  )}
-                </div>
+                <TradeErrorText message={result.errorMessage} direction={result.direction} />
               )}
             </div>
 
